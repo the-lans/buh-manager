@@ -107,12 +107,9 @@ def resolve_conflict(
 
     before = {"amount": str(tx.amount), "import_status": str(tx.import_status)}
 
-    if data.action == "UPDATE_FROM_NEW":
-        tx.import_status = ImportStatus.IMPORTED
-        session.add(tx)
-        after = {"import_status": str(ImportStatus.IMPORTED)}
-    else:
-        after = {"import_status": str(tx.import_status)}
+    tx.import_status = ImportStatus.IMPORTED
+    session.add(tx)
+    after = {"import_status": str(ImportStatus.IMPORTED)}
 
     audit_update(
         session=session,

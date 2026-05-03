@@ -98,7 +98,7 @@ def create_receipt(
     for item_data in data.items:
         _create_receipt_item(session=session, receipt_id=receipt.id, data=item_data)
 
-    session.commit()
+    session.flush()
     session.refresh(receipt)
     return receipt
 
@@ -149,7 +149,7 @@ def update_receipt(
     if counterparty_id is not None:
         receipt.counterparty_id = counterparty_id
     session.add(receipt)
-    session.commit()
+    session.flush()
     session.refresh(receipt)
     return receipt
 
