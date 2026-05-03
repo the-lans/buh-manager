@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from app.constants import AuditEntityType, ChangedBy, ReconciledStatus
+from app.constants import AuditEntityType, ChangedBy, ImportStatus, ReconciledStatus
 from app.database import get_session
 from app.db.reconciliation_reports import get_last_report
 from app.db.transactions import get_transaction_by_id, update_transaction_receipt_link
@@ -108,9 +108,6 @@ def resolve_conflict(
     before = {"amount": str(tx.amount), "import_status": str(tx.import_status)}
 
     if data.action == "UPDATE_FROM_NEW":
-        # The new data would need to come from the conflict audit log.
-        # For now we mark the transaction as re-imported.
-        from app.constants import ImportStatus
         tx.import_status = ImportStatus.IMPORTED
         session.add(tx)
         after = {"import_status": str(ImportStatus.IMPORTED)}

@@ -30,21 +30,15 @@ def get_receipt_by_id(
     receipt_id: UUID,
     user_id: UUID,
 ) -> Receipt | None:
-    # A receipt is accessible if its document belongs to the user,
-    # or if created without a document (agent flow) — check via account path not applicable,
-    # so we check document ownership when document_id is set.
     receipt = session.get(Receipt, receipt_id)
     if receipt is None:
         return None
+    if receipt.user_id is not None:
+        return receipt if receipt.user_id == user_id else None
     if receipt.document_id is not None:
         doc = session.get(Document, receipt.document_id)
-        if doc is None or doc.user_id != user_id:
-            return None
-        return receipt
-    # Receipt without document: not directly user-scoped by FK, allow access
-    # (In a multi-user scenario, receipts without documents should be linked to accounts.
-    # For now, we trust the agent flow and allow access.)
-    return receipt
+        return receipt if (doc is not None and doc.user_id == user_id) else None
+    return None
 
 
 def get_receipts_for_user(
@@ -57,8 +51,11 @@ def get_receipts_for_user(
     return list(
         session.exec(
             select(Receipt)
-            .join(Document, Receipt.document_id == Document.id)  # type: ignore[arg-type]
-            .where(Document.user_id == user_id)
+            .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
+            .where(
+                (Receipt.user_id == user_id)
+                | (Document.user_id == user_id)
+            )
             .offset(skip)
             .limit(limit)
         ).all()
@@ -66,14 +63,12 @@ def get_receipts_for_user(
 
 
 def get_unmatched_receipts(*, session: Session, user_id: UUID) -> list[Receipt]:
-    # Include receipts linked to the user's documents AND receipts without any document
-    # (agent-created receipts that aren't document-scoped).
     return list(
         session.exec(
             select(Receipt)
             .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
             .where(
-                (Receipt.document_id == None)  # noqa: E711
+                (Receipt.user_id == user_id)
                 | (Document.user_id == user_id)
             )
         ).all()
@@ -85,8 +80,10 @@ def create_receipt(
     session: Session,
     data: ReceiptCreate,
     counterparty_id: str | None,
+    user_id: UUID,
 ) -> Receipt:
     receipt = Receipt(
+        user_id=user_id,
         document_id=data.document_id,
         paid_at=data.paid_at,
         total_amount=data.total_amount,

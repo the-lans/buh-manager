@@ -1,3 +1,4 @@
+import json
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -55,7 +56,12 @@ def create_receipt_endpoint(
         cp = get_or_create_counterparty(session=session, name=data.counterparty_name)
         counterparty_id = cp.id
 
-    receipt = create_receipt(session=session, data=data, counterparty_id=counterparty_id)
+    receipt = create_receipt(
+        session=session,
+        data=data,
+        counterparty_id=counterparty_id,
+        user_id=current_user.id,
+    )
 
     if data.document_id is not None:
         doc = get_document_by_id(
@@ -170,8 +176,6 @@ def delete_receipt_endpoint(
 
 
 def _build_receipt_read(receipt: Receipt, items: list[ReceiptItem]) -> ReceiptRead:
-    import json
-
     item_reads = []
     for item in items:
         tags = None

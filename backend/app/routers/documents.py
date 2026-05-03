@@ -1,4 +1,5 @@
-from uuid import uuid4
+import io
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlmodel import Session
@@ -40,9 +41,6 @@ async def upload_document(
         )
 
     file_id = str(uuid4())
-    # Reset file position for re-read by storage provider
-    import io
-
     new_file = UploadFile(
         filename=file.filename,
         file=io.BytesIO(content),
@@ -87,7 +85,6 @@ def get_document(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> DocumentRead:
-    from uuid import UUID
     doc = get_document_by_id(
         session=session, document_id=UUID(document_id), user_id=current_user.id
     )

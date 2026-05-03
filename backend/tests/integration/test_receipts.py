@@ -1,5 +1,12 @@
+from datetime import datetime
+from uuid import uuid4
+
 import pytest
 from httpx import AsyncClient
+from sqlmodel import Session
+
+from app.models.user import User
+from tests.conftest import make_jwt
 
 
 def _receipt_payload(
@@ -121,10 +128,56 @@ async def test_delete_receipt(
 
 
 @pytest.mark.asyncio
-async def test_get_other_user_receipt_returns_404(
+async def test_get_nonexistent_receipt_returns_404(
     client: AsyncClient,
     auth_headers: dict[str, str],
 ) -> None:
-    from uuid import uuid4
     resp = await client.get(f"/api/v1/receipts/{uuid4()}", headers=auth_headers)
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_user_b_cannot_access_user_a_receipt(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+) -> None:
+    # User A creates a receipt via API (gets user_id set)
+    create_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="7777777777", fd="777777", fpd="7777777777"),
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    receipt_id = create_resp.json()["id"]
+
+    # Create user B and get their token
+    user_b = User(
+        id=uuid4(),
+        email="userB_receipts@example.com",
+        full_name="User B",
+        is_active=True,
+        created_at=datetime.utcnow(),
+    )
+    session.add(user_b)
+    session.commit()
+    headers_b = {"Authorization": f"Bearer {make_jwt(str(user_b.id))}"}
+
+    # User B tries to access user A's receipt
+    resp = await client.get(f"/api/v1/receipts/{receipt_id}", headers=headers_b)
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_user_a_receipt_visible_in_own_list(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="6666666666", fd="666666", fpd="6666666666"),
+        headers=auth_headers,
+    )
+    resp = await client.get("/api/v1/receipts", headers=auth_headers)
+    assert resp.status_code == 200
+    assert len(resp.json()) >= 1

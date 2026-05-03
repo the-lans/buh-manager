@@ -5,6 +5,7 @@ from sqlmodel import Session
 
 from app.constants import AuditEntityType, ChangedBy
 from app.database import get_session
+from app.db.accounts import get_account_by_id
 from app.db.counterparties import get_or_create_counterparty
 from app.db.transactions import (
     create_transaction,
@@ -49,8 +50,16 @@ def list_transactions(
 def create_transaction_endpoint(
     data: TransactionCreate,
     session: Session = Depends(get_session),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> TransactionRead:
+    account = get_account_by_id(
+        session=session,
+        account_id=data.account_id,
+        user_id=current_user.id,
+    )
+    if account is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account not found.")
+
     counterparty_id: str | None = None
     if data.counterparty_name:
         cp = get_or_create_counterparty(session=session, name=data.counterparty_name)
@@ -81,6 +90,7 @@ def create_transaction_endpoint(
     session.commit()
     session.refresh(tx)
     return TransactionRead.model_validate(tx)
+
 
 
 @router.put("/{transaction_id}", response_model=TransactionRead)

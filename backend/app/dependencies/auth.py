@@ -32,10 +32,13 @@ def get_current_user(
         user_id_str: str | None = payload.get("sub")
         if user_id_str is None:
             raise auth_error
+        user_id = UUID(user_id_str)
     except JWTError as err:
         raise auth_error from err
+    except ValueError as err:
+        raise auth_error from err
 
-    user = get_user_by_id(session=session, user_id=UUID(user_id_str))
+    user = get_user_by_id(session=session, user_id=user_id)
     if user is None or not user.is_active:
         raise auth_error
     return user

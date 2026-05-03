@@ -78,7 +78,7 @@ async def test_user_a_cannot_create_tx_on_user_b_account(
     auth_headers: dict[str, str],
     account_b: Account,
 ) -> None:
-    await client.post(
+    resp = await client.post(
         "/api/v1/transactions",
         json={
             "account_id": str(account_b.id),
@@ -88,7 +88,7 @@ async def test_user_a_cannot_create_tx_on_user_b_account(
         },
         headers=auth_headers,
     )
-    # The DB layer isolates by user_id; what matters is user A can't READ user B's transactions
+    assert resp.status_code == 403
 
 
 @pytest.mark.asyncio

@@ -4,7 +4,7 @@ from decimal import Decimal  # noqa: TC003
 from uuid import uuid4
 
 from rapidfuzz import fuzz
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.constants import (
     FUZZY_HIGH_THRESHOLD,
@@ -21,6 +21,7 @@ from app.constants import (
     ChangedBy,
     ReconciledStatus,
 )
+from app.db.receipts import get_unmatched_receipts
 from app.db.reconciliation_reports import save_report
 from app.db.transactions import (
     get_unmatched_transactions_requiring_receipt,
@@ -88,8 +89,6 @@ def run_reconciliation(
     session: Session,
     current_user: User,
 ) -> ReconciliationReport:
-    from app.db.receipts import get_unmatched_receipts
-
     transactions = get_unmatched_transactions_requiring_receipt(
         session=session, user_id=current_user.id
     )
@@ -269,11 +268,7 @@ def run_reconciliation(
 
 
 def _receipt_is_matched(*, session: Session, receipt: Receipt) -> bool:
-    from sqlmodel import select
-
-    from app.models.transaction import Transaction as Tx
-
     result = session.exec(
-        select(Tx).where(Tx.receipt_id == receipt.id)
+        select(Transaction).where(Transaction.receipt_id == receipt.id)
     ).first()
     return result is not None
