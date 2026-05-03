@@ -1,0 +1,36 @@
+import json
+from datetime import datetime
+from typing import Any
+from uuid import UUID
+
+from sqlmodel import Session
+
+from app.models.audit_log import AuditLog
+
+
+def write_audit_log_entry(
+    *,
+    session: Session,
+    entity_type: str,
+    entity_id: UUID,
+    action: str,
+    changed_by: str,
+    diff_before: dict[str, Any] | None = None,
+    diff_after: dict[str, Any] | None = None,
+) -> AuditLog:
+    diff_payload: dict[str, Any] = {}
+    if diff_before is not None:
+        diff_payload["before"] = diff_before
+    if diff_after is not None:
+        diff_payload["after"] = diff_after
+
+    entry = AuditLog(
+        entity_type=entity_type,
+        entity_id=entity_id,
+        action=action,
+        changed_by=changed_by,
+        changed_at=datetime.utcnow(),
+        diff=json.dumps(diff_payload, default=str) if diff_payload else None,
+    )
+    session.add(entry)
+    return entry

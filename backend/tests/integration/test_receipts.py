@@ -1,0 +1,130 @@
+import pytest
+from httpx import AsyncClient
+
+
+def _receipt_payload(
+    fn: str | None = "1234567890",
+    fd: str | None = "123456",
+    fpd: str | None = "1234567890",
+    counterparty: str | None = "Магазин Тест",
+    total: float = 100.0,
+) -> dict:
+    return {
+        "paid_at": "2024-01-15T12:00:00",
+        "total_amount": total,
+        "counterparty_name": counterparty,
+        "fn": fn,
+        "fd": fd,
+        "fpd": fpd,
+        "items": [
+            {
+                "name": "Товар 1",
+                "quantity": "1",
+                "price": str(total),
+                "amount": str(total),
+            }
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_create_receipt(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(),
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["fn"] == "1234567890"
+    assert "id" in data
+
+
+@pytest.mark.asyncio
+async def test_create_duplicate_fiscal_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    await client.post("/api/v1/receipts", json=_receipt_payload(), headers=auth_headers)
+    resp = await client.post("/api/v1/receipts", json=_receipt_payload(), headers=auth_headers)
+    assert resp.status_code == 409
+    assert "receipt_id" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_create_receipt_all_fiscal_null_no_dedup(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    payload = _receipt_payload(fn=None, fd=None, fpd=None)
+    r1 = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+    r2 = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+    assert r1.status_code == 201
+    assert r2.status_code == 201
+    assert r1.json()["id"] != r2.json()["id"]
+
+
+@pytest.mark.asyncio
+async def test_create_receipt_partial_fiscal_no_dedup(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    # Only 2 of 3 fiscal fields → no dedup
+    payload = _receipt_payload(fn="123", fd="456", fpd=None)
+    r1 = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+    r2 = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+    assert r1.status_code == 201
+    assert r2.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_update_receipt(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="9999999999", fd="999999", fpd="9999999999"),
+        headers=auth_headers,
+    )
+    receipt_id = create_resp.json()["id"]
+
+    update_resp = await client.put(
+        f"/api/v1/receipts/{receipt_id}",
+        json={"total_amount": 200.0, "paid_at": "2024-01-16T10:00:00"},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200
+    assert float(update_resp.json()["total_amount"]) == 200.0
+
+
+@pytest.mark.asyncio
+async def test_delete_receipt(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="8888888888", fd="888888", fpd="8888888888"),
+        headers=auth_headers,
+    )
+    receipt_id = create_resp.json()["id"]
+
+    del_resp = await client.delete(f"/api/v1/receipts/{receipt_id}", headers=auth_headers)
+    assert del_resp.status_code == 204
+
+    get_resp = await client.get(f"/api/v1/receipts/{receipt_id}", headers=auth_headers)
+    assert get_resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_other_user_receipt_returns_404(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    from uuid import uuid4
+    resp = await client.get(f"/api/v1/receipts/{uuid4()}", headers=auth_headers)
+    assert resp.status_code == 404

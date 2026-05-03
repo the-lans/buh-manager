@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+/buh/
+
+# Project-specific
+backend/media/*
+!backend/media/.gitkeep
+backend/*.db
+backend/.env
+.env
+node_modules/
+frontend/dist/
