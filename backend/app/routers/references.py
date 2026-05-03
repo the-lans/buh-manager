@@ -1,5 +1,3 @@
-from datetime import datetime
-from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -112,21 +110,22 @@ def initialize_balance_endpoint(
     if account is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account not found.")
 
-    recorded_at = datetime.fromisoformat(data.recorded_at)
     balance = upsert_balance(
         session=session,
         account_id=account_id,
-        amount=Decimal(str(data.amount)),
-        recorded_at=recorded_at,
+        amount=data.amount,
+        recorded_at=data.recorded_at,
         source=data.source,
     )
-    return {
+    result = {
         "id": str(balance.id),
         "account_id": str(balance.account_id),
         "amount": str(balance.amount),
         "recorded_at": balance.recorded_at.isoformat(),
         "source": balance.source,
     }
+    session.commit()
+    return result
 
 
 # ── Expense Types ────────────────────────────────────────────────────────────
@@ -194,6 +193,7 @@ def create_counterparty_endpoint(
     cp = get_or_create_counterparty(
         session=session, name=data.name, type=data.type
     )
+    session.commit()
     return CounterpartyRead.model_validate(cp)
 
 

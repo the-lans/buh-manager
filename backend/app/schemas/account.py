@@ -1,3 +1,6 @@
+from datetime import datetime
+from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -29,6 +32,6 @@ class AccountRead(BaseModel):
 
 
 class AccountBalanceInit(BaseModel):
-    amount: float
-    recorded_at: str  # ISO datetime string; parsed in router
-    source: str  # "OPENING" or "CLOSING"
+    amount: Decimal
+    recorded_at: datetime
+    source: Literal["OPENING", "CLOSING"]

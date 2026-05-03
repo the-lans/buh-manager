@@ -81,12 +81,12 @@ def list_documents(
 
 @router.get("/{document_id}", response_model=DocumentRead)
 def get_document(
-    document_id: str,
+    document_id: UUID,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> DocumentRead:
     doc = get_document_by_id(
-        session=session, document_id=UUID(document_id), user_id=current_user.id
+        session=session, document_id=document_id, user_id=current_user.id
     )
     if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")

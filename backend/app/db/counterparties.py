@@ -37,7 +37,7 @@ def get_or_create_counterparty(
 
     counterparty = Counterparty(id=slug, name=name, type=type)
     session.add(counterparty)
-    session.commit()
+    session.flush()
     session.refresh(counterparty)
     return counterparty
 

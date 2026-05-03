@@ -141,7 +141,7 @@ def run_reconciliation(
                 )
             continue
 
-        # Apply time window filter
+        # Apply time window filter: only pairs where tx falls inside receipt's window
         filtered_pairs: list[tuple[Transaction, Receipt]] = [
             (tx, r)
             for tx in bucket_txs
@@ -149,8 +149,40 @@ def run_reconciliation(
             if _in_time_window(tx=tx, receipt=r)
         ]
 
-        if len(bucket_txs) > 1 or len(bucket_receipts) > 1:
-            # N:M collision
+        # Separate items that have at least one valid partner from those that don't
+        tx_ids_in_window = {tx.id for tx, _ in filtered_pairs}
+        receipt_ids_in_window = {r.id for _, r in filtered_pairs}
+
+        txs_in_window = [tx for tx in bucket_txs if tx.id in tx_ids_in_window]
+        receipts_in_window = [r for r in bucket_receipts if r.id in receipt_ids_in_window]
+
+        for tx in bucket_txs:
+            if tx.id not in tx_ids_in_window:
+                missing_receipts.append(
+                    MissingReceiptItem(
+                        transaction_id=tx.id,
+                        occurred_at=tx.occurred_at,
+                        amount=tx.amount,
+                        counterparty_id=tx.counterparty_id,
+                        expense_type_id=tx.expense_type_id,
+                    )
+                )
+        for r in bucket_receipts:
+            if r.id not in receipt_ids_in_window:
+                unmatched_receipts.append(
+                    UnmatchedReceiptItem(
+                        receipt_id=r.id,
+                        paid_at=r.paid_at,
+                        total_amount=r.total_amount,
+                        counterparty_id=r.counterparty_id,
+                    )
+                )
+
+        if not txs_in_window or not receipts_in_window:
+            continue
+
+        if len(txs_in_window) > 1 or len(receipts_in_window) > 1:
+            # N:M collision — only among items that actually fall within the time window
             collision_id = str(uuid4())
             collisions.append(
                 CollisionGroup(
@@ -158,8 +190,8 @@ def run_reconciliation(
                     amount=amount,
                     reason="MULTIPLE_MATCHES",
                     message=(
-                        f"Найдено {len(bucket_txs)} транзакции и "
-                        f"{len(bucket_receipts)} чека на одинаковую сумму. "
+                        f"Найдено {len(txs_in_window)} транзакции и "
+                        f"{len(receipts_in_window)} чека на одинаковую сумму. "
                         "Требуется ручное сопоставление."
                     ),
                     involved_transactions=[
@@ -169,7 +201,7 @@ def run_reconciliation(
                             counterparty_id=tx.counterparty_id,
                             amount=tx.amount,
                         )
-                        for tx in bucket_txs
+                        for tx in txs_in_window
                     ],
                     involved_receipts=[
                         CollisionReceiptItem(
@@ -178,36 +210,15 @@ def run_reconciliation(
                             counterparty_id=r.counterparty_id,
                             total_amount=r.total_amount,
                         )
-                        for r in bucket_receipts
+                        for r in receipts_in_window
                     ],
                 )
             )
             continue
 
-        # 1:1 case
-        tx = bucket_txs[0]
-        receipt = bucket_receipts[0]
-
-        if not filtered_pairs:
-            # Outside time window
-            missing_receipts.append(
-                MissingReceiptItem(
-                    transaction_id=tx.id,
-                    occurred_at=tx.occurred_at,
-                    amount=tx.amount,
-                    counterparty_id=tx.counterparty_id,
-                    expense_type_id=tx.expense_type_id,
-                )
-            )
-            unmatched_receipts.append(
-                UnmatchedReceiptItem(
-                    receipt_id=receipt.id,
-                    paid_at=receipt.paid_at,
-                    total_amount=receipt.total_amount,
-                    counterparty_id=receipt.counterparty_id,
-                )
-            )
-            continue
+        # 1:1 case: exactly one tx and one receipt within the time window
+        tx = txs_in_window[0]
+        receipt = receipts_in_window[0]
 
         score = _score_pair(tx=tx, receipt=receipt, is_single_pair=True)
         if score >= SCORE_THRESHOLD_AUTO:

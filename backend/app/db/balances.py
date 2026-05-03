@@ -35,7 +35,7 @@ def upsert_balance(
         if document_id is not None:
             existing.document_id = document_id
         session.add(existing)
-        session.commit()
+        session.flush()
         session.refresh(existing)
         return existing
 
@@ -47,7 +47,7 @@ def upsert_balance(
         document_id=document_id,
     )
     session.add(balance)
-    session.commit()
+    session.flush()
     session.refresh(balance)
     return balance
 

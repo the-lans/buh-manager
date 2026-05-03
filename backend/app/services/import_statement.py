@@ -3,7 +3,7 @@ from uuid import UUID  # noqa: TC003
 from fastapi import HTTPException, status
 from sqlmodel import Session
 
-from app.constants import ImportStatus
+from app.constants import BalanceSource, ImportStatus
 from app.db.accounts import get_account_by_id
 from app.db.balances import has_any_balance, upsert_balance
 from app.db.counterparties import get_or_create_counterparty
@@ -113,7 +113,7 @@ def import_bank_statement(
             account_id=statement.account_id,
             amount=statement.opening_balance,
             recorded_at=statement.statement_start,
-            source="OPENING",
+            source=BalanceSource.OPENING,
             document_id=statement.document_id,
         )
     if statement.closing_balance is not None:
@@ -122,7 +122,7 @@ def import_bank_statement(
             account_id=statement.account_id,
             amount=statement.closing_balance,
             recorded_at=statement.statement_end,
-            source="CLOSING",
+            source=BalanceSource.CLOSING,
             document_id=statement.document_id,
         )
 
