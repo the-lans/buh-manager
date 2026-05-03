@@ -1,0 +1,18 @@
+from pathlib import Path
+
+from fastapi import UploadFile
+
+from app.constants import MEDIA_PATH
+
+
+class LocalStorageProvider:
+    def __init__(self, base_dir: Path | None = None) -> None:
+        self._base_dir = base_dir or Path(MEDIA_PATH)
+        self._base_dir.mkdir(parents=True, exist_ok=True)
+
+    async def upload_file(self, *, file: UploadFile, file_id: str) -> str:
+        suffix = Path(file.filename or "file").suffix or ""
+        dest = self._base_dir / f"{file_id}{suffix}"
+        content = await file.read()
+        dest.write_bytes(content)
+        return f"/{MEDIA_PATH}/{file_id}{suffix}"

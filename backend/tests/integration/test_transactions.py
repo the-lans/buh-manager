@@ -1,0 +1,111 @@
+from uuid import uuid4
+
+import pytest
+from httpx import AsyncClient
+
+from app.models.account import Account
+
+
+def _tx_payload(account_id: str, amount: float = -100.0) -> dict:
+    return {
+        "account_id": account_id,
+        "occurred_at": "2024-01-10T10:00:00",
+        "amount": amount,
+        "type": "DEBIT",
+    }
+
+
+@pytest.mark.asyncio
+async def test_create_transaction(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id)),
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert float(data["amount"]) == -100.0
+
+
+@pytest.mark.asyncio
+async def test_list_transactions_with_filters(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    # Create two transactions
+    await client.post(
+        "/api/v1/transactions",
+        json={**_tx_payload(str(test_account.id)), "type": "DEBIT", "occurred_at": "2024-01-10T10:00:00"},
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/v1/transactions",
+        json={**_tx_payload(str(test_account.id), 500.0), "type": "INCOME", "occurred_at": "2024-01-11T10:00:00"},
+        headers=auth_headers,
+    )
+
+    resp = await client.get(
+        "/api/v1/transactions",
+        headers=auth_headers,
+        params={"type": "INCOME"},
+    )
+    assert resp.status_code == 200
+    txs = resp.json()
+    assert all(t["type"] == "INCOME" for t in txs)
+
+
+@pytest.mark.asyncio
+async def test_update_transaction(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id)),
+        headers=auth_headers,
+    )
+    tx_id = create_resp.json()["id"]
+
+    update_resp = await client.put(
+        f"/api/v1/transactions/{tx_id}",
+        json={"amount": -200.0, "occurred_at": "2024-01-10T10:00:00"},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200
+    assert float(update_resp.json()["amount"]) == -200.0
+
+
+@pytest.mark.asyncio
+async def test_delete_transaction(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id)),
+        headers=auth_headers,
+    )
+    tx_id = create_resp.json()["id"]
+
+    del_resp = await client.delete(f"/api/v1/transactions/{tx_id}", headers=auth_headers)
+    assert del_resp.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_get_other_user_transaction_returns_404(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    update_resp = await client.put(
+        f"/api/v1/transactions/{uuid4()}",
+        json={"amount": -999.0, "occurred_at": "2024-01-10T10:00:00"},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 404
