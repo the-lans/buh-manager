@@ -233,20 +233,27 @@ server {
 
 ### Вариант B — Docker Compose
 
-Все необходимые файлы (`docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `frontend/nginx.conf`) уже находятся в репозитории.
+Все необходимые файлы (`docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `frontend/nginx.conf`) уже находятся в репозитории. PostgreSQL должен быть запущен на сервере заранее.
 
-**1. Подготовьте `.env` для backend:**
+**1. Клонируйте репозиторий на сервер:**
+
+```bash
+git clone https://github.com/the-lans/buh-manager.git /opt/buh-manager
+cd /opt/buh-manager
+```
+
+**2. Подготовьте `.env` для backend:**
 
 ```bash
 cp backend/.env.example backend/.env
-# Отредактируйте backend/.env: заполните SECRET_KEY, JWT_SECRET_KEY,
-# GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL и ключи Яндекс S3
-```
-
-**2. Задайте пароль базы данных:**
-
-```bash
-export DB_PASSWORD=ваш_надёжный_пароль
+# Отредактируйте backend/.env — обязательные поля:
+#   DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/buhmanager
+#   SECRET_KEY=...        (случайная строка ≥ 32 символа)
+#   JWT_SECRET_KEY=...    (случайная строка ≥ 32 символа)
+#   GOOGLE_CLIENT_ID=...
+#   GOOGLE_CLIENT_SECRET=...
+#   FRONTEND_URL=https://ваш-домен.ru
+#   YANDEX_S3_BUCKET=..., YANDEX_ACCESS_KEY=..., YANDEX_SECRET_KEY=...
 ```
 
 **3. Соберите образы и запустите:**
@@ -255,23 +262,38 @@ export DB_PASSWORD=ваш_надёжный_пароль
 docker compose up -d --build
 ```
 
+**4. Настройте автозапуск при старте сервера:**
+
+```bash
+# Убедитесь, что Docker запускается вместе с системой
+sudo systemctl enable docker
+
+# Установите systemd-юнит для приложения
+sudo cp deploy/buh-manager.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable buh-manager
+```
+
 **Полезные команды:**
 
 ```bash
-# Посмотреть логи всех сервисов
-docker compose logs -f
+# Статус сервисов
+sudo systemctl status buh-manager
+
+# Логи всех контейнеров
+docker compose -f /opt/buh-manager/docker-compose.yml logs -f
+
+# Обновить приложение (пересобрать образы)
+cd /opt/buh-manager && git pull && docker compose up -d --build
 
 # Остановить
-docker compose down
-
-# Остановить и удалить данные БД
-docker compose down -v
+sudo systemctl stop buh-manager
 ```
 
 ### Чеклист перед деплоем в prod
 
 - [ ] `ENVIRONMENT=production` в `.env`
-- [ ] `DATABASE_URL` указывает на PostgreSQL
+- [ ] `DATABASE_URL` указывает на внешний PostgreSQL
 - [ ] `SECRET_KEY` и `JWT_SECRET_KEY` — случайные строки ≥ 32 символа
 - [ ] `FRONTEND_URL` — реальный домен фронтенда (для CORS)
 - [ ] Google OAuth redirect URI обновлён на prod-домен
