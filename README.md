@@ -233,80 +233,39 @@ server {
 
 ### Вариант B — Docker Compose
 
-> Создайте `docker-compose.yml` в корне репозитория:
+Все необходимые файлы (`docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `frontend/nginx.conf`) уже находятся в репозитории.
 
-```yaml
-version: "3.9"
-
-services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: buhmanager
-      POSTGRES_USER: buh
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    env_file: ./backend/.env
-    environment:
-      DATABASE_URL: postgresql://buh:${DB_PASSWORD}@db:5432/buhmanager
-    depends_on:
-      - db
-    ports:
-      - "8000:8000"
-    command: >
-      sh -c "alembic upgrade head &&
-             gunicorn app.main:app
-             --workers 4
-             --worker-class uvicorn.workers.UvicornWorker
-             --bind 0.0.0.0:8000"
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
-
-volumes:
-  postgres_data:
-```
+**1. Подготовьте `.env` для backend:**
 
 ```bash
-# Запустить всё одной командой
-docker compose up -d
+cp backend/.env.example backend/.env
+# Отредактируйте backend/.env: заполните SECRET_KEY, JWT_SECRET_KEY,
+# GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL и ключи Яндекс S3
 ```
 
-#### Dockerfile для backend
+**2. Задайте пароль базы данных:**
 
-```dockerfile
-# backend/Dockerfile
-FROM python:3.12-slim
-WORKDIR /app
-COPY pyproject.toml .
-RUN pip install -e "."
-COPY . .
+```bash
+export DB_PASSWORD=ваш_надёжный_пароль
 ```
 
-#### Dockerfile для frontend
+**3. Соберите образы и запустите:**
 
-```dockerfile
-# frontend/Dockerfile
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY package*.json .
-RUN npm ci
-COPY . .
-RUN npm run build
+```bash
+docker compose up -d --build
+```
 
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+**Полезные команды:**
+
+```bash
+# Посмотреть логи всех сервисов
+docker compose logs -f
+
+# Остановить
+docker compose down
+
+# Остановить и удалить данные БД
+docker compose down -v
 ```
 
 ### Чеклист перед деплоем в prod
