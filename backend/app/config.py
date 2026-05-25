@@ -23,6 +23,8 @@ class Settings(BaseSettings):
 
     frontend_url: str = "http://localhost:5173"
 
+    allowed_emails: list[str] = []
+
     yandex_s3_bucket: str = ""
     yandex_access_key: str = ""
     yandex_secret_key: str = ""
