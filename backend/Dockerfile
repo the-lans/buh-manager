@@ -2,13 +2,13 @@ FROM python:3.12-slim AS base
 
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
-ENV UV_SYSTEM_PYTHON=1
 
 
 FROM base AS test
 
 COPY . .
 RUN uv sync --all-extras
+ENV PATH="/app/.venv/bin:$PATH"
 CMD ["pytest"]
 
 
@@ -16,7 +16,8 @@ FROM base AS prod
 
 COPY . .
 RUN uv sync --no-dev && \
-    uv pip install --system gunicorn psycopg2-binary
+    uv pip install gunicorn psycopg2-binary
+ENV PATH="/app/.venv/bin:$PATH"
 CMD ["sh", "-c", \
      "alembic upgrade head && \
       gunicorn app.main:app \
