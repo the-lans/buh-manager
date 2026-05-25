@@ -1,21 +1,24 @@
 FROM python:3.12-slim AS base
 
 WORKDIR /app
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+ENV UV_SYSTEM_PYTHON=1
 
 
 FROM base AS test
 
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --all-extras
 COPY . .
-RUN pip install --no-cache-dir -e ".[dev]" && \
-    pip install --no-cache-dir psycopg2-binary
 CMD ["pytest"]
 
 
 FROM base AS prod
 
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev && \
+    uv pip install --system gunicorn psycopg2-binary
 COPY . .
-RUN pip install --no-cache-dir -e "." && \
-    pip install --no-cache-dir gunicorn psycopg2-binary
 CMD ["sh", "-c", \
      "alembic upgrade head && \
       gunicorn app.main:app \
