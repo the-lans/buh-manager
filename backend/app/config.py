@@ -1,4 +1,4 @@
-from pydantic import computed_field
+from pydantic import computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
 
     allowed_emails: list[str] = []
+
+    @field_validator("allowed_emails", mode="before")
+    @classmethod
+    def parse_allowed_emails(cls, v: object) -> list[str]:
+        if isinstance(v, str):
+            return [e.strip() for e in v.split(",") if e.strip()]
+        return v  # type: ignore[return-value]
 
     yandex_s3_bucket: str = ""
     yandex_access_key: str = ""
