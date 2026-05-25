@@ -49,6 +49,9 @@ async def auth_via_google_callback(
     token = await oauth.google.authorize_access_token(request)
     userinfo = token["userinfo"]
 
+    if settings.allowed_emails and userinfo["email"] not in settings.allowed_emails:
+        return RedirectResponse(url=f"{settings.frontend_url}/auth/forbidden")
+
     user = create_or_update_user_from_google(
         session=session,
         email=userinfo["email"],
