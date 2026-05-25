@@ -7,18 +7,16 @@ ENV UV_SYSTEM_PYTHON=1
 
 FROM base AS test
 
-COPY pyproject.toml ./
-RUN uv sync --all-extras
 COPY . .
+RUN uv sync --all-extras
 CMD ["pytest"]
 
 
 FROM base AS prod
 
-COPY pyproject.toml ./
+COPY . .
 RUN uv sync --no-dev && \
     uv pip install --system gunicorn psycopg2-binary
-COPY . .
 CMD ["sh", "-c", \
      "alembic upgrade head && \
       gunicorn app.main:app \
