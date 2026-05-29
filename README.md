@@ -70,6 +70,7 @@
 
 ```
 buh-manager/
+├── .github/workflows/ci.yml      # GitHub Actions CI
 ├── backend/
 │   ├── app/
 │   │   ├── main.py               # Сборка FastAPI приложения
@@ -87,15 +88,20 @@ buh-manager/
 │   ├── tests/
 │   │   ├── unit/                 # Unit-тесты (дедупликация, алгоритмы)
 │   │   └── integration/          # Integration-тесты (HTTP + реальная БД)
+│   ├── .dockerignore
 │   ├── .env.example
+│   ├── Dockerfile                # Многостадийная сборка: test / prod
 │   └── pyproject.toml
-└── frontend/
-    └── src/
-        ├── api/                  # Axios-клиенты для каждого ресурса
-        ├── hooks/                # TanStack Query хуки
-        ├── pages/                # Login, Dashboard, Transactions, Receipts...
-        ├── components/layout/    # AppShell, навигация
-        └── types/                # TypeScript интерфейсы
+├── deploy/buh-manager.service    # systemd-юнит для автозапуска
+├── frontend/
+│   ├── nginx.conf                # Nginx: статика + proxy /api/, /docs
+│   └── src/
+│       ├── api/                  # Axios-клиенты для каждого ресурса
+│       ├── hooks/                # TanStack Query хуки
+│       ├── pages/                # Login, Dashboard, Transactions, Receipts...
+│       ├── components/layout/    # AppShell, навигация
+│       └── types/                # TypeScript интерфейсы
+└── docker-compose.yml
 ```
 
 ---
@@ -111,7 +117,7 @@ buh-manager/
 ### 1. Клонировать репозиторий
 
 ```bash
-git clone https://github.com/your-org/buh-manager.git
+git clone https://github.com/the-lans/buh-manager.git
 cd buh-manager
 ```
 
@@ -226,15 +232,9 @@ cd /opt/buh-manager
 
 ```bash
 cp backend/.env.example backend/.env
-# Отредактируйте backend/.env — обязательные поля:
-#   DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/buhmanager
-#   SECRET_KEY=...        (случайная строка ≥ 32 символа)
-#   JWT_SECRET_KEY=...    (случайная строка ≥ 32 символа)
-#   GOOGLE_CLIENT_ID=...
-#   GOOGLE_CLIENT_SECRET=...
-#   FRONTEND_URL=https://ваш-домен.ru
-#   YANDEX_S3_BUCKET=..., YANDEX_ACCESS_KEY=..., YANDEX_SECRET_KEY=...
 ```
+
+Заполните переменные согласно [разделу Конфигурация](#конфигурация) и чеклисту ниже.
 
 **3. Соберите образы и запустите:**
 
