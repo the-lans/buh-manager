@@ -15,6 +15,7 @@
 - [API](#api)
 - [Тестирование](#тестирование)
 - [Линтеры и типизация](#линтеры-и-типизация)
+- [CI](#ci)
 - [Основные концепции](#основные-концепции)
 - [Алгоритм сопоставления чеков](#алгоритм-сопоставления-чеков)
 - [Расчёт и проверка балансов](#расчёт-и-проверка-балансов)
@@ -119,9 +120,13 @@ cd buh-manager
 ```bash
 cd backend
 
-# Создать виртуальное окружение и установить зависимости
-python -m venv .venv
+# Вариант A — через uv (рекомендуется)
+uv sync --all-extras               # создаёт .venv и устанавливает все зависимости
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
+
+# Вариант B — через pip
+python -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
 
 # Скопировать и заполнить переменные окружения
@@ -186,6 +191,7 @@ gunicorn app.main:app \
   --workers 4 \
   --worker-class uvicorn.workers.UvicornWorker \
   --bind 0.0.0.0:8000 \
+  --forwarded-allow-ips='*' \
   --access-logfile - \
   --error-logfile -
 ```
@@ -220,13 +226,22 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
+    # FastAPI docs
+    location ~ ^/(docs|redoc|openapi.json) {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
     # Backend API
     location /api/ {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
     }
 }
 ```
@@ -328,6 +343,10 @@ JWT_EXPIRE_MINUTES=10080
 # URL фронтенда (для CORS и OAuth redirect)
 FRONTEND_URL=http://localhost:5173
 
+# Белый список email-адресов Google-аккаунтов (через запятую).
+# Если не задан или пустой — пускаются все аккаунты.
+# ALLOWED_EMAILS=user1@gmail.com,user2@gmail.com
+
 # Яндекс Object Storage (только для prod)
 YANDEX_S3_BUCKET=
 YANDEX_ACCESS_KEY=
@@ -383,6 +402,8 @@ YANDEX_SECRET_KEY=
 cd backend
 
 # Запустить все тесты
+uv run pytest          # если используется uv
+# или
 pytest tests/ -v
 
 # С измерением покрытия
@@ -431,6 +452,17 @@ npx eslint src/ --ext .ts,.tsx
 ```
 
 Все проверки проходят без ошибок ✅
+
+---
+
+## CI
+
+GitHub Actions запускается автоматически на каждый push и pull request в `main` (`.github/workflows/ci.yml`):
+
+1. Устанавливает зависимости через `uv sync --all-extras`
+2. Запускает полный тест-сьют: `uv run pytest`
+
+Зависимости устанавливаются из `pyproject.toml` при каждой сборке — если транзитивный пакет пропадёт, CI упадёт до попадания в прод.
 
 ---
 
