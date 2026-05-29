@@ -24,5 +24,6 @@ CMD ["sh", "-c", \
         --workers 4 \
         --worker-class uvicorn.workers.UvicornWorker \
         --bind 0.0.0.0:8000 \
+        --forwarded-allow-ips='*' \
         --access-logfile - \
         --error-logfile -"]
