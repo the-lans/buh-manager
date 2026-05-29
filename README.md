@@ -186,14 +186,10 @@ pip install -e "."
 alembic upgrade head
 
 # Запустить через Gunicorn + Uvicorn worker
-pip install gunicorn
-gunicorn app.main:app \
-  --workers 4 \
-  --worker-class uvicorn.workers.UvicornWorker \
-  --bind 0.0.0.0:8000 \
-  --forwarded-allow-ips='*' \
-  --access-logfile - \
-  --error-logfile -
+# Актуальная команда — в prod-стадии backend/Dockerfile
+pip install gunicorn psycopg2-binary
+gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000 --forwarded-allow-ips='*' --access-logfile - --error-logfile -
 ```
 
 #### Frontend — сборка статики
@@ -213,38 +209,7 @@ npm run build
 
 #### Пример конфига Nginx
 
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    # Frontend (статика)
-    root /var/www/buh-manager/dist;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # FastAPI docs
-    location ~ ^/(docs|redoc|openapi.json) {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-    }
-
-    # Backend API
-    location /api/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-    }
-}
-```
+За актуальным примером обращайтесь к [`frontend/nginx.conf`](frontend/nginx.conf) — там уже настроены проксирование `/api/`, `/docs`, `/redoc`, `/openapi.json` и корректная передача `X-Forwarded-Proto`.
 
 ### Вариант B — Docker Compose
 
@@ -319,39 +284,20 @@ sudo systemctl stop buh-manager
 
 ## Конфигурация
 
-Скопируйте `backend/.env.example` в `backend/.env` и заполните значения:
+Скопируйте [`backend/.env.example`](backend/.env.example) в `backend/.env` и заполните значения. Файл содержит комментарии для каждой переменной.
 
-```dotenv
-# Режим запуска: local / production
-ENVIRONMENT=local
+Ключевые переменные:
 
-# Секретный ключ для сессий
-SECRET_KEY=your-secret-key-here
-
-# SQLite (dev) или PostgreSQL (prod)
-DATABASE_URL=sqlite:///./buh.db
-
-# Google OAuth2
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# JWT
-JWT_SECRET_KEY=your-jwt-secret
-JWT_ALGORITHM=HS256
-JWT_EXPIRE_MINUTES=10080
-
-# URL фронтенда (для CORS и OAuth redirect)
-FRONTEND_URL=http://localhost:5173
-
-# Белый список email-адресов Google-аккаунтов (через запятую).
-# Если не задан или пустой — пускаются все аккаунты.
-# ALLOWED_EMAILS=user1@gmail.com,user2@gmail.com
-
-# Яндекс Object Storage (только для prod)
-YANDEX_S3_BUCKET=
-YANDEX_ACCESS_KEY=
-YANDEX_SECRET_KEY=
-```
+| Переменная | Описание |
+|------------|----------|
+| `ENVIRONMENT` | `local` или `production` |
+| `SECRET_KEY` | Секрет для сессий (≥ 32 символа) |
+| `DATABASE_URL` | SQLite (dev) или PostgreSQL (prod) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credentials Google OAuth2 |
+| `JWT_SECRET_KEY` | Секрет подписи JWT (≥ 32 символа) |
+| `FRONTEND_URL` | Домен фронтенда (для CORS и OAuth redirect) |
+| `ALLOWED_EMAILS` | Белый список email через запятую; если не задан — пускаются все |
+| `YANDEX_S3_BUCKET` / `YANDEX_ACCESS_KEY` / `YANDEX_SECRET_KEY` | Яндекс Object Storage (только prod) |
 
 ### Где взять ключи Яндекс Object Storage
 
