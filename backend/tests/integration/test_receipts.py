@@ -62,6 +62,32 @@ async def test_create_duplicate_fiscal_returns_409(
 
 
 @pytest.mark.asyncio
+async def test_create_duplicate_fiscal_is_scoped_per_user(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+) -> None:
+    payload = _receipt_payload(fn="5555555555", fd="555555", fpd="5555555555")
+    resp_a = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+    assert resp_a.status_code == 201
+
+    user_b = User(
+        id=uuid4(),
+        email="userB_receipt_dedup@example.com",
+        full_name="User B",
+        is_active=True,
+        created_at=utcnow(),
+    )
+    session.add(user_b)
+    session.commit()
+    headers_b = {"Authorization": f"Bearer {make_jwt(str(user_b.id))}"}
+
+    resp_b = await client.post("/api/v1/receipts", json=payload, headers=headers_b)
+    assert resp_b.status_code == 201
+    assert resp_b.json()["id"] != resp_a.json()["id"]
+
+
+@pytest.mark.asyncio
 async def test_create_receipt_all_fiscal_null_no_dedup(
     client: AsyncClient,
     auth_headers: dict[str, str],

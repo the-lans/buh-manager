@@ -48,7 +48,13 @@ def create_receipt_endpoint(
 ) -> ReceiptRead:
     # Fiscal deduplication (only when all three fields are present)
     if data.fn and data.fd and data.fpd:
-        existing = get_receipt_by_fiscal(session=session, fn=data.fn, fd=data.fd, fpd=data.fpd)
+        existing = get_receipt_by_fiscal(
+            session=session,
+            fn=data.fn,
+            fd=data.fd,
+            fpd=data.fpd,
+            user_id=current_user.id,
+        )
         if existing is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

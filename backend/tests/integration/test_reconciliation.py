@@ -2,8 +2,12 @@ from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
+from sqlmodel import Session
 
 from app.models.account import Account
+from app.models.user import User
+from app.utils.dt import utcnow
+from tests.conftest import make_jwt
 
 
 async def _create_transaction(
@@ -137,6 +141,35 @@ async def test_manual_match(
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "matched"
+
+
+@pytest.mark.asyncio
+async def test_manual_match_rejects_other_user_receipt(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+    test_account: Account,
+) -> None:
+    tx_id = await _create_transaction(client, auth_headers, str(test_account.id))
+
+    user_b = User(
+        id=uuid4(),
+        email="userB_match@example.com",
+        full_name="User B",
+        is_active=True,
+        created_at=utcnow(),
+    )
+    session.add(user_b)
+    session.commit()
+    headers_b = {"Authorization": f"Bearer {make_jwt(str(user_b.id))}"}
+    receipt_id = await _create_receipt(client, headers_b, fn="match-other-user")
+
+    resp = await client.post(
+        "/api/v1/reconciliation/match",
+        json={"transaction_id": tx_id, "receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
