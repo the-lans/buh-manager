@@ -3,7 +3,9 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import Query
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from app.utils.dt import normalize_to_utc
 
 
 class TransactionCreate(BaseModel):
@@ -19,6 +21,16 @@ class TransactionCreate(BaseModel):
     description: str | None = None
     balance_after: Decimal | None = None
 
+    @field_validator("occurred_at", mode="after")
+    @classmethod
+    def normalize_occurred_at(cls, v: datetime) -> datetime:
+        return normalize_to_utc(v)
+
+    @field_validator("processed_at", mode="after")
+    @classmethod
+    def normalize_processed_at(cls, v: datetime | None) -> datetime | None:
+        return normalize_to_utc(v) if v is not None else None
+
 
 class TransactionUpdate(BaseModel):
     occurred_at: datetime | None = None
@@ -28,6 +40,11 @@ class TransactionUpdate(BaseModel):
     expense_type_id: str | None = None
     description: str | None = None
     reconciled_status: str | None = None
+
+    @field_validator("occurred_at", mode="after")
+    @classmethod
+    def normalize_occurred_at(cls, v: datetime | None) -> datetime | None:
+        return normalize_to_utc(v) if v is not None else None
 
 
 class TransactionRead(BaseModel):

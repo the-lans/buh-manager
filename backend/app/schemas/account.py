@@ -3,7 +3,9 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from app.utils.dt import normalize_to_utc
 
 
 class AccountCreate(BaseModel):
@@ -35,3 +37,8 @@ class AccountBalanceInit(BaseModel):
     amount: Decimal
     recorded_at: datetime
     source: Literal["OPENING", "CLOSING"]
+
+    @field_validator("recorded_at", mode="after")
+    @classmethod
+    def normalize_recorded_at(cls, v: datetime) -> datetime:
+        return normalize_to_utc(v)
