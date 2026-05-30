@@ -21,13 +21,18 @@ async def test_create_api_key(client: AsyncClient, auth_headers: dict[str, str])
     )
     assert resp.status_code == 201
     data = resp.json()
+
     assert data["name"] == "My integration key"
-    assert "key" in data
-    assert data["key"].startswith("bm_")
-    assert len(data["key_prefix"]) == 8
-    assert "id" in data
     assert data["is_active"] is True
     assert set(data["scopes"]) == {ApiKeyScope.READ_RECEIPTS, ApiKeyScope.WRITE_RECEIPTS}
+    assert "id" in data
+
+    # Key format: "bm_" prefix + random, ≥ 36 chars, key_prefix is the first 8 random chars
+    key: str = data["key"]
+    assert key.startswith("bm_")
+    assert len(key) >= 36
+    assert len(data["key_prefix"]) == 8
+    assert key[3:11] == data["key_prefix"]
 
 
 @pytest.mark.asyncio
@@ -136,32 +141,171 @@ async def test_delete_nonexistent_key_returns_404(
     assert resp.status_code == 404
 
 
+# ── Validation tests ─────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", [
+    {"name": "", "scopes": ["read:receipts"]},
+    {"name": "   ", "scopes": ["read:receipts"]},
+    {"name": "valid", "scopes": []},
+    {"scopes": ["read:receipts"]},  # missing required name
+    {"name": "valid", "scopes": ["read:receipts"], "expires_at": "2020-01-01T00:00:00"},
+])
+async def test_create_api_key_invalid_input(
+    body: dict,
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    resp = await client.post("/api/v1/api-keys", json=body, headers=auth_headers)
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("patch_body", [
+    {"name": ""},
+    {"name": "   "},
+    {"scopes": []},
+])
+async def test_update_api_key_invalid_input(
+    patch_body: dict,
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/api-keys",
+        json={"name": "Valid key", "scopes": [ApiKeyScope.READ_RECEIPTS]},
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    key_id = create_resp.json()["id"]
+
+    resp = await client.patch(
+        f"/api/v1/api-keys/{key_id}",
+        json=patch_body,
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
+
+
+# ── Access control tests ──────────────────────────────────────────────────────
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "method,path,body",
+    "method,path_template,extra_kwargs",
     [
-        ("get", "/api/v1/api-keys", None),
+        ("get", "/api/v1/api-keys", {}),
         (
             "post",
             "/api/v1/api-keys",
-            {"name": "sub-key", "scopes": [ApiKeyScope.READ_DOCUMENTS]},
+            {"json": {"name": "sub-key", "scopes": [ApiKeyScope.READ_DOCUMENTS]}},
         ),
     ],
 )
 async def test_api_key_management_requires_jwt(
     method: str,
-    path: str,
-    body: dict | None,
+    path_template: str,
+    extra_kwargs: dict,
     client: AsyncClient,
     test_user: User,
     make_api_key_in_db: Callable[..., str],
 ) -> None:
     plaintext = make_api_key_in_db(test_user.id, [ApiKeyScope.READ_DOCUMENTS])
     api_key_headers = {"Authorization": f"Bearer {plaintext}"}
-
-    kwargs: dict = {}
-    if body is not None:
-        kwargs["json"] = body
-
-    resp = await getattr(client, method)(path, headers=api_key_headers, **kwargs)
+    resp = await getattr(client, method)(path_template, headers=api_key_headers, **extra_kwargs)
     assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "method,extra_kwargs",
+    [
+        ("patch", {"json": {"name": "Hacked"}}),
+        ("delete", {}),
+    ],
+)
+async def test_user_cannot_manage_another_users_key(
+    method: str,
+    extra_kwargs: dict,
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    second_auth_headers: dict[str, str],
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/api-keys",
+        json={"name": "Owner's key", "scopes": [ApiKeyScope.READ_RECEIPTS]},
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    key_id = create_resp.json()["id"]
+
+    resp = await getattr(client, method)(
+        f"/api/v1/api-keys/{key_id}",
+        headers=second_auth_headers,
+        **extra_kwargs,
+    )
+    assert resp.status_code == 404
+
+
+# ── End-to-end lifecycle test ─────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_api_key_full_lifecycle(
+    client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    """Simulates a user creating, using, deactivating, reactivating, and deleting a key."""
+    # 1. Create key via JWT auth
+    create_resp = await client.post(
+        "/api/v1/api-keys",
+        json={"name": "Lifecycle key", "scopes": [ApiKeyScope.READ_RECEIPTS]},
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    key_id: str = create_resp.json()["id"]
+    key: str = create_resp.json()["key"]
+    api_headers = {"Authorization": f"Bearer {key}"}
+
+    # 2. Key works for the granted scope
+    resp = await client.get("/api/v1/receipts", headers=api_headers)
+    assert resp.status_code == 200
+
+    # 3. Key does NOT work for a scope it was not granted
+    resp = await client.get("/api/v1/transactions", headers=api_headers)
+    assert resp.status_code == 403
+
+    # 4. Deactivate key
+    resp = await client.patch(
+        f"/api/v1/api-keys/{key_id}",
+        json={"is_active": False},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_active"] is False
+
+    # 5. Deactivated key returns 401
+    resp = await client.get("/api/v1/receipts", headers=api_headers)
+    assert resp.status_code == 401
+
+    # 6. Reactivate key
+    resp = await client.patch(
+        f"/api/v1/api-keys/{key_id}",
+        json={"is_active": True},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_active"] is True
+
+    # 7. Key works again after reactivation
+    resp = await client.get("/api/v1/receipts", headers=api_headers)
+    assert resp.status_code == 200
+
+    # 8. Delete key
+    resp = await client.delete(f"/api/v1/api-keys/{key_id}", headers=auth_headers)
+    assert resp.status_code == 204
+
+    # 9. Key returns 401 after deletion
+    resp = await client.get("/api/v1/receipts", headers=api_headers)
+    assert resp.status_code == 401
+
+    # 10. Key no longer appears in list
+    list_resp = await client.get("/api/v1/api-keys", headers=auth_headers)
+    assert list_resp.json() == []
