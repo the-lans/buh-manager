@@ -4,6 +4,8 @@ import pytest
 from httpx import AsyncClient
 from sqlmodel import Session
 
+from app.constants import DocumentStatus, DocumentType
+from app.models.document import Document
 from app.models.user import User
 from app.utils.dt import utcnow
 from tests.conftest import make_jwt
@@ -191,6 +193,31 @@ async def test_user_b_cannot_access_user_a_receipt(
 
     # User B tries to access user A's receipt
     resp = await client.get(f"/api/v1/receipts/{receipt_id}", headers=headers_b)
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_create_receipt_with_foreign_document_id_returns_404(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    second_test_user: User,
+    session: Session,
+) -> None:
+    doc = Document(
+        user_id=second_test_user.id,
+        type=DocumentType.RECEIPT,
+        url="/media/fake/foreign.pdf",
+        name="foreign.pdf",
+        status=DocumentStatus.PENDING,
+        file_hash="foreign-doc-hash-unique",
+    )
+    session.add(doc)
+    session.commit()
+
+    payload = _receipt_payload(fn=None, fd=None, fpd=None)
+    payload["document_id"] = str(doc.id)
+
+    resp = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
     assert resp.status_code == 404
 
 
