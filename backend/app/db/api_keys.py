@@ -66,4 +66,3 @@ def delete_api_key(*, session: Session, api_key: ApiKey) -> None:
 def touch_last_used(*, session: Session, api_key: ApiKey) -> None:
     api_key.last_used_at = datetime.utcnow()
     session.add(api_key)
-    session.commit()

@@ -1,6 +1,8 @@
-from collections.abc import Generator
+import hashlib
+import secrets
+from collections.abc import Callable, Generator
 from datetime import datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -11,7 +13,9 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.config import settings
+from app.constants import API_KEY_PREFIX, API_KEY_PREFIX_LENGTH, API_KEY_RANDOM_BYTES
 from app.database import get_session
+from app.db.api_keys import create_api_key
 from app.main import app
 from app.models.account import Account
 from app.models.user import User
@@ -123,3 +127,32 @@ async def client(engine: Engine) -> AsyncClient:
 def auth_headers(test_user: User) -> dict[str, str]:
     token = make_jwt(str(test_user.id))
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture()
+def make_api_key_in_db(session: Session) -> Callable[..., str]:
+    def _inner(
+        user_id: UUID,
+        scopes: list[str],
+        *,
+        is_active: bool = True,
+        expires_at: datetime | None = None,
+    ) -> str:
+        random_part = secrets.token_urlsafe(API_KEY_RANDOM_BYTES)
+        plaintext = f"{API_KEY_PREFIX}{random_part}"
+        key_hash = hashlib.sha256(plaintext.encode()).hexdigest()
+        key_prefix = random_part[:API_KEY_PREFIX_LENGTH]
+        api_key_obj = create_api_key(
+            session=session,
+            user_id=user_id,
+            name="test key",
+            key_hash=key_hash,
+            key_prefix=key_prefix,
+            scopes=scopes,
+            expires_at=expires_at,
+        )
+        api_key_obj.is_active = is_active
+        session.commit()
+        return plaintext
+
+    return _inner

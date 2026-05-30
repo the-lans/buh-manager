@@ -1,44 +1,16 @@
-import hashlib
 import json
-import secrets
-from datetime import datetime, timedelta
+from collections.abc import Callable
+from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlmodel import Session
 
 from app.constants import ApiKeyScope
-from app.db.api_keys import create_api_key
 from app.models.user import User
 
 
-def _make_api_key_in_db(
-    session: Session,
-    user_id,
-    scopes: list[str],
-    *,
-    is_active: bool = True,
-    expires_at: datetime | None = None,
-) -> str:
-    plaintext = f"bm_{secrets.token_urlsafe(32)}"
-    key_hash = hashlib.sha256(plaintext.encode()).hexdigest()
-    key_prefix = plaintext[3:11]
-    api_key_obj = create_api_key(
-        session=session,
-        user_id=user_id,
-        name="test key",
-        key_hash=key_hash,
-        key_prefix=key_prefix,
-        scopes=scopes,
-        expires_at=expires_at,
-    )
-    api_key_obj.is_active = is_active
-    session.commit()
-    return plaintext
-
-
 @pytest.mark.asyncio
-async def test_create_api_key(client: AsyncClient, auth_headers: dict, test_user: User) -> None:
+async def test_create_api_key(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     resp = await client.post(
         "/api/v1/api-keys",
         json={
@@ -59,7 +31,9 @@ async def test_create_api_key(client: AsyncClient, auth_headers: dict, test_user
 
 
 @pytest.mark.asyncio
-async def test_created_key_not_in_list(client: AsyncClient, auth_headers: dict, test_user: User) -> None:
+async def test_created_key_not_in_list(
+    client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
     create_resp = await client.post(
         "/api/v1/api-keys",
         json={"name": "Secret key", "scopes": [ApiKeyScope.READ_DOCUMENTS]},
@@ -74,19 +48,20 @@ async def test_created_key_not_in_list(client: AsyncClient, auth_headers: dict, 
     assert len(keys) == 1
     assert "key" not in keys[0]
     assert keys[0]["name"] == "Secret key"
-    # confirm plaintext is not in response
     assert created_key_value not in json.dumps(keys)
 
 
 @pytest.mark.asyncio
-async def test_list_api_keys_empty(client: AsyncClient, auth_headers: dict) -> None:
+async def test_list_api_keys_empty(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     resp = await client.get("/api/v1/api-keys", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json() == []
 
 
 @pytest.mark.asyncio
-async def test_user_can_create_multiple_keys(client: AsyncClient, auth_headers: dict) -> None:
+async def test_user_can_create_multiple_keys(
+    client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
     for i in range(3):
         resp = await client.post(
             "/api/v1/api-keys",
@@ -100,7 +75,7 @@ async def test_user_can_create_multiple_keys(client: AsyncClient, auth_headers: 
 
 
 @pytest.mark.asyncio
-async def test_update_api_key(client: AsyncClient, auth_headers: dict) -> None:
+async def test_update_api_key(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     create_resp = await client.post(
         "/api/v1/api-keys",
         json={"name": "Old name", "scopes": [ApiKeyScope.READ_DOCUMENTS]},
@@ -120,7 +95,7 @@ async def test_update_api_key(client: AsyncClient, auth_headers: dict) -> None:
 
 
 @pytest.mark.asyncio
-async def test_deactivate_api_key(client: AsyncClient, auth_headers: dict) -> None:
+async def test_deactivate_api_key(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     create_resp = await client.post(
         "/api/v1/api-keys",
         json={"name": "Active key", "scopes": [ApiKeyScope.READ_DOCUMENTS]},
@@ -138,7 +113,7 @@ async def test_deactivate_api_key(client: AsyncClient, auth_headers: dict) -> No
 
 
 @pytest.mark.asyncio
-async def test_delete_api_key(client: AsyncClient, auth_headers: dict) -> None:
+async def test_delete_api_key(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     create_resp = await client.post(
         "/api/v1/api-keys",
         json={"name": "To delete", "scopes": [ApiKeyScope.READ_DOCUMENTS]},
@@ -154,27 +129,39 @@ async def test_delete_api_key(client: AsyncClient, auth_headers: dict) -> None:
 
 
 @pytest.mark.asyncio
-async def test_delete_nonexistent_key_returns_404(client: AsyncClient, auth_headers: dict) -> None:
-    from uuid import uuid4
+async def test_delete_nonexistent_key_returns_404(
+    client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
     resp = await client.delete(f"/api/v1/api-keys/{uuid4()}", headers=auth_headers)
     assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "method,path,body",
+    [
+        ("get", "/api/v1/api-keys", None),
+        (
+            "post",
+            "/api/v1/api-keys",
+            {"name": "sub-key", "scopes": [ApiKeyScope.READ_DOCUMENTS]},
+        ),
+    ],
+)
 async def test_api_key_management_requires_jwt(
-    client: AsyncClient, session: Session, test_user: User
+    method: str,
+    path: str,
+    body: dict | None,
+    client: AsyncClient,
+    test_user: User,
+    make_api_key_in_db: Callable[..., str],
 ) -> None:
-    plaintext = _make_api_key_in_db(
-        session, test_user.id, [ApiKeyScope.READ_DOCUMENTS]
-    )
+    plaintext = make_api_key_in_db(test_user.id, [ApiKeyScope.READ_DOCUMENTS])
     api_key_headers = {"Authorization": f"Bearer {plaintext}"}
 
-    resp = await client.get("/api/v1/api-keys", headers=api_key_headers)
-    assert resp.status_code == 403
+    kwargs: dict = {}
+    if body is not None:
+        kwargs["json"] = body
 
-    resp = await client.post(
-        "/api/v1/api-keys",
-        json={"name": "sub-key", "scopes": [ApiKeyScope.READ_DOCUMENTS]},
-        headers=api_key_headers,
-    )
+    resp = await getattr(client, method)(path, headers=api_key_headers, **kwargs)
     assert resp.status_code == 403

@@ -12,6 +12,7 @@ from jose import JWTError, jwt
 from sqlmodel import Session
 
 from app.config import settings
+from app.constants import API_KEY_PREFIX, API_KEY_PREFIX_LENGTH, API_KEY_RANDOM_BYTES
 from app.database import get_session
 from app.db.api_keys import get_api_key_by_hash, touch_last_used
 from app.db.users import get_user_by_id
@@ -40,7 +41,7 @@ def get_auth_context(
 ) -> AuthContext:
     token = credentials.credentials
 
-    if token.startswith("bm_"):
+    if token.startswith(API_KEY_PREFIX):
         return _auth_via_api_key(token, session)
 
     return _auth_via_jwt(token, session)
@@ -102,7 +103,7 @@ def get_current_user_jwt_only(ctx: AuthContext = Depends(get_auth_context)) -> U
     return ctx.user
 
 
-def require_scope(scope: str) -> Callable:
+def require_scope(scope: str) -> Callable[..., None]:
     def _check(ctx: AuthContext = Depends(get_auth_context)) -> None:
         if ctx.scopes is not None and scope not in ctx.scopes:
             raise HTTPException(
@@ -115,8 +116,8 @@ def require_scope(scope: str) -> Callable:
 
 def generate_api_key() -> tuple[str, str, str]:
     """Returns (plaintext_key, key_hash, key_prefix)."""
-    random_part = secrets.token_urlsafe(32)
-    key = f"bm_{random_part}"
+    random_part = secrets.token_urlsafe(API_KEY_RANDOM_BYTES)
+    key = f"{API_KEY_PREFIX}{random_part}"
     key_hash = hashlib.sha256(key.encode()).hexdigest()
-    key_prefix = random_part[:8]
+    key_prefix = random_part[:API_KEY_PREFIX_LENGTH]
     return key, key_hash, key_prefix
