@@ -111,3 +111,26 @@ async def test_resolve_conflict_nonexistent(
         headers=auth_headers,
     )
     assert resp.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"action": "KEEP_OLD"},
+        {"action": "UPDATE_FROM_NEW", "incoming_amount": "-50.0"},
+    ],
+)
+@pytest.mark.asyncio
+async def test_resolve_conflict_non_conflict_status_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    payload: dict,
+) -> None:
+    tx_id = await _make_tx(client, auth_headers, str(test_account.id))
+    resp = await client.post(
+        "/api/v1/reconciliation/resolve-conflict",
+        json={"transaction_id": tx_id, **payload},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 409

@@ -4,7 +4,7 @@ import pytest
 from httpx import AsyncClient
 from sqlmodel import Session
 
-from app.constants import ImportStatus
+from app.constants import ImportStatus, ReconciledStatus
 from app.models.account import Account
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -281,6 +281,62 @@ async def test_ignore_nonexistent_transaction(
         headers=auth_headers,
     )
     assert resp.status_code == status_code
+
+
+@pytest.mark.asyncio
+async def test_manual_match_already_matched_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    tx_id = await _create_transaction(client, auth_headers, str(test_account.id))
+    receipt_id_1 = await _create_receipt(client, auth_headers, fn="match-409-r1")
+    receipt_id_2 = await _create_receipt(client, auth_headers, fn="match-409-r2")
+
+    first = await client.post(
+        "/api/v1/reconciliation/match",
+        json={"transaction_id": tx_id, "receipt_id": receipt_id_1},
+        headers=auth_headers,
+    )
+    assert first.status_code == 200
+
+    second = await client.post(
+        "/api/v1/reconciliation/match",
+        json={"transaction_id": tx_id, "receipt_id": receipt_id_2},
+        headers=auth_headers,
+    )
+    assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_ignore_clears_receipt_id(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    session: Session,
+) -> None:
+    tx_id = await _create_transaction(client, auth_headers, str(test_account.id))
+    receipt_id = await _create_receipt(client, auth_headers, fn="ignore-clear-r1")
+
+    match_resp = await client.post(
+        "/api/v1/reconciliation/match",
+        json={"transaction_id": tx_id, "receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+    assert match_resp.status_code == 200
+
+    ignore_resp = await client.post(
+        "/api/v1/reconciliation/ignore",
+        json={"transaction_id": tx_id},
+        headers=auth_headers,
+    )
+    assert ignore_resp.status_code == 200
+
+    tx = session.get(Transaction, UUID(tx_id))
+    session.refresh(tx)
+    assert tx is not None
+    assert tx.receipt_id is None
+    assert tx.reconciled_status == ReconciledStatus.IGNORED_BY_USER
 
 
 @pytest.mark.asyncio
