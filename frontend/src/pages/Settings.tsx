@@ -70,7 +70,7 @@ function AccountsTab() {
 
   const handleInitBalance = async () => {
     if (!initForm) return
-    await accountsApi.initBalance(initForm.id, Number(initForm.amount), initForm.recorded_at, initForm.source)
+    await accountsApi.initBalance(initForm.id, Number(initForm.amount), localInputToUtcIso(initForm.recorded_at), initForm.source)
     await qc.invalidateQueries({ queryKey: ['accounts'] })
     setInitForm(null)
   }

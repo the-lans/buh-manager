@@ -2,7 +2,9 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from app.utils.dt import normalize_to_utc
 
 
 class ReceiptItemCreate(BaseModel):
@@ -25,6 +27,11 @@ class ReceiptCreate(BaseModel):
     fpd: str | None = None
     items: list[ReceiptItemCreate] = []
 
+    @field_validator("paid_at", mode="after")
+    @classmethod
+    def normalize_paid_at(cls, v: datetime) -> datetime:
+        return normalize_to_utc(v)
+
 
 class ReceiptUpdate(BaseModel):
     counterparty_name: str | None = None
@@ -33,6 +40,11 @@ class ReceiptUpdate(BaseModel):
     fn: str | None = None
     fd: str | None = None
     fpd: str | None = None
+
+    @field_validator("paid_at", mode="after")
+    @classmethod
+    def normalize_paid_at(cls, v: datetime | None) -> datetime | None:
+        return normalize_to_utc(v) if v is not None else None
 
 
 class ReceiptItemRead(BaseModel):

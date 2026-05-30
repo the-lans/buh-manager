@@ -2,7 +2,9 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from app.utils.dt import normalize_to_utc
 
 
 class BankStatementTransactionIn(BaseModel):
@@ -16,6 +18,16 @@ class BankStatementTransactionIn(BaseModel):
     description: str | None = None
     balance_after: Decimal | None = None
 
+    @field_validator("occurred_at", mode="after")
+    @classmethod
+    def normalize_occurred_at(cls, v: datetime) -> datetime:
+        return normalize_to_utc(v)
+
+    @field_validator("processed_at", mode="after")
+    @classmethod
+    def normalize_processed_at(cls, v: datetime | None) -> datetime | None:
+        return normalize_to_utc(v) if v is not None else None
+
 
 class BankStatementCreate(BaseModel):
     document_id: UUID
@@ -25,6 +37,11 @@ class BankStatementCreate(BaseModel):
     opening_balance: Decimal | None = None
     closing_balance: Decimal | None = None
     transactions: list[BankStatementTransactionIn]
+
+    @field_validator("statement_start", "statement_end", mode="after")
+    @classmethod
+    def normalize_period(cls, v: datetime) -> datetime:
+        return normalize_to_utc(v)
 
 
 class ImportSummary(BaseModel):
