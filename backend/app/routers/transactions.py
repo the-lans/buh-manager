@@ -102,7 +102,6 @@ def create_transaction_endpoint(
     return TransactionRead.model_validate(tx)
 
 
-
 @router.put(
     "/{transaction_id}",
     response_model=TransactionRead,
@@ -114,7 +113,9 @@ def update_transaction_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> TransactionRead:
-    tx = get_transaction_by_id(session=session, transaction_id=transaction_id, user_id=current_user.id)
+    tx = get_transaction_by_id(
+        session=session, transaction_id=transaction_id, user_id=current_user.id
+    )
     tx = get_or_404(tx, "Transaction not found.")
 
     before = {"amount": str(tx.amount), "occurred_at": str(tx.occurred_at)}
@@ -143,7 +144,9 @@ def delete_transaction_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> None:
-    tx = get_transaction_by_id(session=session, transaction_id=transaction_id, user_id=current_user.id)
+    tx = get_transaction_by_id(
+        session=session, transaction_id=transaction_id, user_id=current_user.id
+    )
     tx = get_or_404(tx, "Transaction not found.")
 
     audit_delete(
@@ -154,3 +157,4 @@ def delete_transaction_endpoint(
         before={"amount": str(tx.amount), "occurred_at": str(tx.occurred_at)},
     )
     delete_transaction(session=session, transaction=tx)
+    session.commit()

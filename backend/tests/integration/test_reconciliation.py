@@ -15,7 +15,12 @@ async def _create_transaction(
 ) -> str:
     resp = await client.post(
         "/api/v1/transactions",
-        json={"account_id": account_id, "occurred_at": occurred, "amount": amount, "type": "EXPENSE"},
+        json={
+            "account_id": account_id,
+            "occurred_at": occurred,
+            "amount": amount,
+            "type": "EXPENSE",
+        },
         headers=headers,
     )
     assert resp.status_code == 201
@@ -157,8 +162,12 @@ async def test_collision_two_txs_one_amount(
     test_account: Account,
 ) -> None:
     # 2 transactions with same amount + 1 receipt → collision
-    await _create_transaction(client, auth_headers, str(test_account.id), -200.0, "2024-01-05T10:00:00")
-    await _create_transaction(client, auth_headers, str(test_account.id), -200.0, "2024-01-05T11:00:00")
+    await _create_transaction(
+        client, auth_headers, str(test_account.id), -200.0, "2024-01-05T10:00:00"
+    )
+    await _create_transaction(
+        client, auth_headers, str(test_account.id), -200.0, "2024-01-05T11:00:00"
+    )
     await _create_receipt(client, auth_headers, 200.0, "2024-01-05T10:30:00")
 
     run_resp = await client.post("/api/v1/reconciliation/run", headers=auth_headers)
@@ -180,10 +189,10 @@ async def test_unmatched_receipt_no_transaction(
 
 
 @pytest.mark.parametrize(
-    "action, expected_status",
+    "payload, expected_status",
     [
-        ("KEEP_OLD", "resolved"),
-        ("UPDATE_FROM_NEW", "resolved"),
+        ({"action": "KEEP_OLD"}, "resolved"),
+        ({"action": "UPDATE_FROM_NEW", "incoming_amount": "-101.00"}, "resolved"),
     ],
 )
 @pytest.mark.asyncio
@@ -191,13 +200,13 @@ async def test_resolve_conflict(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
-    action: str,
+    payload: dict[str, str],
     expected_status: str,
 ) -> None:
     tx_id = await _create_transaction(client, auth_headers, str(test_account.id))
     resp = await client.post(
         "/api/v1/reconciliation/resolve-conflict",
-        json={"transaction_id": tx_id, "action": action},
+        json={"transaction_id": tx_id, **payload},
         headers=auth_headers,
     )
     assert resp.status_code == 200

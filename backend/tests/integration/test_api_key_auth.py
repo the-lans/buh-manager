@@ -88,10 +88,13 @@ async def test_nonexistent_api_key_returns_401(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("path", [
-    "/api/v1/receipts",
-    "/api/v1/transactions",
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/v1/receipts",
+        "/api/v1/transactions",
+    ],
+)
 async def test_jwt_bypasses_scope_check(
     client: AsyncClient, auth_headers: dict[str, str], path: str
 ) -> None:
@@ -106,17 +109,15 @@ async def test_api_key_last_used_updated(
     test_user: User,
     make_api_key_in_db: Callable[..., str],
 ) -> None:
-    key = make_api_key_in_db(test_user.id, [ApiKeyScope.WRITE_COUNTERPARTIES])
+    key = make_api_key_in_db(test_user.id, [ApiKeyScope.READ_RECEIPTS])
     key_hash = hashlib.sha256(key.encode()).hexdigest()
 
     api_key_obj = session.exec(select(ApiKey).where(ApiKey.key_hash == key_hash)).first()
     assert api_key_obj is not None
     assert api_key_obj.last_used_at is None
 
-    # Use a write endpoint so the request session commits, persisting last_used_at.
-    await client.post(
-        "/api/v1/counterparties",
-        json={"name": "Test counterparty"},
+    await client.get(
+        "/api/v1/receipts",
         headers={"Authorization": f"Bearer {key}"},
     )
 
