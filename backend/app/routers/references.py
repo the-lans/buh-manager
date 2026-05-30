@@ -22,7 +22,8 @@ from app.db.expense_types import (
     list_expense_types,
     update_expense_type,
 )
-from app.dependencies.auth import get_current_user
+from app.constants import ApiKeyScope
+from app.dependencies.auth import get_current_user, require_scope
 from app.models.user import User
 from app.schemas.account import (
     AccountBalanceInit,
@@ -39,7 +40,11 @@ router = APIRouter(tags=["references"])
 
 # ── Accounts ────────────────────────────────────────────────────────────────
 
-@router.get("/accounts", response_model=list[AccountRead])
+@router.get(
+    "/accounts",
+    response_model=list[AccountRead],
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_ACCOUNTS))],
+)
 def list_accounts_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -53,7 +58,12 @@ def list_accounts_endpoint(
     return result
 
 
-@router.post("/accounts", response_model=AccountRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/accounts",
+    response_model=AccountRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_ACCOUNTS))],
+)
 def create_account_endpoint(
     data: AccountCreate,
     session: Session = Depends(get_session),
@@ -65,7 +75,11 @@ def create_account_endpoint(
     return read
 
 
-@router.put("/accounts/{account_id}", response_model=AccountRead)
+@router.put(
+    "/accounts/{account_id}",
+    response_model=AccountRead,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_ACCOUNTS))],
+)
 def update_account_endpoint(
     account_id: UUID,
     data: AccountUpdate,
@@ -83,7 +97,11 @@ def update_account_endpoint(
     return read
 
 
-@router.delete("/accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/accounts/{account_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_ACCOUNTS))],
+)
 def delete_account_endpoint(
     account_id: UUID,
     session: Session = Depends(get_session),
@@ -97,7 +115,11 @@ def delete_account_endpoint(
     delete_account(session=session, account=account)
 
 
-@router.post("/accounts/{account_id}/initialize-balance", response_model=dict[str, str])
+@router.post(
+    "/accounts/{account_id}/initialize-balance",
+    response_model=dict[str, str],
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_ACCOUNTS))],
+)
 def initialize_balance_endpoint(
     account_id: UUID,
     data: AccountBalanceInit,
@@ -130,7 +152,11 @@ def initialize_balance_endpoint(
 
 # ── Expense Types ────────────────────────────────────────────────────────────
 
-@router.get("/expense-types", response_model=list[ExpenseTypeRead])
+@router.get(
+    "/expense-types",
+    response_model=list[ExpenseTypeRead],
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_EXPENSE_TYPES))],
+)
 def list_expense_types_endpoint(
     session: Session = Depends(get_session),
     _current_user: User = Depends(get_current_user),
@@ -138,7 +164,12 @@ def list_expense_types_endpoint(
     return [ExpenseTypeRead.model_validate(et) for et in list_expense_types(session=session)]
 
 
-@router.post("/expense-types", response_model=ExpenseTypeRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/expense-types",
+    response_model=ExpenseTypeRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_EXPENSE_TYPES))],
+)
 def create_expense_type_endpoint(
     data: ExpenseTypeCreate,
     session: Session = Depends(get_session),
@@ -148,7 +179,11 @@ def create_expense_type_endpoint(
     return ExpenseTypeRead.model_validate(et)
 
 
-@router.put("/expense-types/{expense_type_id}", response_model=ExpenseTypeRead)
+@router.put(
+    "/expense-types/{expense_type_id}",
+    response_model=ExpenseTypeRead,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_EXPENSE_TYPES))],
+)
 def update_expense_type_endpoint(
     expense_type_id: str,
     data: ExpenseTypeUpdate,
@@ -162,7 +197,11 @@ def update_expense_type_endpoint(
     return ExpenseTypeRead.model_validate(et)
 
 
-@router.delete("/expense-types/{expense_type_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/expense-types/{expense_type_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_EXPENSE_TYPES))],
+)
 def delete_expense_type_endpoint(
     expense_type_id: str,
     session: Session = Depends(get_session),
@@ -176,7 +215,11 @@ def delete_expense_type_endpoint(
 
 # ── Counterparties ───────────────────────────────────────────────────────────
 
-@router.get("/counterparties", response_model=list[CounterpartyRead])
+@router.get(
+    "/counterparties",
+    response_model=list[CounterpartyRead],
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_COUNTERPARTIES))],
+)
 def list_counterparties_endpoint(
     session: Session = Depends(get_session),
     _current_user: User = Depends(get_current_user),
@@ -184,7 +227,12 @@ def list_counterparties_endpoint(
     return [CounterpartyRead.model_validate(c) for c in list_counterparties(session=session)]
 
 
-@router.post("/counterparties", response_model=CounterpartyRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/counterparties",
+    response_model=CounterpartyRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_COUNTERPARTIES))],
+)
 def create_counterparty_endpoint(
     data: CounterpartyCreate,
     session: Session = Depends(get_session),
@@ -199,7 +247,12 @@ def create_counterparty_endpoint(
 
 # ── Exchange Rates ───────────────────────────────────────────────────────────
 
-@router.post("/exchange-rates", response_model=ExchangeRateRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/exchange-rates",
+    response_model=ExchangeRateRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_EXCHANGE_RATES))],
+)
 def create_exchange_rate_endpoint(
     data: ExchangeRateCreate,
     session: Session = Depends(get_session),
@@ -209,7 +262,11 @@ def create_exchange_rate_endpoint(
     return ExchangeRateRead.model_validate(rate)
 
 
-@router.get("/exchange-rates/latest", response_model=list[ExchangeRateRead])
+@router.get(
+    "/exchange-rates/latest",
+    response_model=list[ExchangeRateRead],
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_EXCHANGE_RATES))],
+)
 def get_latest_rates_endpoint(
     session: Session = Depends(get_session),
     _current_user: User = Depends(get_current_user),

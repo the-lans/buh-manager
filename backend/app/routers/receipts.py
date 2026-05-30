@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from app.constants import AuditEntityType, ChangedBy, DocumentStatus
+from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, DocumentStatus
 from app.database import get_session
 from app.db.counterparties import get_or_create_counterparty
 from app.db.documents import get_document_by_id, update_document_status
@@ -17,7 +17,7 @@ from app.db.receipts import (
     get_receipts_for_user,
     update_receipt,
 )
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_scope
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
 from app.models.user import User
@@ -34,7 +34,12 @@ from app.services.audit import audit_create, audit_delete, audit_update
 router = APIRouter(prefix="/receipts", tags=["receipts"])
 
 
-@router.post("", response_model=ReceiptRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ReceiptRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_RECEIPTS))],
+)
 def create_receipt_endpoint(
     data: ReceiptCreate,
     session: Session = Depends(get_session),
@@ -83,7 +88,11 @@ def create_receipt_endpoint(
     return _build_receipt_read(receipt, items)
 
 
-@router.get("", response_model=list[ReceiptListItem])
+@router.get(
+    "",
+    response_model=list[ReceiptListItem],
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_RECEIPTS))],
+)
 def list_receipts(
     pagination: PaginationParams = Depends(),
     session: Session = Depends(get_session),
@@ -98,7 +107,11 @@ def list_receipts(
     return [ReceiptListItem.model_validate(r) for r in receipts]
 
 
-@router.get("/{receipt_id}", response_model=ReceiptRead)
+@router.get(
+    "/{receipt_id}",
+    response_model=ReceiptRead,
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_RECEIPTS))],
+)
 def get_receipt(
     receipt_id: UUID,
     session: Session = Depends(get_session),
@@ -113,7 +126,11 @@ def get_receipt(
     return _build_receipt_read(receipt, items)
 
 
-@router.put("/{receipt_id}", response_model=ReceiptRead)
+@router.put(
+    "/{receipt_id}",
+    response_model=ReceiptRead,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_RECEIPTS))],
+)
 def update_receipt_endpoint(
     receipt_id: UUID,
     data: ReceiptUpdate,
@@ -152,7 +169,11 @@ def update_receipt_endpoint(
     return _build_receipt_read(receipt, items)
 
 
-@router.delete("/{receipt_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{receipt_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_RECEIPTS))],
+)
 def delete_receipt_endpoint(
     receipt_id: UUID,
     session: Session = Depends(get_session),

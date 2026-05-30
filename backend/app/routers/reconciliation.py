@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from app.constants import AuditEntityType, ChangedBy, ImportStatus, ReconciledStatus
+from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, ImportStatus, ReconciledStatus
 from app.database import get_session
 from app.db.reconciliation_reports import get_last_report
 from app.db.transactions import get_transaction_by_id, update_transaction_receipt_link
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_scope
 from app.models.user import User
 from app.schemas.reconciliation import (
     IgnoreRequest,
@@ -19,7 +19,11 @@ from app.services.reconciliation import run_reconciliation
 router = APIRouter(prefix="/reconciliation", tags=["reconciliation"])
 
 
-@router.post("/run", response_model=ReconciliationReport)
+@router.post(
+    "/run",
+    response_model=ReconciliationReport,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_RECONCILIATION))],
+)
 def run_reconciliation_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -27,7 +31,11 @@ def run_reconciliation_endpoint(
     return run_reconciliation(session=session, current_user=current_user)
 
 
-@router.get("/report", response_model=ReconciliationReport | None)
+@router.get(
+    "/report",
+    response_model=ReconciliationReport | None,
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_RECONCILIATION))],
+)
 def get_last_report_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -38,7 +46,11 @@ def get_last_report_endpoint(
     return ReconciliationReport.model_validate(data)
 
 
-@router.post("/match", status_code=status.HTTP_200_OK)
+@router.post(
+    "/match",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_RECONCILIATION))],
+)
 def manual_match(
     data: ManualMatchRequest,
     session: Session = Depends(get_session),
@@ -66,7 +78,11 @@ def manual_match(
     return {"status": "matched"}
 
 
-@router.post("/ignore", status_code=status.HTTP_200_OK)
+@router.post(
+    "/ignore",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_RECONCILIATION))],
+)
 def ignore_transaction(
     data: IgnoreRequest,
     session: Session = Depends(get_session),
@@ -93,7 +109,11 @@ def ignore_transaction(
     return {"status": "ignored"}
 
 
-@router.post("/resolve-conflict", status_code=status.HTTP_200_OK)
+@router.post(
+    "/resolve-conflict",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_RECONCILIATION))],
+)
 def resolve_conflict(
     data: ResolveConflictRequest,
     session: Session = Depends(get_session),

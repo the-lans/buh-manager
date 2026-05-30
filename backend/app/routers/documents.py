@@ -4,14 +4,14 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlmodel import Session
 
-from app.constants import DocumentStatus
+from app.constants import ApiKeyScope, DocumentStatus
 from app.database import get_session
 from app.db.documents import (
     create_document,
     get_document_by_id,
     get_documents_for_user,
 )
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_scope
 from app.models.user import User
 from app.schemas.common import PaginationParams
 from app.schemas.document import DocumentListItem, DocumentRead
@@ -22,7 +22,12 @@ from storage.base import StorageProvider
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.post("", response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=DocumentRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_DOCUMENTS))],
+)
 async def upload_document(
     file: UploadFile,
     doc_type: str = Query(default="BANK_STATEMENT"),
@@ -60,7 +65,11 @@ async def upload_document(
     return DocumentRead.model_validate(document)
 
 
-@router.get("", response_model=list[DocumentListItem])
+@router.get(
+    "",
+    response_model=list[DocumentListItem],
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_DOCUMENTS))],
+)
 def list_documents(
     type: str | None = Query(default=None),
     status: str | None = Query(default=None),
@@ -79,7 +88,11 @@ def list_documents(
     return [DocumentListItem.model_validate(d) for d in docs]
 
 
-@router.get("/{document_id}", response_model=DocumentRead)
+@router.get(
+    "/{document_id}",
+    response_model=DocumentRead,
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_DOCUMENTS))],
+)
 def get_document(
     document_id: UUID,
     session: Session = Depends(get_session),
