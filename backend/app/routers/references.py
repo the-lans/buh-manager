@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
+from app.constants import ApiKeyScope
 from app.database import get_session
 from app.db.accounts import (
     create_account,
@@ -22,7 +23,6 @@ from app.db.expense_types import (
     list_expense_types,
     update_expense_type,
 )
-from app.constants import ApiKeyScope
 from app.dependencies.auth import get_current_user, require_scope
 from app.models.user import User
 from app.schemas.account import (
@@ -34,6 +34,7 @@ from app.schemas.account import (
 from app.schemas.counterparty import CounterpartyCreate, CounterpartyRead
 from app.schemas.exchange_rate import ExchangeRateCreate, ExchangeRateRead
 from app.schemas.expense_type import ExpenseTypeCreate, ExpenseTypeRead, ExpenseTypeUpdate
+from app.utils.http import get_or_404
 
 router = APIRouter(tags=["references"])
 
@@ -86,11 +87,8 @@ def update_account_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> AccountRead:
-    account = get_account_by_id(
-        session=session, account_id=account_id, user_id=current_user.id
-    )
-    if account is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
+    account = get_account_by_id(session=session, account_id=account_id, user_id=current_user.id)
+    account = get_or_404(account, "Account not found.")
     account = update_account(session=session, account=account, data=data)
     read = AccountRead.model_validate(account)
     read.has_balances = has_balances_for_account(session=session, account_id=account.id)
@@ -107,11 +105,8 @@ def delete_account_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> None:
-    account = get_account_by_id(
-        session=session, account_id=account_id, user_id=current_user.id
-    )
-    if account is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
+    account = get_account_by_id(session=session, account_id=account_id, user_id=current_user.id)
+    account = get_or_404(account, "Account not found.")
     delete_account(session=session, account=account)
 
 
@@ -191,8 +186,7 @@ def update_expense_type_endpoint(
     _current_user: User = Depends(get_current_user),
 ) -> ExpenseTypeRead:
     et = get_expense_type_by_id(session=session, expense_type_id=expense_type_id)
-    if et is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Expense type not found.")
+    et = get_or_404(et, "Expense type not found.")
     et = update_expense_type(session=session, expense_type=et, data=data)
     return ExpenseTypeRead.model_validate(et)
 
@@ -208,8 +202,7 @@ def delete_expense_type_endpoint(
     _current_user: User = Depends(get_current_user),
 ) -> None:
     et = get_expense_type_by_id(session=session, expense_type_id=expense_type_id)
-    if et is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Expense type not found.")
+    et = get_or_404(et, "Expense type not found.")
     delete_expense_type(session=session, expense_type=et)
 
 

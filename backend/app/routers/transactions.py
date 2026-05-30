@@ -25,6 +25,7 @@ from app.schemas.transaction import (
     TransactionUpdate,
 )
 from app.services.audit import audit_create, audit_delete, audit_update
+from app.utils.http import get_or_404
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -113,11 +114,8 @@ def update_transaction_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> TransactionRead:
-    tx = get_transaction_by_id(
-        session=session, transaction_id=transaction_id, user_id=current_user.id
-    )
-    if tx is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found.")
+    tx = get_transaction_by_id(session=session, transaction_id=transaction_id, user_id=current_user.id)
+    tx = get_or_404(tx, "Transaction not found.")
 
     before = {"amount": str(tx.amount), "occurred_at": str(tx.occurred_at)}
     tx = update_transaction(session=session, transaction=tx, data=data)
@@ -145,11 +143,8 @@ def delete_transaction_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> None:
-    tx = get_transaction_by_id(
-        session=session, transaction_id=transaction_id, user_id=current_user.id
-    )
-    if tx is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found.")
+    tx = get_transaction_by_id(session=session, transaction_id=transaction_id, user_id=current_user.id)
+    tx = get_or_404(tx, "Transaction not found.")
 
     audit_delete(
         session=session,

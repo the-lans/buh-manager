@@ -16,6 +16,7 @@ from app.models.user import User
 from app.schemas.common import PaginationParams
 from app.schemas.document import DocumentListItem, DocumentRead
 from app.services.deduplication import check_document_duplicate, compute_file_hash
+from app.utils.http import get_or_404
 from storage import get_storage_provider
 from storage.base import StorageProvider
 
@@ -98,9 +99,6 @@ def get_document(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> DocumentRead:
-    doc = get_document_by_id(
-        session=session, document_id=document_id, user_id=current_user.id
-    )
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    doc = get_document_by_id(session=session, document_id=document_id, user_id=current_user.id)
+    doc = get_or_404(doc, "Document not found.")
     return DocumentRead.model_validate(doc)

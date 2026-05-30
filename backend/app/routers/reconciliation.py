@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlmodel import Session
 
 from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, ImportStatus, ReconciledStatus
@@ -15,6 +15,7 @@ from app.schemas.reconciliation import (
 )
 from app.services.audit import audit_match, audit_update
 from app.services.reconciliation import run_reconciliation
+from app.utils.http import get_or_404
 
 router = APIRouter(prefix="/reconciliation", tags=["reconciliation"])
 
@@ -56,11 +57,8 @@ def manual_match(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
-    tx = get_transaction_by_id(
-        session=session, transaction_id=data.transaction_id, user_id=current_user.id
-    )
-    if tx is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found.")
+    tx = get_transaction_by_id(session=session, transaction_id=data.transaction_id, user_id=current_user.id)
+    tx = get_or_404(tx, "Transaction not found.")
 
     update_transaction_receipt_link(
         session=session,
@@ -88,11 +86,8 @@ def ignore_transaction(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
-    tx = get_transaction_by_id(
-        session=session, transaction_id=data.transaction_id, user_id=current_user.id
-    )
-    if tx is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found.")
+    tx = get_transaction_by_id(session=session, transaction_id=data.transaction_id, user_id=current_user.id)
+    tx = get_or_404(tx, "Transaction not found.")
 
     before_status = tx.reconciled_status
     tx.reconciled_status = ReconciledStatus.IGNORED_BY_USER
@@ -119,11 +114,8 @@ def resolve_conflict(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
-    tx = get_transaction_by_id(
-        session=session, transaction_id=data.transaction_id, user_id=current_user.id
-    )
-    if tx is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found.")
+    tx = get_transaction_by_id(session=session, transaction_id=data.transaction_id, user_id=current_user.id)
+    tx = get_or_404(tx, "Transaction not found.")
 
     before = {"amount": str(tx.amount), "import_status": str(tx.import_status)}
 

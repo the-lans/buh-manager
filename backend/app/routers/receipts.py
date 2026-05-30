@@ -30,6 +30,7 @@ from app.schemas.receipt import (
     ReceiptUpdate,
 )
 from app.services.audit import audit_create, audit_delete, audit_update
+from app.utils.http import get_or_404
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
 
@@ -117,11 +118,8 @@ def get_receipt(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> ReceiptRead:
-    receipt = get_receipt_by_id(
-        session=session, receipt_id=receipt_id, user_id=current_user.id
-    )
-    if receipt is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receipt not found.")
+    receipt = get_receipt_by_id(session=session, receipt_id=receipt_id, user_id=current_user.id)
+    receipt = get_or_404(receipt, "Receipt not found.")
     items = get_receipt_items(session=session, receipt_id=receipt.id)
     return _build_receipt_read(receipt, items)
 
@@ -137,11 +135,8 @@ def update_receipt_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> ReceiptRead:
-    receipt = get_receipt_by_id(
-        session=session, receipt_id=receipt_id, user_id=current_user.id
-    )
-    if receipt is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receipt not found.")
+    receipt = get_receipt_by_id(session=session, receipt_id=receipt_id, user_id=current_user.id)
+    receipt = get_or_404(receipt, "Receipt not found.")
 
     before = {"total_amount": str(receipt.total_amount), "paid_at": str(receipt.paid_at)}
 
@@ -179,11 +174,8 @@ def delete_receipt_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> None:
-    receipt = get_receipt_by_id(
-        session=session, receipt_id=receipt_id, user_id=current_user.id
-    )
-    if receipt is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receipt not found.")
+    receipt = get_receipt_by_id(session=session, receipt_id=receipt_id, user_id=current_user.id)
+    receipt = get_or_404(receipt, "Receipt not found.")
 
     before = {"receipt_id": str(receipt.id)}
     audit_delete(
