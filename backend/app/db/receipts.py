@@ -17,9 +17,15 @@ def get_receipt_by_fiscal(
     fn: str,
     fd: str,
     fpd: str,
+    user_id: UUID,
 ) -> Receipt | None:
     return session.exec(
-        select(Receipt).where(Receipt.fn == fn).where(Receipt.fd == fd).where(Receipt.fpd == fpd)
+        select(Receipt)
+        .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
+        .where(Receipt.fn == fn)
+        .where(Receipt.fd == fd)
+        .where(Receipt.fpd == fpd)
+        .where((Receipt.user_id == user_id) | (Document.user_id == user_id))
     ).first()
 
 

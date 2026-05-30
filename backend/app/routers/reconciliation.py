@@ -3,6 +3,7 @@ from sqlmodel import Session
 
 from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, ImportStatus, ReconciledStatus
 from app.database import get_session
+from app.db.receipts import get_receipt_by_id
 from app.db.reconciliation_reports import get_last_report
 from app.db.transactions import get_transaction_by_id, update_transaction_receipt_link
 from app.dependencies.auth import get_current_user, require_scope
@@ -61,17 +62,23 @@ def manual_match(
         session=session, transaction_id=data.transaction_id, user_id=current_user.id
     )
     tx = get_or_404(tx, "Transaction not found.")
+    receipt = get_receipt_by_id(
+        session=session,
+        receipt_id=data.receipt_id,
+        user_id=current_user.id,
+    )
+    receipt = get_or_404(receipt, "Receipt not found.")
 
     update_transaction_receipt_link(
         session=session,
         transaction=tx,
-        receipt_id=data.receipt_id,
+        receipt_id=receipt.id,
         reconciled_status=ReconciledStatus.MATCHED,
     )
     audit_match(
         session=session,
         transaction_id=tx.id,
-        receipt_id=data.receipt_id,
+        receipt_id=receipt.id,
         changed_by=ChangedBy.USER,
     )
     session.commit()
