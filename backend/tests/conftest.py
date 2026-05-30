@@ -22,6 +22,7 @@ from storage.base import StorageProvider
 
 # ── In-memory SQLite engine ──────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="function")
 def engine() -> Generator[Engine, None, None]:
     test_engine = create_engine(
@@ -39,6 +40,7 @@ def engine() -> Generator[Engine, None, None]:
     SQLModel.metadata.create_all(test_engine)
     yield test_engine
     SQLModel.metadata.drop_all(test_engine)
+    test_engine.dispose()
 
 
 @pytest.fixture(scope="function")
@@ -48,6 +50,7 @@ def session(engine: Engine) -> Generator[Session, None, None]:
 
 
 # ── Fixture users / accounts ─────────────────────────────────────────────────
+
 
 @pytest.fixture()
 def test_user(session: Session) -> User:
@@ -96,6 +99,7 @@ def test_account(session: Session, test_user: User) -> Account:
 
 # ── JWT helper ───────────────────────────────────────────────────────────────
 
+
 def make_jwt(user_id: str) -> str:
     expire = utcnow() + timedelta(minutes=settings.jwt_expire_minutes)
     return jwt.encode(
@@ -107,12 +111,14 @@ def make_jwt(user_id: str) -> str:
 
 # ── Fake storage provider ────────────────────────────────────────────────────
 
+
 class FakeStorageProvider:
     async def upload_file(self, *, file: object, file_id: str) -> str:  # noqa: ARG002
         return f"/media/fake/{file_id}"
 
 
 # ── HTTP client for integration tests ────────────────────────────────────────
+
 
 @pytest.fixture()
 async def client(engine: Engine) -> AsyncClient:
