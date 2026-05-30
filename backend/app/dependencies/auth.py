@@ -85,6 +85,7 @@ def _auth_via_api_key(token: str, session: Session) -> AuthContext:
         raise _auth_error()
 
     touch_last_used(session=session, api_key=api_key)
+    session.commit()
 
     scopes = frozenset(json.loads(api_key.scopes))
     return AuthContext(user=user, scopes=scopes)

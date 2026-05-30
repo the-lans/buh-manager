@@ -145,7 +145,6 @@ def update_transaction(
 
 def delete_transaction(*, session: Session, transaction: Transaction) -> None:
     session.delete(transaction)
-    session.commit()
 
 
 def get_unmatched_transactions_requiring_receipt(

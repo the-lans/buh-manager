@@ -1,11 +1,13 @@
 import json
 from uuid import UUID
 
+from sqlalchemy import exists
 from sqlmodel import Session, select
 
 from app.models.document import Document
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
+from app.models.transaction import Transaction
 from app.schemas.receipt import ReceiptCreate, ReceiptItemCreate, ReceiptUpdate
 
 
@@ -17,10 +19,7 @@ def get_receipt_by_fiscal(
     fpd: str,
 ) -> Receipt | None:
     return session.exec(
-        select(Receipt)
-        .where(Receipt.fn == fn)
-        .where(Receipt.fd == fd)
-        .where(Receipt.fpd == fpd)
+        select(Receipt).where(Receipt.fn == fn).where(Receipt.fd == fd).where(Receipt.fpd == fpd)
     ).first()
 
 
@@ -52,10 +51,7 @@ def get_receipts_for_user(
         session.exec(
             select(Receipt)
             .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
-            .where(
-                (Receipt.user_id == user_id)
-                | (Document.user_id == user_id)
-            )
+            .where((Receipt.user_id == user_id) | (Document.user_id == user_id))
             .offset(skip)
             .limit(limit)
         ).all()
@@ -67,10 +63,8 @@ def get_unmatched_receipts(*, session: Session, user_id: UUID) -> list[Receipt]:
         session.exec(
             select(Receipt)
             .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
-            .where(
-                (Receipt.user_id == user_id)
-                | (Document.user_id == user_id)
-            )
+            .where((Receipt.user_id == user_id) | (Document.user_id == user_id))
+            .where(~exists().where(Transaction.receipt_id == Receipt.id))  # type: ignore[arg-type]
         ).all()
     )
 
@@ -124,9 +118,7 @@ def _create_receipt_item(
 
 
 def get_receipt_items(*, session: Session, receipt_id: UUID) -> list[ReceiptItem]:
-    return list(
-        session.exec(select(ReceiptItem).where(ReceiptItem.receipt_id == receipt_id)).all()
-    )
+    return list(session.exec(select(ReceiptItem).where(ReceiptItem.receipt_id == receipt_id)).all())
 
 
 def update_receipt(
@@ -160,4 +152,3 @@ def delete_receipt(*, session: Session, receipt: Receipt) -> None:
         session.delete(item)
     session.flush()  # ensure items are removed before receipt to satisfy FK constraint
     session.delete(receipt)
-    session.commit()

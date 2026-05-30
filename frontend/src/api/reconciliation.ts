@@ -9,8 +9,12 @@ export const reconciliationApi = {
     apiClient.post('/reconciliation/match', { transaction_id, receipt_id }).then((r) => r.data),
   ignore: (transaction_id: string) =>
     apiClient.post('/reconciliation/ignore', { transaction_id }).then((r) => r.data),
-  resolveConflict: (transaction_id: string, action: 'KEEP_OLD' | 'UPDATE_FROM_NEW') =>
+  resolveConflict: (
+    transaction_id: string,
+    action: 'KEEP_OLD' | 'UPDATE_FROM_NEW',
+    incoming_amount?: string,
+  ) =>
     apiClient
-      .post('/reconciliation/resolve-conflict', { transaction_id, action })
+      .post('/reconciliation/resolve-conflict', { transaction_id, action, incoming_amount })
       .then((r) => r.data),
 }
