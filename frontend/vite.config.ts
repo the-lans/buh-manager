@@ -15,6 +15,7 @@ export default defineConfig({
       jsdom: { url: 'http://localhost' },
     },
     globals: true,
+    execArgv: ['--no-experimental-webstorage'],
     setupFiles: './src/test/setup.ts',
     css: false,
     coverage: {
