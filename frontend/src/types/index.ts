@@ -180,3 +180,30 @@ export interface ReconciliationReport {
   missing_receipts: MissingReceiptItem[]
   unmatched_receipts: UnmatchedReceiptItem[]
 }
+
+export interface ApiKey {
+  id: string
+  name: string
+  key_prefix: string
+  scopes: string[]
+  is_active: boolean
+  created_at: string
+  last_used_at: string | null
+  expires_at: string | null
+}
+
+export interface ApiKeyCreated extends ApiKey {
+  key: string
+}
+
+export interface ApiKeyCreate {
+  name: string
+  scopes: string[]
+  expires_at?: string | null
+}
+
+export interface ApiKeyUpdate {
+  name?: string
+  scopes?: string[]
+  is_active?: boolean
+}

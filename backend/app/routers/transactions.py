@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from app.constants import AuditEntityType, ChangedBy
+from app.constants import ApiKeyScope, AuditEntityType, ChangedBy
 from app.database import get_session
 from app.db.accounts import get_account_by_id
 from app.db.counterparties import get_or_create_counterparty
@@ -14,7 +14,7 @@ from app.db.transactions import (
     get_transactions_for_user,
     update_transaction,
 )
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_scope
 from app.models.user import User
 from app.schemas.common import PaginationParams
 from app.schemas.transaction import (
@@ -29,7 +29,11 @@ from app.services.audit import audit_create, audit_delete, audit_update
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
-@router.get("", response_model=list[TransactionListItem])
+@router.get(
+    "",
+    response_model=list[TransactionListItem],
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_TRANSACTIONS))],
+)
 def list_transactions(
     filters: TransactionFilters = Depends(),
     pagination: PaginationParams = Depends(),
@@ -46,7 +50,12 @@ def list_transactions(
     return [TransactionListItem.model_validate(tx) for tx in txs]
 
 
-@router.post("", response_model=TransactionRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=TransactionRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_TRANSACTIONS))],
+)
 def create_transaction_endpoint(
     data: TransactionCreate,
     session: Session = Depends(get_session),
@@ -93,7 +102,11 @@ def create_transaction_endpoint(
 
 
 
-@router.put("/{transaction_id}", response_model=TransactionRead)
+@router.put(
+    "/{transaction_id}",
+    response_model=TransactionRead,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_TRANSACTIONS))],
+)
 def update_transaction_endpoint(
     transaction_id: UUID,
     data: TransactionUpdate,
@@ -122,7 +135,11 @@ def update_transaction_endpoint(
     return TransactionRead.model_validate(tx)
 
 
-@router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{transaction_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_TRANSACTIONS))],
+)
 def delete_transaction_endpoint(
     transaction_id: UUID,
     session: Session = Depends(get_session),

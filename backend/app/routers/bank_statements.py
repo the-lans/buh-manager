@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, status
 from sqlmodel import Session
 
+from app.constants import ApiKeyScope
 from app.database import get_session
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_scope
 from app.models.user import User
 from app.schemas.bank_statement import BankStatementCreate, ImportReport
 from app.services.import_statement import import_bank_statement
@@ -10,7 +11,12 @@ from app.services.import_statement import import_bank_statement
 router = APIRouter(prefix="/bank-statements", tags=["bank-statements"])
 
 
-@router.post("", response_model=ImportReport, status_code=status.HTTP_200_OK)
+@router.post(
+    "",
+    response_model=ImportReport,
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_BANK_STATEMENTS))],
+)
 def import_statement(
     data: BankStatementCreate,
     session: Session = Depends(get_session),

@@ -7,6 +7,7 @@ from app.config import settings
 from app.constants import MEDIA_PATH
 from app.dependencies.auth import get_current_user
 from app.routers import (
+    api_keys,
     auth,
     bank_statements,
     documents,
@@ -33,6 +34,7 @@ if settings.is_local:
 _protected: dict[str, object] = {"dependencies": [Depends(get_current_user)]}
 
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(api_keys.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
 app.include_router(documents.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
 app.include_router(receipts.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
 app.include_router(bank_statements.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]

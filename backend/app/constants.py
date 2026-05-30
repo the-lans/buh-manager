@@ -63,6 +63,26 @@ class ChangedBy(StrEnum):
     USER = "USER"
 
 
+class ApiKeyScope(StrEnum):
+    READ_DOCUMENTS = "read:documents"
+    WRITE_DOCUMENTS = "write:documents"
+    READ_RECEIPTS = "read:receipts"
+    WRITE_RECEIPTS = "write:receipts"
+    WRITE_BANK_STATEMENTS = "write:bank_statements"
+    READ_TRANSACTIONS = "read:transactions"
+    WRITE_TRANSACTIONS = "write:transactions"
+    READ_RECONCILIATION = "read:reconciliation"
+    WRITE_RECONCILIATION = "write:reconciliation"
+    READ_ACCOUNTS = "read:accounts"
+    WRITE_ACCOUNTS = "write:accounts"
+    READ_EXPENSE_TYPES = "read:expense_types"
+    WRITE_EXPENSE_TYPES = "write:expense_types"
+    READ_COUNTERPARTIES = "read:counterparties"
+    WRITE_COUNTERPARTIES = "write:counterparties"
+    READ_EXCHANGE_RATES = "read:exchange_rates"
+    WRITE_EXCHANGE_RATES = "write:exchange_rates"
+
+
 # Deduplication & algorithm constants
 TX_DEDUP_WINDOW_SECONDS: int = 60
 
