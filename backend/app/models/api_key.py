@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 from sqlmodel import Field, SQLModel
 
 from app.constants import API_KEY_PREFIX_LENGTH
+from app.utils.dt import utcnow
 
 
 class ApiKey(SQLModel, table=True):
@@ -16,6 +17,6 @@ class ApiKey(SQLModel, table=True):
     key_hash: str = Field(index=True, unique=True)
     scopes: str  # JSON array of ApiKeyScope values
     is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     last_used_at: datetime | None = None
     expires_at: datetime | None = None

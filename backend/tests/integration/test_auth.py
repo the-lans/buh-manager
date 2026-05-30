@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -7,6 +7,7 @@ from jose import jwt
 
 from app.config import settings
 from app.models.user import User
+from app.utils.dt import utcnow
 
 _GOOGLE_USERINFO = {
     "email": "allowed@example.com",
@@ -37,7 +38,7 @@ async def test_get_me_without_token(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_get_me_with_expired_token(client: AsyncClient, test_user: User) -> None:
     expired_token = jwt.encode(
-        {"sub": str(test_user.id), "exp": datetime.utcnow() - timedelta(minutes=1)},
+        {"sub": str(test_user.id), "exp": utcnow() - timedelta(minutes=1)},
         settings.jwt_secret_key,
         algorithm=settings.jwt_algorithm,
     )
@@ -61,7 +62,7 @@ async def test_get_me_with_invalid_token(client: AsyncClient) -> None:
 async def test_get_me_with_non_uuid_sub_returns_401(client: AsyncClient) -> None:
     """JWT with a non-UUID 'sub' must return 401, not 500 (ValueError guard)."""
     token = jwt.encode(
-        {"sub": "not-a-uuid", "exp": datetime.utcnow() + timedelta(minutes=5)},
+        {"sub": "not-a-uuid", "exp": utcnow() + timedelta(minutes=5)},
         settings.jwt_secret_key,
         algorithm=settings.jwt_algorithm,
     )

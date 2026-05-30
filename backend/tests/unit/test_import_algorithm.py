@@ -12,6 +12,7 @@ from app.models.document import Document
 from app.models.user import User
 from app.schemas.bank_statement import BankStatementCreate, BankStatementTransactionIn
 from app.services.import_statement import import_bank_statement
+from app.utils.dt import utcnow
 
 
 def _make_statement(
@@ -54,7 +55,7 @@ def _create_document(session: Session, user_id: object) -> Document:
         name="test.pdf",
         status=DocumentStatus.PENDING,
         file_hash=str(uuid4()),
-        uploaded_at=datetime.utcnow(),
+        uploaded_at=utcnow(),
     )
     session.add(doc)
     session.commit()
@@ -173,7 +174,7 @@ def test_import_wrong_account_raises_403(
         id=uuid4(),
         email="other@example.com",
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     session.add(other_user)
     session.commit()

@@ -3,6 +3,7 @@ import {
   useRunReconciliation,
   useIgnoreTransaction,
 } from '../hooks/useReconciliation'
+import { formatDate } from '../utils/date'
 
 export default function Reconciliation() {
   const { data: report } = useReconciliationReport()
@@ -46,7 +47,7 @@ export default function Reconciliation() {
                   <tbody className="divide-y divide-gray-100">
                     {report.missing_receipts.map((item) => (
                       <tr key={item.transaction_id}>
-                        <td className="px-4 py-2 text-gray-600">{item.occurred_at.slice(0, 10)}</td>
+                        <td className="px-4 py-2 text-gray-600">{formatDate(item.occurred_at)}</td>
                         <td className="px-4 py-2 text-right tabular-nums text-red-600 font-medium">
                           {Number(item.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
                         </td>

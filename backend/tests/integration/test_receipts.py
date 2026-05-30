@@ -1,4 +1,3 @@
-from datetime import datetime
 from uuid import uuid4
 
 import pytest
@@ -6,6 +5,7 @@ from httpx import AsyncClient
 from sqlmodel import Session
 
 from app.models.user import User
+from app.utils.dt import utcnow
 from tests.conftest import make_jwt
 
 
@@ -157,7 +157,7 @@ async def test_user_b_cannot_access_user_a_receipt(
         email="userB_receipts@example.com",
         full_name="User B",
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     session.add(user_b)
     session.commit()

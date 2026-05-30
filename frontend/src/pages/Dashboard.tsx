@@ -1,6 +1,7 @@
 import { useTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import { useReconciliationReport } from '../hooks/useReconciliation'
+import { currentYearMonth, formatDate } from '../utils/date'
 
 export default function Dashboard() {
   const { data: transactions = [] } = useTransactions({ limit: 100 })
@@ -10,7 +11,7 @@ export default function Dashboard() {
   const unmatched = transactions.filter((t) => t.reconciled_status === 'UNMATCHED').length
   const conflicts = report?.summary.collisions_count ?? 0
 
-  const currentMonth = new Date().toISOString().slice(0, 7)
+  const currentMonth = currentYearMonth()
   const monthlyExpenses = transactions
     .filter((t) => t.type === 'EXPENSE' && t.occurred_at.startsWith(currentMonth))
     .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0)
@@ -39,7 +40,7 @@ export default function Dashboard() {
             <tbody className="divide-y divide-gray-100">
               {transactions.slice(0, 10).map((tx) => (
                 <tr key={tx.id}>
-                  <td className="px-4 py-2 text-gray-600">{tx.occurred_at.slice(0, 10)}</td>
+                  <td className="px-4 py-2 text-gray-600">{formatDate(tx.occurred_at)}</td>
                   <td className="px-4 py-2 text-gray-800">{tx.counterparty_id ?? '—'}</td>
                   <td className={`px-4 py-2 text-right tabular-nums font-medium ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽

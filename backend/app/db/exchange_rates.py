@@ -1,9 +1,8 @@
-from datetime import datetime
-
 from sqlmodel import Session, desc, select
 
 from app.models.exchange_rate import ExchangeRate
 from app.schemas.exchange_rate import ExchangeRateCreate
+from app.utils.dt import utcnow
 
 
 def create_exchange_rate(*, session: Session, data: ExchangeRateCreate) -> ExchangeRate:
@@ -11,7 +10,7 @@ def create_exchange_rate(*, session: Session, data: ExchangeRateCreate) -> Excha
         base_currency=data.base_currency,
         quote_currency=data.quote_currency,
         rate=data.rate,
-        recorded_at=data.recorded_at or datetime.utcnow(),
+        recorded_at=data.recorded_at or utcnow(),
     )
     session.add(rate)
     session.commit()

@@ -5,6 +5,7 @@ import { useApiKeys, useCreateApiKey, useUpdateApiKey, useDeleteApiKey } from '.
 import { accountsApi } from '../api/accounts'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ApiKeyCreated } from '../types'
+import { formatDate, localInputToUtcIso } from '../utils/date'
 
 type Tab = 'accounts' | 'expense-types' | 'api-keys'
 
@@ -191,7 +192,7 @@ function ApiKeysTab() {
     const result = await createKey.mutateAsync({
       name: form.name,
       scopes: form.scopes,
-      expires_at: form.expires_at || null,
+      expires_at: form.expires_at ? localInputToUtcIso(form.expires_at) : null,
     })
     setCreatedKey(result)
     setForm({ name: '', scopes: [], expires_at: '' })
@@ -202,11 +203,6 @@ function ApiKeysTab() {
     await navigator.clipboard.writeText(createdKey.key)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }
-
-  const formatDate = (iso: string | null) => {
-    if (!iso) return '—'
-    return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
 
   return (

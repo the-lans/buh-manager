@@ -3,7 +3,6 @@ import json
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
@@ -17,6 +16,7 @@ from app.database import get_session
 from app.db.api_keys import get_api_key_by_hash, touch_last_used
 from app.db.users import get_user_by_id
 from app.models.user import User
+from app.utils.dt import utcnow
 
 bearer_scheme = HTTPBearer()
 
@@ -77,7 +77,7 @@ def _auth_via_api_key(token: str, session: Session) -> AuthContext:
     if api_key is None or not api_key.is_active:
         raise _auth_error()
 
-    if api_key.expires_at is not None and api_key.expires_at < datetime.utcnow():
+    if api_key.expires_at is not None and api_key.expires_at < utcnow():
         raise _auth_error()
 
     user = get_user_by_id(session=session, user_id=api_key.user_id)

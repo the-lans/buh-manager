@@ -1,5 +1,4 @@
 """Verify that user A cannot access user B's data."""
-from datetime import datetime
 from uuid import uuid4
 
 import pytest
@@ -8,6 +7,7 @@ from sqlmodel import Session
 
 from app.models.account import Account
 from app.models.user import User
+from app.utils.dt import utcnow
 from tests.conftest import make_jwt
 
 
@@ -18,7 +18,7 @@ def user_b(session: Session) -> User:
         email="userB@example.com",
         full_name="User B",
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     session.add(u)
     session.commit()

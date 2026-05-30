@@ -1,4 +1,5 @@
 import { useReceipts, useDeleteReceipt } from '../hooks/useReceipts'
+import { formatDate } from '../utils/date'
 
 export default function Receipts() {
   const { data: receipts = [], isLoading } = useReceipts({ limit: 50 })
@@ -23,7 +24,7 @@ export default function Receipts() {
             <tbody className="divide-y divide-gray-100">
               {receipts.map((r) => (
                 <tr key={r.id}>
-                  <td className="px-4 py-2 text-gray-600">{r.paid_at.slice(0, 10)}</td>
+                  <td className="px-4 py-2 text-gray-600">{formatDate(r.paid_at)}</td>
                   <td className="px-4 py-2 text-gray-800">{r.counterparty_id ?? '—'}</td>
                   <td className="px-4 py-2 text-right tabular-nums font-medium text-gray-900">
                     {Number(r.total_amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽

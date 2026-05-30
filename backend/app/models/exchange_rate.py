@@ -4,6 +4,8 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
 
+from app.utils.dt import utcnow
+
 
 class ExchangeRate(SQLModel, table=True):
     __tablename__ = "exchange_rates"
@@ -12,4 +14,4 @@ class ExchangeRate(SQLModel, table=True):
     base_currency: str
     quote_currency: str
     rate: Decimal = Field(decimal_places=6, max_digits=18)
-    recorded_at: datetime = Field(default_factory=datetime.utcnow)
+    recorded_at: datetime = Field(default_factory=utcnow)

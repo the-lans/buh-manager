@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 
 from app.models.api_key import ApiKey
 from app.schemas.api_key import ApiKeyUpdate
+from app.utils.dt import utcnow
 
 
 def create_api_key(
@@ -64,5 +65,5 @@ def delete_api_key(*, session: Session, api_key: ApiKey) -> None:
 
 
 def touch_last_used(*, session: Session, api_key: ApiKey) -> None:
-    api_key.last_used_at = datetime.utcnow()
+    api_key.last_used_at = utcnow()
     session.add(api_key)

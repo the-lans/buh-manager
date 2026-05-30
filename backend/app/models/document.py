@@ -3,6 +3,8 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
 
+from app.utils.dt import utcnow
+
 
 class Document(SQLModel, table=True):
     __tablename__ = "documents"
@@ -16,4 +18,4 @@ class Document(SQLModel, table=True):
     email_source: str | None = None
     file_hash: str = Field(unique=True)
     raw_parsed_data: str | None = None
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    uploaded_at: datetime = Field(default_factory=utcnow)

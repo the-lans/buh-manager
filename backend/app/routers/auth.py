@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, Request
@@ -12,6 +12,7 @@ from app.db.users import create_or_update_user_from_google
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.schemas.user import UserRead
+from app.utils.dt import utcnow
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -26,7 +27,7 @@ oauth.register(
 
 
 def _create_access_token(user: User) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=settings.jwt_expire_minutes)
+    expire = utcnow() + timedelta(minutes=settings.jwt_expire_minutes)
     payload = {
         "sub": str(user.id),
         "email": user.email,
