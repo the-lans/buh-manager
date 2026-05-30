@@ -3,6 +3,8 @@ import { useTransactions, useCreateTransaction, useDeleteTransaction } from '../
 import { useAccounts } from '../hooks/useAccounts'
 import type { TransactionFilters } from '../api/transactions'
 import { formatDate, localInputToUtcIso } from '../utils/date'
+import { DataTable } from '../components/DataTable'
+import { StatusBadge } from '../components/StatusBadge'
 
 export default function Transactions() {
   const [filters, setFilters] = useState<TransactionFilters>({ limit: 50 })
@@ -121,58 +123,41 @@ export default function Transactions() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {isLoading ? (
-          <div className="p-8 text-center text-gray-400">Загрузка...</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Дата</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Контрагент</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-600 tabular-nums">Сумма</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Тип</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Статус</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {transactions.map((tx) => (
-                <tr key={tx.id}>
-                  <td className="px-4 py-2 text-gray-600">{formatDate(tx.occurred_at)}</td>
-                  <td className="px-4 py-2 text-gray-800">{tx.counterparty_id ?? '—'}</td>
-                  <td className={`px-4 py-2 text-right tabular-nums font-medium ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">{tx.type}</td>
-                  <td className="px-4 py-2">
-                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                      tx.reconciled_status === 'MATCHED' ? 'bg-green-100 text-green-700' :
-                      tx.reconciled_status === 'UNMATCHED' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-gray-100 text-gray-500'
-                    }`}>
-                      {tx.reconciled_status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">
-                    <button
-                      onClick={() => deleteTx.mutate(tx.id)}
-                      className="text-xs text-red-500 hover:underline"
-                    >
-                      Удалить
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {transactions.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">Нет транзакций</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable
+        columns={[
+          { label: 'Дата' },
+          { label: 'Контрагент' },
+          { label: 'Сумма', align: 'right' },
+          { label: 'Тип' },
+          { label: 'Статус' },
+          { label: '' },
+        ]}
+        isEmpty={transactions.length === 0}
+        emptyMessage="Нет транзакций"
+        isLoading={isLoading}
+      >
+        {transactions.map((tx) => (
+          <tr key={tx.id}>
+            <td className="px-4 py-2 text-gray-600">{formatDate(tx.occurred_at)}</td>
+            <td className="px-4 py-2 text-gray-800">{tx.counterparty_id ?? '—'}</td>
+            <td className={`px-4 py-2 text-right tabular-nums font-medium ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+            </td>
+            <td className="px-4 py-2 text-gray-600">{tx.type}</td>
+            <td className="px-4 py-2">
+              <StatusBadge status={tx.reconciled_status} />
+            </td>
+            <td className="px-4 py-2">
+              <button
+                onClick={() => deleteTx.mutate(tx.id)}
+                className="text-xs text-red-500 hover:underline"
+              >
+                Удалить
+              </button>
+            </td>
+          </tr>
+        ))}
+      </DataTable>
     </div>
   )
 }

@@ -1,31 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiKeysApi } from '../api/apiKeys'
-import type { ApiKeyCreate, ApiKeyUpdate } from '../types'
+import type { ApiKey, ApiKeyCreate, ApiKeyCreated, ApiKeyUpdate } from '../types'
+import { makeResourceHooks } from './makeResourceHooks'
 
-export function useApiKeys() {
-  return useQuery({ queryKey: ['api-keys'], queryFn: apiKeysApi.list })
-}
+const { useList, useCreate, useUpdate, useDelete } = makeResourceHooks<ApiKey, ApiKeyCreate, ApiKeyUpdate, ApiKeyCreated>(
+  'api-keys',
+  apiKeysApi,
+)
 
-export function useCreateApiKey() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (data: ApiKeyCreate) => apiKeysApi.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['api-keys'] }),
-  })
-}
-
-export function useUpdateApiKey() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: ApiKeyUpdate }) => apiKeysApi.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['api-keys'] }),
-  })
-}
-
-export function useDeleteApiKey() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => apiKeysApi.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['api-keys'] }),
-  })
-}
+export const useApiKeys = useList
+export const useCreateApiKey = useCreate
+export const useUpdateApiKey = useUpdate
+export const useDeleteApiKey = useDelete

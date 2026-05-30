@@ -2,6 +2,8 @@ import { useTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import { useReconciliationReport } from '../hooks/useReconciliation'
 import { currentYearMonth, formatDate } from '../utils/date'
+import { DataTable } from '../components/DataTable'
+import { StatusBadge } from '../components/StatusBadge'
 
 export default function Dashboard() {
   const { data: transactions = [] } = useTransactions({ limit: 100 })
@@ -27,39 +29,29 @@ export default function Dashboard() {
       </div>
       <section>
         <h2 className="text-base font-medium text-gray-700 mb-3">Последние транзакции</h2>
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Дата</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Контрагент</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-600 tabular-nums">Сумма</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Статус</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {transactions.slice(0, 10).map((tx) => (
-                <tr key={tx.id}>
-                  <td className="px-4 py-2 text-gray-600">{formatDate(tx.occurred_at)}</td>
-                  <td className="px-4 py-2 text-gray-800">{tx.counterparty_id ?? '—'}</td>
-                  <td className={`px-4 py-2 text-right tabular-nums font-medium ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
-                  </td>
-                  <td className="px-4 py-2">
-                    <StatusBadge status={tx.reconciled_status} />
-                  </td>
-                </tr>
-              ))}
-              {transactions.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
-                    Нет транзакций
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            { label: 'Дата' },
+            { label: 'Контрагент' },
+            { label: 'Сумма', align: 'right' },
+            { label: 'Статус' },
+          ]}
+          isEmpty={transactions.length === 0}
+          emptyMessage="Нет транзакций"
+        >
+          {transactions.slice(0, 10).map((tx) => (
+            <tr key={tx.id}>
+              <td className="px-4 py-2 text-gray-600">{formatDate(tx.occurred_at)}</td>
+              <td className="px-4 py-2 text-gray-800">{tx.counterparty_id ?? '—'}</td>
+              <td className={`px-4 py-2 text-right tabular-nums font-medium ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+              </td>
+              <td className="px-4 py-2">
+                <StatusBadge status={tx.reconciled_status} />
+              </td>
+            </tr>
+          ))}
+        </DataTable>
       </section>
     </div>
   )
@@ -73,25 +65,5 @@ function KpiCard({ label, value, warning }: { label: string; value: string; warn
         {value}
       </div>
     </div>
-  )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    UNMATCHED: 'bg-yellow-100 text-yellow-700',
-    MATCHED: 'bg-green-100 text-green-700',
-    NOT_REQUIRED: 'bg-gray-100 text-gray-500',
-    IGNORED_BY_USER: 'bg-gray-100 text-gray-400',
-  }
-  const labels: Record<string, string> = {
-    UNMATCHED: 'Не сверено',
-    MATCHED: 'Сверено',
-    NOT_REQUIRED: 'Не требуется',
-    IGNORED_BY_USER: 'Игнорируется',
-  }
-  return (
-    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${map[status] ?? ''}`}>
-      {labels[status] ?? status}
-    </span>
   )
 }

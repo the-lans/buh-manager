@@ -1,7 +1,7 @@
 import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlmodel import Session
 
 from app.database import get_session
@@ -16,6 +16,7 @@ from app.dependencies.auth import generate_api_key, get_current_user_jwt_only
 from app.models.api_key import ApiKey
 from app.models.user import User
 from app.schemas.api_key import ApiKeyCreate, ApiKeyCreated, ApiKeyRead, ApiKeyUpdate
+from app.utils.http import get_or_404
 
 router = APIRouter(prefix="/api-keys", tags=["api-keys"])
 
@@ -62,8 +63,7 @@ def update_api_key_endpoint(
     current_user: User = Depends(get_current_user_jwt_only),
 ) -> ApiKeyRead:
     api_key = get_api_key_by_id(session=session, key_id=key_id, user_id=current_user.id)
-    if api_key is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found.")
+    api_key = get_or_404(api_key, "API key not found.")
     api_key = update_api_key(session=session, api_key=api_key, data=data)
     session.commit()
     session.refresh(api_key)
@@ -77,8 +77,7 @@ def delete_api_key_endpoint(
     current_user: User = Depends(get_current_user_jwt_only),
 ) -> None:
     api_key = get_api_key_by_id(session=session, key_id=key_id, user_id=current_user.id)
-    if api_key is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found.")
+    api_key = get_or_404(api_key, "API key not found.")
     delete_api_key(session=session, api_key=api_key)
     session.commit()
 

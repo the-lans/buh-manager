@@ -4,6 +4,7 @@ import {
   useIgnoreTransaction,
 } from '../hooks/useReconciliation'
 import { formatDate } from '../utils/date'
+import { DataTable } from '../components/DataTable'
 
 export default function Reconciliation() {
   const { data: report } = useReconciliationReport()
@@ -35,35 +36,30 @@ export default function Reconciliation() {
           {report.missing_receipts.length > 0 && (
             <section>
               <h2 className="text-base font-medium text-gray-700 mb-2">Транзакции без чека</h2>
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="text-left px-4 py-2 font-medium text-gray-600">Дата</th>
-                      <th className="text-right px-4 py-2 font-medium text-gray-600 tabular-nums">Сумма</th>
-                      <th className="px-4 py-2" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {report.missing_receipts.map((item) => (
-                      <tr key={item.transaction_id}>
-                        <td className="px-4 py-2 text-gray-600">{formatDate(item.occurred_at)}</td>
-                        <td className="px-4 py-2 text-right tabular-nums text-red-600 font-medium">
-                          {Number(item.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
-                        </td>
-                        <td className="px-4 py-2">
-                          <button
-                            onClick={() => ignoreTx.mutate(item.transaction_id)}
-                            className="text-xs text-gray-500 hover:underline"
-                          >
-                            Игнорировать
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { label: 'Дата' },
+                  { label: 'Сумма', align: 'right' },
+                  { label: '' },
+                ]}
+              >
+                {report.missing_receipts.map((item) => (
+                  <tr key={item.transaction_id}>
+                    <td className="px-4 py-2 text-gray-600">{formatDate(item.occurred_at)}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-red-600 font-medium">
+                      {Number(item.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+                    </td>
+                    <td className="px-4 py-2">
+                      <button
+                        onClick={() => ignoreTx.mutate(item.transaction_id)}
+                        className="text-xs text-gray-500 hover:underline"
+                      >
+                        Игнорировать
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </DataTable>
             </section>
           )}
 
