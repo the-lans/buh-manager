@@ -1,7 +1,14 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, ImportStatus, ReconciledStatus
+from app.constants import (
+    ApiKeyScope,
+    AuditEntityType,
+    ChangedBy,
+    ConflictResolutionAction,
+    ImportStatus,
+    ReconciledStatus,
+)
 from app.database import get_session
 from app.db.receipts import get_receipt_by_id
 from app.db.reconciliation_reports import get_last_report
@@ -62,6 +69,13 @@ def manual_match(
         session=session, transaction_id=data.transaction_id, user_id=current_user.id
     )
     tx = get_or_404(tx, "Transaction not found.")
+
+    if tx.reconciled_status == ReconciledStatus.MATCHED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Transaction is already matched.",
+        )
+
     receipt = get_receipt_by_id(
         session=session,
         receipt_id=data.receipt_id,
@@ -102,6 +116,7 @@ def ignore_transaction(
 
     before_status = tx.reconciled_status
     tx.reconciled_status = ReconciledStatus.IGNORED_BY_USER
+    tx.receipt_id = None
     session.add(tx)
     audit_update(
         session=session,
@@ -130,9 +145,14 @@ def resolve_conflict(
     )
     tx = get_or_404(tx, "Transaction not found.")
 
+    if tx.import_status != ImportStatus.CONFLICT:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Transaction is not in CONFLICT status.",
+        )
+
     before = {"amount": str(tx.amount), "import_status": str(tx.import_status)}
-    if data.action == "UPDATE_FROM_NEW":
-        assert data.incoming_amount is not None
+    if data.action == ConflictResolutionAction.UPDATE_FROM_NEW:
         tx.amount = data.incoming_amount
     tx.import_status = ImportStatus.IMPORTED
     session.add(tx)

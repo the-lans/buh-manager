@@ -1,9 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, model_validator
+
+from app.constants import ConflictResolutionAction
 
 
 class ReconciliationSummary(BaseModel):
@@ -70,11 +71,11 @@ class IgnoreRequest(BaseModel):
 
 class ResolveConflictRequest(BaseModel):
     transaction_id: UUID
-    action: Literal["KEEP_OLD", "UPDATE_FROM_NEW"]
+    action: ConflictResolutionAction
     incoming_amount: Decimal | None = None
 
     @model_validator(mode="after")
     def validate_update_payload(self) -> "ResolveConflictRequest":
-        if self.action == "UPDATE_FROM_NEW" and self.incoming_amount is None:
+        if self.action == ConflictResolutionAction.UPDATE_FROM_NEW and self.incoming_amount is None:
             raise ValueError("incoming_amount is required for UPDATE_FROM_NEW.")
         return self
