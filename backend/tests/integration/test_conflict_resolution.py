@@ -125,7 +125,7 @@ async def test_resolve_conflict_non_conflict_status_returns_409(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
-    payload: dict,
+    payload: dict[str, str],
 ) -> None:
     tx_id = await _make_tx(client, auth_headers, str(test_account.id))
     resp = await client.post(
