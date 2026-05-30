@@ -47,10 +47,16 @@ describe('useAuth', () => {
   it('provides logout function that clears token', () => {
     const exp = Math.floor(Date.now() / 1000) + 3600
     sessionStorage.setItem(TOKEN_KEY, makeJwt({ sub: 'user-1', email: 'a@b.com', exp }))
+    Object.defineProperty(window, 'location', {
+      value: { href: 'http://localhost/' },
+      writable: true,
+      configurable: true,
+    })
 
     const { result } = renderHook(() => useAuth())
     result.current.logout()
 
     expect(sessionStorage.getItem(TOKEN_KEY)).toBeNull()
+    expect(window.location.href).toBe('/login')
   })
 })

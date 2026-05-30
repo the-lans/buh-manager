@@ -153,6 +153,7 @@ def resolve_conflict(
 
     before = {"amount": str(tx.amount), "import_status": str(tx.import_status)}
     if data.action == ConflictResolutionAction.UPDATE_FROM_NEW:
+        assert data.incoming_amount is not None
         tx.amount = data.incoming_amount
     tx.import_status = ImportStatus.IMPORTED
     session.add(tx)
