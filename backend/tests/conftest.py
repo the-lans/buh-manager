@@ -1,5 +1,3 @@
-import hashlib
-import secrets
 from collections.abc import Callable, Generator
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
@@ -13,9 +11,9 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.config import settings
-from app.constants import API_KEY_PREFIX, API_KEY_PREFIX_LENGTH, API_KEY_RANDOM_BYTES
 from app.database import get_session
 from app.db.api_keys import create_api_key
+from app.dependencies.auth import generate_api_key
 from app.main import app
 from app.models.account import Account
 from app.models.user import User
@@ -56,6 +54,21 @@ def test_user(session: Session) -> User:
         id=uuid4(),
         email="test@example.com",
         full_name="Test User",
+        is_active=True,
+        created_at=datetime.utcnow(),
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+@pytest.fixture()
+def second_test_user(session: Session) -> User:
+    user = User(
+        id=uuid4(),
+        email="second@example.com",
+        full_name="Second User",
         is_active=True,
         created_at=datetime.utcnow(),
     )
@@ -130,6 +143,12 @@ def auth_headers(test_user: User) -> dict[str, str]:
 
 
 @pytest.fixture()
+def second_auth_headers(second_test_user: User) -> dict[str, str]:
+    token = make_jwt(str(second_test_user.id))
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture()
 def make_api_key_in_db(session: Session) -> Callable[..., str]:
     def _inner(
         user_id: UUID,
@@ -138,10 +157,7 @@ def make_api_key_in_db(session: Session) -> Callable[..., str]:
         is_active: bool = True,
         expires_at: datetime | None = None,
     ) -> str:
-        random_part = secrets.token_urlsafe(API_KEY_RANDOM_BYTES)
-        plaintext = f"{API_KEY_PREFIX}{random_part}"
-        key_hash = hashlib.sha256(plaintext.encode()).hexdigest()
-        key_prefix = random_part[:API_KEY_PREFIX_LENGTH]
+        plaintext, key_hash, key_prefix = generate_api_key()
         api_key_obj = create_api_key(
             session=session,
             user_id=user_id,
