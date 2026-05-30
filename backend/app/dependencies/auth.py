@@ -19,11 +19,13 @@ from app.models.user import User
 
 bearer_scheme = HTTPBearer()
 
-_auth_error = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Invalid or expired token.",
-    headers={"WWW-Authenticate": "Bearer"},
-)
+
+def _auth_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired token.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 @dataclass
@@ -53,16 +55,16 @@ def _auth_via_jwt(token: str, session: Session) -> AuthContext:
         )
         user_id_str: str | None = payload.get("sub")
         if user_id_str is None:
-            raise _auth_error
+            raise _auth_error()
         user_id = UUID(user_id_str)
     except JWTError as err:
-        raise _auth_error from err
+        raise _auth_error() from err
     except ValueError as err:
-        raise _auth_error from err
+        raise _auth_error() from err
 
     user = get_user_by_id(session=session, user_id=user_id)
     if user is None or not user.is_active:
-        raise _auth_error
+        raise _auth_error()
 
     return AuthContext(user=user, scopes=None)
 
@@ -72,14 +74,14 @@ def _auth_via_api_key(token: str, session: Session) -> AuthContext:
     api_key = get_api_key_by_hash(session=session, key_hash=key_hash)
 
     if api_key is None or not api_key.is_active:
-        raise _auth_error
+        raise _auth_error()
 
     if api_key.expires_at is not None and api_key.expires_at < datetime.utcnow():
-        raise _auth_error
+        raise _auth_error()
 
     user = get_user_by_id(session=session, user_id=api_key.user_id)
     if user is None or not user.is_active:
-        raise _auth_error
+        raise _auth_error()
 
     touch_last_used(session=session, api_key=api_key)
 

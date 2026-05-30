@@ -13,6 +13,7 @@ from app.db.api_keys import (
     update_api_key,
 )
 from app.dependencies.auth import generate_api_key, get_current_user_jwt_only
+from app.models.api_key import ApiKey
 from app.models.user import User
 from app.schemas.api_key import ApiKeyCreate, ApiKeyCreated, ApiKeyRead, ApiKeyUpdate
 
@@ -82,16 +83,14 @@ def delete_api_key_endpoint(
     session.commit()
 
 
-def _to_read(api_key: object) -> ApiKeyRead:
-    from app.models.api_key import ApiKey as ApiKeyModel
-    k: ApiKeyModel = api_key  # type: ignore[assignment]
+def _to_read(api_key: ApiKey) -> ApiKeyRead:
     return ApiKeyRead(
-        id=k.id,
-        name=k.name,
-        key_prefix=k.key_prefix,
-        scopes=json.loads(k.scopes),
-        is_active=k.is_active,
-        created_at=k.created_at,
-        last_used_at=k.last_used_at,
-        expires_at=k.expires_at,
+        id=api_key.id,
+        name=api_key.name,
+        key_prefix=api_key.key_prefix,
+        scopes=json.loads(api_key.scopes),
+        is_active=api_key.is_active,
+        created_at=api_key.created_at,
+        last_used_at=api_key.last_used_at,
+        expires_at=api_key.expires_at,
     )
