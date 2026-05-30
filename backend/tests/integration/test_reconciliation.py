@@ -1,10 +1,12 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
 from sqlmodel import Session
 
+from app.constants import ImportStatus
 from app.models.account import Account
+from app.models.transaction import Transaction
 from app.models.user import User
 from app.utils.dt import utcnow
 from tests.conftest import make_jwt
@@ -233,10 +235,17 @@ async def test_resolve_conflict(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    session: Session,
     payload: dict[str, str],
     expected_status: str,
 ) -> None:
     tx_id = await _create_transaction(client, auth_headers, str(test_account.id))
+    tx = session.get(Transaction, UUID(tx_id))
+    assert tx is not None
+    tx.import_status = ImportStatus.CONFLICT
+    session.add(tx)
+    session.commit()
+
     resp = await client.post(
         "/api/v1/reconciliation/resolve-conflict",
         json={"transaction_id": tx_id, **payload},
