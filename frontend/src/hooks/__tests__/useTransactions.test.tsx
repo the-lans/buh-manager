@@ -74,7 +74,7 @@ describe('useUpdateTransaction', () => {
   beforeEach(() => {
     server.use(
       http.put('/api/v1/transactions/:id', async ({ request }) => {
-        const body = await request.json()
+        const body = (await request.json()) as Record<string, unknown>
         return HttpResponse.json({ id: 'tx-1', ...body })
       }),
     )
@@ -97,7 +97,7 @@ describe('useCreateTransaction', () => {
   beforeEach(() => {
     server.use(
       http.post('/api/v1/transactions', async ({ request }) => {
-        const body = await request.json()
+        const body = (await request.json()) as Record<string, unknown>
         return HttpResponse.json({ id: 'tx-new', ...body }, { status: 201 })
       }),
     )
