@@ -23,7 +23,7 @@ def _make_api_key_in_db(
     plaintext = f"bm_{secrets.token_urlsafe(32)}"
     key_hash = hashlib.sha256(plaintext.encode()).hexdigest()
     key_prefix = plaintext[3:11]
-    create_api_key(
+    api_key_obj = create_api_key(
         session=session,
         user_id=user_id,
         name="test key",
@@ -32,16 +32,7 @@ def _make_api_key_in_db(
         scopes=scopes,
         expires_at=expires_at,
     )
-    api_key_obj = session.exec(
-        __import__("sqlmodel", fromlist=["select"]).select(
-            __import__("app.models.api_key", fromlist=["ApiKey"]).ApiKey
-        ).where(
-            __import__("app.models.api_key", fromlist=["ApiKey"]).ApiKey.key_hash == key_hash
-        )
-    ).first()
-    if api_key_obj is not None:
-        api_key_obj.is_active = is_active
-        session.add(api_key_obj)
+    api_key_obj.is_active = is_active
     session.commit()
     return plaintext
 

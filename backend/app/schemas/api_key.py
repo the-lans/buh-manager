@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.constants import ApiKeyScope
 
@@ -10,6 +10,13 @@ class ApiKeyCreate(BaseModel):
     name: str
     scopes: list[ApiKeyScope]
     expires_at: datetime | None = None
+
+    @field_validator("scopes")
+    @classmethod
+    def scopes_not_empty(cls, v: list) -> list:
+        if not v:
+            raise ValueError("At least one scope is required.")
+        return v
 
 
 class ApiKeyUpdate(BaseModel):
