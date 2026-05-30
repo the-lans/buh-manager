@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, field_validator
 
 from app.constants import ApiKeyScope
+from app.utils.dt import utcnow
 
 
 class ApiKeyCreate(BaseModel):
@@ -30,8 +31,9 @@ class ApiKeyCreate(BaseModel):
     def expires_at_must_be_future(cls, v: datetime | None) -> datetime | None:
         if v is None:
             return v
-        now = datetime.now(UTC) if v.tzinfo is not None else datetime.utcnow()
-        if v <= now:
+        # Normalize to naive UTC for comparison (strip tzinfo if present)
+        v_utc = v.astimezone(UTC).replace(tzinfo=None) if v.tzinfo is not None else v
+        if v_utc <= utcnow():
             raise ValueError("Expiry date must be in the future.")
         return v
 

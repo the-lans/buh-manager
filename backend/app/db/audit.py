@@ -1,11 +1,11 @@
 import json
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from sqlmodel import Session
 
 from app.models.audit_log import AuditLog
+from app.utils.dt import utcnow
 
 
 def write_audit_log_entry(
@@ -29,7 +29,7 @@ def write_audit_log_entry(
         entity_id=entity_id,
         action=action,
         changed_by=changed_by,
-        changed_at=datetime.utcnow(),
+        changed_at=utcnow(),
         diff=json.dumps(diff_payload, default=str) if diff_payload else None,
     )
     session.add(entry)

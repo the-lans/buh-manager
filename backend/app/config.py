@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     yandex_access_key: str = ""
     yandex_secret_key: str = ""
 
+    app_timezone: str = "Europe/Moscow"
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def is_local(self) -> bool:

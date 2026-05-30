@@ -17,6 +17,7 @@ from app.dependencies.auth import generate_api_key
 from app.main import app
 from app.models.account import Account
 from app.models.user import User
+from app.utils.dt import utcnow
 from storage.base import StorageProvider
 
 # ── In-memory SQLite engine ──────────────────────────────────────────────────
@@ -55,7 +56,7 @@ def test_user(session: Session) -> User:
         email="test@example.com",
         full_name="Test User",
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     session.add(user)
     session.commit()
@@ -70,7 +71,7 @@ def second_test_user(session: Session) -> User:
         email="second@example.com",
         full_name="Second User",
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     session.add(user)
     session.commit()
@@ -96,7 +97,7 @@ def test_account(session: Session, test_user: User) -> Account:
 # ── JWT helper ───────────────────────────────────────────────────────────────
 
 def make_jwt(user_id: str) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=settings.jwt_expire_minutes)
+    expire = utcnow() + timedelta(minutes=settings.jwt_expire_minutes)
     return jwt.encode(
         {"sub": user_id, "exp": expire},
         settings.jwt_secret_key,

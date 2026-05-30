@@ -3,6 +3,8 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
 
+from app.utils.dt import utcnow
+
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
@@ -13,5 +15,5 @@ class User(SQLModel, table=True):
     google_id: str | None = None
     avatar_url: str | None = None
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     last_login_at: datetime | None = None

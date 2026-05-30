@@ -3,6 +3,8 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
 
+from app.utils.dt import utcnow
+
 
 class AuditLog(SQLModel, table=True):
     __tablename__ = "audit_log"
@@ -12,5 +14,5 @@ class AuditLog(SQLModel, table=True):
     entity_id: UUID
     action: str
     changed_by: str
-    changed_at: datetime = Field(default_factory=datetime.utcnow)
+    changed_at: datetime = Field(default_factory=utcnow)
     diff: str | None = None  # JSON: {"before": {...}, "after": {...}}

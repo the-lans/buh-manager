@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal  # noqa: TC003
 from uuid import uuid4
 
@@ -40,6 +40,7 @@ from app.schemas.reconciliation import (
     UnmatchedReceiptItem,
 )
 from app.services.audit import audit_match
+from app.utils.dt import utcnow
 
 
 def _score_pair(
@@ -257,7 +258,7 @@ def run_reconciliation(
     session.commit()
 
     report = ReconciliationReport(
-        report_generated_at=datetime.utcnow(),
+        report_generated_at=utcnow(),
         summary=ReconciliationSummary(
             auto_matched_count=auto_matched,
             missing_receipts_count=len(missing_receipts),

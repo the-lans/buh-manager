@@ -1,9 +1,9 @@
-from datetime import datetime
 from uuid import UUID
 
 from sqlmodel import Session, select
 
 from app.models.user import User
+from app.utils.dt import utcnow
 
 
 def get_user_by_email(*, session: Session, email: str) -> User | None:
@@ -38,7 +38,7 @@ def create_or_update_user_from_google(
             user.google_id = google_id
         if avatar_url is not None:
             user.avatar_url = avatar_url
-    user.last_login_at = datetime.utcnow()
+    user.last_login_at = utcnow()
     session.commit()
     session.refresh(user)
     return user

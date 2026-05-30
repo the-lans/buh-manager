@@ -1,7 +1,7 @@
 import hashlib
 import secrets
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 from app.constants import ApiKeyScope
 from app.models.api_key import ApiKey
 from app.models.user import User
+from app.utils.dt import utcnow
 
 
 @pytest.mark.asyncio
@@ -67,7 +68,7 @@ async def test_inactive_api_key_returns_401(
 async def test_expired_api_key_returns_401(
     client: AsyncClient, test_user: User, make_api_key_in_db: Callable[..., str]
 ) -> None:
-    past = datetime.utcnow() - timedelta(days=1)
+    past = utcnow() - timedelta(days=1)
     key = make_api_key_in_db(test_user.id, [ApiKeyScope.READ_RECEIPTS], expires_at=past)
     resp = await client.get(
         "/api/v1/receipts",
@@ -135,7 +136,7 @@ async def test_api_key_isolates_data_per_user(
         email="other@example.com",
         full_name="Other User",
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     session.add(other_user)
     session.commit()

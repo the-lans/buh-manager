@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTransactions, useCreateTransaction, useDeleteTransaction } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import type { TransactionFilters } from '../api/transactions'
+import { formatDate, localInputToUtcIso } from '../utils/date'
 
 export default function Transactions() {
   const [filters, setFilters] = useState<TransactionFilters>({ limit: 50 })
@@ -16,7 +17,7 @@ export default function Transactions() {
   const handleCreate = async () => {
     await createTx.mutateAsync({
       account_id: form.account_id,
-      occurred_at: form.occurred_at,
+      occurred_at: localInputToUtcIso(form.occurred_at),
       amount: form.amount as unknown as string,
       type: form.type as 'INCOME' | 'EXPENSE',
     })
@@ -138,7 +139,7 @@ export default function Transactions() {
             <tbody className="divide-y divide-gray-100">
               {transactions.map((tx) => (
                 <tr key={tx.id}>
-                  <td className="px-4 py-2 text-gray-600">{tx.occurred_at.slice(0, 10)}</td>
+                  <td className="px-4 py-2 text-gray-600">{formatDate(tx.occurred_at)}</td>
                   <td className="px-4 py-2 text-gray-800">{tx.counterparty_id ?? '—'}</td>
                   <td className={`px-4 py-2 text-right tabular-nums font-medium ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
