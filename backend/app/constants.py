@@ -63,6 +63,11 @@ class ChangedBy(StrEnum):
     USER = "USER"
 
 
+class ConflictResolutionAction(StrEnum):
+    KEEP_OLD = "KEEP_OLD"
+    UPDATE_FROM_NEW = "UPDATE_FROM_NEW"
+
+
 class ApiKeyScope(StrEnum):
     READ_DOCUMENTS = "read:documents"
     WRITE_DOCUMENTS = "write:documents"
