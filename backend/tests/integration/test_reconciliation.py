@@ -169,19 +169,19 @@ async def test_manual_match_rejects_already_matched_receipt(
     )
     receipt_id = await _create_receipt(client, auth_headers)
 
-    first = await client.post(
+    first_resp = await client.post(
         "/api/v1/reconciliation/match",
         json={"transaction_id": first_tx_id, "receipt_id": receipt_id},
         headers=auth_headers,
     )
-    assert first.status_code == 200
+    assert first_resp.status_code == 200
 
-    second = await client.post(
+    second_resp = await client.post(
         "/api/v1/reconciliation/match",
         json={"transaction_id": second_tx_id, "receipt_id": receipt_id},
         headers=auth_headers,
     )
-    assert second.status_code == 409
+    assert second_resp.status_code == 409
 
 
 @pytest.mark.asyncio

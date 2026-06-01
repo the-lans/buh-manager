@@ -40,12 +40,9 @@ async def test_transaction_rejects_unknown_expense_type(
     test_account: Account,
     operation: Literal["create", "update"],
 ) -> None:
+    payload = {**_tx_payload(str(test_account.id)), "expense_type_id": "missing-expense-type"}
     if operation == "create":
-        resp = await client.post(
-            "/api/v1/transactions",
-            json={**_tx_payload(str(test_account.id)), "expense_type_id": "missing-expense-type"},
-            headers=auth_headers,
-        )
+        resp = await client.post("/api/v1/transactions", json=payload, headers=auth_headers)
     else:
         create_resp = await client.post(
             "/api/v1/transactions",
@@ -68,7 +65,6 @@ async def test_list_transactions_with_filters(
     auth_headers: dict[str, str],
     test_account: Account,
 ) -> None:
-    # Create two transactions
     await client.post(
         "/api/v1/transactions",
         json={

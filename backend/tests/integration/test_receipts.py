@@ -1,3 +1,4 @@
+import io
 from typing import Literal
 from uuid import uuid4
 
@@ -35,6 +36,17 @@ def _receipt_payload(
             }
         ],
     }
+
+
+async def _create_doc(client: AsyncClient, headers: dict[str, str]) -> str:
+    resp = await client.post(
+        "/api/v1/documents",
+        headers=headers,
+        files={"file": (f"receipt_doc_{uuid4()}.pdf", io.BytesIO(uuid4().bytes), "application/pdf")},
+        params={"doc_type": "RECEIPT"},
+    )
+    assert resp.status_code == 201
+    return resp.json()["id"]
 
 
 @pytest.mark.asyncio
