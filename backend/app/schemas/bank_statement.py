@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from app.utils.dt import normalize_to_utc
 
@@ -42,6 +42,12 @@ class BankStatementCreate(BaseModel):
     @classmethod
     def normalize_period(cls, v: datetime) -> datetime:
         return normalize_to_utc(v)
+
+    @model_validator(mode="after")
+    def validate_period(self) -> "BankStatementCreate":
+        if self.statement_start >= self.statement_end:
+            raise ValueError("statement_start must be before statement_end")
+        return self
 
 
 class ImportSummary(BaseModel):

@@ -9,9 +9,7 @@ from app.utils.dt import utcnow
 
 class Document(SQLModel, table=True):
     __tablename__ = "documents"
-    __table_args__ = (
-        UniqueConstraint("file_hash", "user_id", name="uq_document_file_hash_user"),
-    )
+    __table_args__ = (UniqueConstraint("file_hash", "user_id", name="uq_document_file_hash_user"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID = Field(foreign_key="users.id", index=True)

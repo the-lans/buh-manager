@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import pytest
 from httpx import AsyncClient
 from sqlmodel import Session
@@ -202,8 +204,6 @@ async def test_delete_counterparty_used_in_receipt_returns_409(
     client: AsyncClient,
     auth_headers: dict[str, str],
 ) -> None:
-    from uuid import uuid4 as _uuid4
-
     cp = await client.post(
         "/api/v1/counterparties",
         json=_cp_payload(name="Привязанный магазин"),
@@ -211,9 +211,9 @@ async def test_delete_counterparty_used_in_receipt_returns_409(
     )
     cp_id = cp.json()["id"]
 
-    fn = str(_uuid4().int)[:10]
-    fd = str(_uuid4().int)[:6]
-    fpd = str(_uuid4().int)[:10]
+    fn = str(uuid4().int)[:10]
+    fd = str(uuid4().int)[:6]
+    fpd = str(uuid4().int)[:10]
     await client.post(
         "/api/v1/receipts",
         json={

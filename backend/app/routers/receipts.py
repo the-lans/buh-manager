@@ -2,12 +2,13 @@ import json
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
-from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, DocumentStatus
+from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, DocumentStatus, DocumentType
 from app.database import get_session
 from app.db.counterparties import get_counterparty_by_id, get_or_create_counterparty
-from app.db.documents import get_document_by_id, update_document_status
+from app.db.documents import claim_document_for_processing, get_document_by_id
 from app.db.receipts import (
     create_receipt,
     delete_receipt,
@@ -20,6 +21,7 @@ from app.db.receipts import (
     update_receipt,
 )
 from app.dependencies.auth import get_current_user, require_scope
+from app.models.document import Document
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
 from app.models.user import User
@@ -72,27 +74,32 @@ def create_receipt_endpoint(
             user_id=current_user.id,
         )
         doc = get_or_404(doc, "Document not found.")
-        if get_receipt_by_document_id(
-            session=session,
-            document_id=data.document_id,
-            user_id=current_user.id,
-        ) is not None:
+        _ensure_receipt_document_linkable(doc)
+        if (
+            get_receipt_by_document_id(
+                session=session,
+                document_id=data.document_id,
+                user_id=current_user.id,
+            )
+            is not None
+        ):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Document is already linked to another receipt.",
             )
+        _claim_receipt_document_pending(doc, session=session)
     else:
         doc = None
 
-    receipt = create_receipt(
-        session=session,
-        data=data,
-        counterparty_id=resolved_counterparty_id,
-        user_id=current_user.id,
-    )
-
-    if doc is not None:
-        update_document_status(session=session, document=doc, status=DocumentStatus.PROCESSED)
+    try:
+        receipt = create_receipt(
+            session=session,
+            data=data,
+            counterparty_id=resolved_counterparty_id,
+            user_id=current_user.id,
+        )
+    except IntegrityError as exc:
+        _raise_document_link_conflict(session=session, exc=exc)
 
     audit_create(
         session=session,
@@ -102,7 +109,7 @@ def create_receipt_endpoint(
         user_id=current_user.id,
         after={"receipt_id": str(receipt.id), "total_amount": str(receipt.total_amount)},
     )
-    session.commit()
+    _commit_receipt_document_change(session=session)
 
     items = get_receipt_items(session=session, receipt_id=receipt.id)
     return _build_receipt_read(receipt, items)
@@ -160,15 +167,25 @@ def update_receipt_endpoint(
     before = {"total_amount": str(receipt.total_amount), "paid_at": str(receipt.paid_at)}
     old_doc_id = receipt.document_id
 
-    if data.counterparty_id is not None:
-        if get_counterparty_by_id(session=session, counterparty_id=data.counterparty_id) is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Counterparty not found.",
-            )
+    if (
+        data.counterparty_id is not None
+        and get_counterparty_by_id(
+            session=session,
+            counterparty_id=data.counterparty_id,
+        )
+        is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Counterparty not found.",
+        )
 
     new_doc = None
-    if "document_id" in data.model_fields_set and data.document_id is not None:
+    if (
+        "document_id" in data.model_fields_set
+        and data.document_id is not None
+        and data.document_id != old_doc_id
+    ):
         new_doc = get_document_by_id(
             session=session,
             document_id=data.document_id,
@@ -179,20 +196,28 @@ def update_receipt_endpoint(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Document not found.",
             )
-        if get_receipt_by_document_id(
-            session=session,
-            document_id=data.document_id,
-            user_id=current_user.id,
-            exclude_receipt_id=receipt.id,
-        ) is not None:
+        _ensure_receipt_document_linkable(new_doc)
+        if (
+            get_receipt_by_document_id(
+                session=session,
+                document_id=data.document_id,
+                user_id=current_user.id,
+                exclude_receipt_id=receipt.id,
+            )
+            is not None
+        ):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Document is already linked to another receipt.",
             )
+        _claim_receipt_document_pending(new_doc, session=session)
 
-    receipt = update_receipt(
-        session=session, receipt=receipt, data=data, counterparty_id=data.counterparty_id
-    )
+    try:
+        receipt = update_receipt(
+            session=session, receipt=receipt, data=data, counterparty_id=data.counterparty_id
+        )
+    except IntegrityError as exc:
+        _raise_document_link_conflict(session=session, exc=exc)
     after = {"total_amount": str(receipt.total_amount), "paid_at": str(receipt.paid_at)}
 
     if "document_id" in data.model_fields_set and data.document_id != old_doc_id:
@@ -216,7 +241,7 @@ def update_receipt_endpoint(
         before=before,
         after=after,
     )
-    session.commit()
+    _commit_receipt_document_change(session=session)
 
     items = get_receipt_items(session=session, receipt_id=receipt.id)
     return _build_receipt_read(receipt, items)
@@ -247,6 +272,13 @@ def delete_receipt_endpoint(
         )
 
     before = {"receipt_id": str(receipt.id)}
+    linked_doc = None
+    if receipt.document_id is not None:
+        linked_doc = get_document_by_id(
+            session=session,
+            document_id=receipt.document_id,
+            user_id=current_user.id,
+        )
     audit_delete(
         session=session,
         entity_type=AuditEntityType.RECEIPT,
@@ -256,7 +288,46 @@ def delete_receipt_endpoint(
         before=before,
     )
     delete_receipt(session=session, receipt=receipt)
+    if linked_doc is not None:
+        linked_doc.status = DocumentStatus.PENDING
+        session.add(linked_doc)
     session.commit()
+
+
+def _commit_receipt_document_change(*, session: Session) -> None:
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        _raise_document_link_conflict(session=session, exc=exc)
+
+
+def _raise_document_link_conflict(*, session: Session, exc: IntegrityError) -> None:
+    session.rollback()
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Document is already linked to another receipt.",
+    ) from exc
+
+
+def _ensure_receipt_document_linkable(document: Document) -> None:
+    if document.type != DocumentType.RECEIPT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document type must be RECEIPT.",
+        )
+    if document.status != DocumentStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is already processed.",
+        )
+
+
+def _claim_receipt_document_pending(document: Document, *, session: Session) -> None:
+    if not claim_document_for_processing(session=session, document=document):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is already processed.",
+        )
 
 
 def _resolve_counterparty(*, session: Session, data: ReceiptCreate) -> str | None:

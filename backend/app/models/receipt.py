@@ -2,11 +2,13 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
 class Receipt(SQLModel, table=True):
     __tablename__ = "receipts"
+    __table_args__ = (UniqueConstraint("document_id", name="uq_receipt_document_id"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)

@@ -17,7 +17,12 @@ class LocalStorageProvider:
         dest.write_bytes(content)
         return f"/{MEDIA_PATH}/{file_id}{suffix}"
 
+    async def delete_file(self, *, doc_url: str) -> None:
+        local_path = self._base_dir / Path(doc_url).name
+        local_path.unlink(missing_ok=True)
+
     def get_download_url(
         self, *, doc_url: str, filename: str, inline: bool = False, expires_in: int = 3600
     ) -> str:
+        _ = (filename, inline, expires_in)
         return doc_url

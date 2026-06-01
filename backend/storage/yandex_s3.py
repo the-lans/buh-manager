@@ -1,5 +1,6 @@
 import mimetypes
 from pathlib import Path
+from typing import cast
 from urllib.parse import urlparse
 
 import boto3
@@ -35,6 +36,13 @@ class YandexS3Provider:
             raise RuntimeError(f"S3 upload failed: {exc}") from exc
         return f"https://{self._bucket}.storage.yandexcloud.net/{filename}"
 
+    async def delete_file(self, *, doc_url: str) -> None:
+        key = Path(urlparse(doc_url).path).name
+        try:
+            self._client.delete_object(Bucket=self._bucket, Key=key)
+        except Exception as exc:
+            raise RuntimeError(f"S3 delete failed: {exc}") from exc
+
     def get_download_url(
         self, *, doc_url: str, filename: str, inline: bool = False, expires_in: int = 3600
     ) -> str:
@@ -43,7 +51,7 @@ class YandexS3Provider:
         disposition = (
             f'inline; filename="{quoted}"' if inline else f'attachment; filename="{quoted}"'
         )
-        params: dict = {
+        params: dict[str, str] = {
             "Bucket": self._bucket,
             "Key": key,
             "ResponseContentDisposition": disposition,
@@ -53,8 +61,13 @@ class YandexS3Provider:
             if content_type:
                 params["ResponseContentType"] = content_type
         try:
-            return self._client.generate_presigned_url(
-                "get_object", Params=params, ExpiresIn=expires_in
+            return cast(
+                str,
+                self._client.generate_presigned_url(
+                    "get_object",
+                    Params=params,
+                    ExpiresIn=expires_in,
+                ),
             )
         except Exception as exc:
             raise RuntimeError(f"S3 presign failed: {exc}") from exc

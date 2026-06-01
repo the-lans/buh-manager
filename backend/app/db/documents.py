@@ -1,16 +1,16 @@
 from uuid import UUID
 
-from sqlalchemy import desc
-from sqlmodel import Session, select
+from sqlalchemy import desc, update
+from sqlalchemy.engine import CursorResult
+from sqlmodel import Session, col, select
 
+from app.constants import DocumentStatus, DocumentType
 from app.models.document import Document
 
 
 def get_document_by_hash(*, session: Session, file_hash: str, user_id: UUID) -> Document | None:
     return session.exec(
-        select(Document)
-        .where(Document.file_hash == file_hash)
-        .where(Document.user_id == user_id)
+        select(Document).where(Document.file_hash == file_hash).where(Document.user_id == user_id)
     ).first()
 
 
@@ -43,14 +43,34 @@ def get_documents_for_user(
     return list(session.exec(query).all())
 
 
+def claim_document_for_processing(
+    *,
+    session: Session,
+    document: Document,
+) -> bool:
+    result = session.execute(
+        update(Document)
+        .where(col(Document.id) == document.id)
+        .where(col(Document.user_id) == document.user_id)
+        .where(col(Document.type) == document.type)
+        .where(col(Document.status) == DocumentStatus.PENDING)
+        .values(status=DocumentStatus.PROCESSED)
+    )
+    cursor_result = result if isinstance(result, CursorResult) else None
+    if cursor_result is None or cursor_result.rowcount != 1:
+        return False
+    session.refresh(document)
+    return True
+
+
 def create_document(
     *,
     session: Session,
     user_id: UUID,
-    type: str,
+    type: DocumentType,
     url: str,
     name: str,
-    status: str,
+    status: DocumentStatus,
     file_hash: str,
     email_source: str | None = None,
 ) -> Document:
@@ -64,14 +84,19 @@ def create_document(
         email_source=email_source,
     )
     session.add(document)
-    session.commit()
+    session.flush()
     session.refresh(document)
     return document
 
 
-def update_document_status(*, session: Session, document: Document, status: str) -> Document:
+def update_document_status(
+    *,
+    session: Session,
+    document: Document,
+    status: DocumentStatus,
+) -> Document:
     document.status = status
     session.add(document)
-    session.commit()
+    session.flush()
     session.refresh(document)
     return document

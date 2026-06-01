@@ -289,7 +289,9 @@ def delete_counterparty_endpoint(
     cp = get_counterparty_by_id(session=session, counterparty_id=counterparty_id)
     cp = get_or_404(cp, "Counterparty not found.")
 
-    if session.exec(select(Receipt).where(Receipt.counterparty_id == counterparty_id).limit(1)).first():
+    if session.exec(
+        select(Receipt).where(Receipt.counterparty_id == counterparty_id).limit(1)
+    ).first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Контрагент используется в чеках и не может быть удалён.",

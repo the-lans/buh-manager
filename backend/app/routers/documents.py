@@ -1,17 +1,27 @@
 import io
 import mimetypes
+from contextlib import suppress
 from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse, JSONResponse
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
-from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, DocumentStatus, MEDIA_PATH
+from app.constants import (
+    MEDIA_PATH,
+    ApiKeyScope,
+    AuditEntityType,
+    ChangedBy,
+    DocumentStatus,
+    DocumentType,
+)
 from app.database import get_session
 from app.db.accounts import get_account_by_id
 from app.db.balances import link_balances_to_document
 from app.db.documents import (
+    claim_document_for_processing,
     create_document,
     get_document_by_id,
     get_documents_for_user,
@@ -19,7 +29,6 @@ from app.db.documents import (
 from app.db.receipts import get_receipt_by_id
 from app.db.transactions import link_transactions_to_document
 from app.dependencies.auth import get_current_user, require_scope
-from app.services.audit import audit_update
 from app.models.user import User
 from app.schemas.common import PaginationParams
 from app.schemas.document import (
@@ -29,6 +38,7 @@ from app.schemas.document import (
     LinkResult,
     LinkStatementRequest,
 )
+from app.services.audit import audit_update
 from app.services.deduplication import check_document_duplicate, compute_file_hash
 from app.utils.http import get_or_404
 from storage import get_storage_provider
@@ -45,7 +55,7 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 )
 async def upload_document(
     file: UploadFile,
-    doc_type: str = Query(default="BANK_STATEMENT"),
+    doc_type: DocumentType = Query(default=DocumentType.BANK_STATEMENT),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
     storage: StorageProvider = Depends(get_storage_provider),
@@ -53,7 +63,9 @@ async def upload_document(
     content = await file.read()
     file_hash = compute_file_hash(content)
 
-    duplicate = check_document_duplicate(session=session, file_hash=file_hash, user_id=current_user.id)
+    duplicate = check_document_duplicate(
+        session=session, file_hash=file_hash, user_id=current_user.id
+    )
     if duplicate is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -68,15 +80,34 @@ async def upload_document(
     )
     url = await storage.upload_file(file=new_file, file_id=file_id)
 
-    document = create_document(
-        session=session,
-        user_id=current_user.id,
-        type=doc_type,
-        url=url,
-        name=file.filename or file_id,
-        status=DocumentStatus.PENDING,
-        file_hash=file_hash,
-    )
+    try:
+        document = create_document(
+            session=session,
+            user_id=current_user.id,
+            type=doc_type,
+            url=url,
+            name=file.filename or file_id,
+            status=DocumentStatus.PENDING,
+            file_hash=file_hash,
+        )
+        session.commit()
+        session.refresh(document)
+    except IntegrityError as exc:
+        session.rollback()
+        with suppress(Exception):
+            await storage.delete_file(doc_url=url)
+        duplicate = check_document_duplicate(
+            session=session,
+            file_hash=file_hash,
+            user_id=current_user.id,
+        )
+        detail: dict[str, str] = {"message": "Document already exists."}
+        if duplicate is not None:
+            detail["document_id"] = str(duplicate.id)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=detail,
+        ) from exc
     return DocumentRead.model_validate(document)
 
 
@@ -171,7 +202,7 @@ def link_document_to_receipt(
     doc = get_document_by_id(session=session, document_id=document_id, user_id=current_user.id)
     doc = get_or_404(doc, "Document not found.")
 
-    if doc.type != "RECEIPT":
+    if doc.type != DocumentType.RECEIPT:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Document type must be RECEIPT.",
@@ -193,10 +224,13 @@ def link_document_to_receipt(
             detail="Receipt already has a linked document.",
         )
 
+    if not claim_document_for_processing(session=session, document=doc):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is already processed.",
+        )
     receipt.document_id = document_id
     session.add(receipt)
-    doc.status = DocumentStatus.PROCESSED
-    session.add(doc)
     audit_update(
         session=session,
         entity_type=AuditEntityType.RECEIPT,
@@ -206,7 +240,14 @@ def link_document_to_receipt(
         before={"document_id": None},
         after={"document_id": str(document_id)},
     )
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is already linked to another receipt.",
+        ) from exc
 
     return LinkResult(
         document_id=document_id,
@@ -229,7 +270,7 @@ def link_document_to_statement(
     doc = get_document_by_id(session=session, document_id=document_id, user_id=current_user.id)
     doc = get_or_404(doc, "Document not found.")
 
-    if doc.type != "BANK_STATEMENT":
+    if doc.type != DocumentType.BANK_STATEMENT:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Document type must be BANK_STATEMENT.",
@@ -245,6 +286,11 @@ def link_document_to_statement(
     )
     account = get_or_404(account, "Account not found.")
 
+    if not claim_document_for_processing(session=session, document=doc):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is already processed.",
+        )
     tx_count = link_transactions_to_document(
         session=session,
         account_id=account.id,
@@ -263,7 +309,7 @@ def link_document_to_statement(
 
     if total == 0:
         new_status = DocumentStatus.ERROR
-        message = "Не найдено транзакций или остатков для привязки."
+        message = "Не найдено транзакций или остатков для привязки."  # noqa: RUF001
     else:
         new_status = DocumentStatus.PROCESSED
         message = None
