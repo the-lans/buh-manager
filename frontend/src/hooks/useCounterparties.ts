@@ -9,6 +9,11 @@ export function useCounterparties() {
   return useQuery({ queryKey: [QUERY_KEY], queryFn: counterpartiesApi.list })
 }
 
+export function useCounterpartyMap(): Map<string, string> {
+  const { data = [] } = useCounterparties()
+  return new Map(data.map((cp) => [cp.id, cp.name]))
+}
+
 export function useCreateCounterparty() {
   const qc = useQueryClient()
   return useMutation({

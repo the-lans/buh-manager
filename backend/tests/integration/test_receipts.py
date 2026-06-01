@@ -8,6 +8,7 @@ from sqlmodel import Session
 
 from app.constants import DocumentStatus, DocumentType
 from app.models.account import Account
+from app.models.counterparty import Counterparty
 from app.models.document import Document
 from app.models.user import User
 from app.utils.dt import utcnow
@@ -18,13 +19,12 @@ def _receipt_payload(
     fn: str | None = "1234567890",
     fd: str | None = "123456",
     fpd: str | None = "1234567890",
-    counterparty: str | None = "Магазин Тест",
+    counterparty_id: str | None = None,
     total: float = 100.0,
 ) -> dict:
-    return {
+    payload: dict = {
         "paid_at": "2024-01-15T12:00:00",
         "total_amount": total,
-        "counterparty_name": counterparty,
         "fn": fn,
         "fd": fd,
         "fpd": fpd,
@@ -37,6 +37,9 @@ def _receipt_payload(
             }
         ],
     }
+    if counterparty_id is not None:
+        payload["counterparty_id"] = counterparty_id
+    return payload
 
 
 async def _create_doc(client: AsyncClient, headers: dict[str, str]) -> str:
@@ -279,6 +282,62 @@ async def test_create_receipt_with_invalid_document_id_returns_404(
 
     resp = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
     assert resp.status_code == 404
+
+
+@pytest.mark.parametrize("scenario", ["nonexistent_id", "invalid_inn"])
+@pytest.mark.asyncio
+async def test_create_receipt_counterparty_validation(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    scenario: str,
+) -> None:
+    payload = _receipt_payload(fn=None, fd=None, fpd=None)
+    if scenario == "nonexistent_id":
+        payload["counterparty_id"] = "does-not-exist"
+        expected = 404
+    else:
+        payload["counterparty_name"] = "Магазин"
+        payload["counterparty_inn"] = "bad-inn"
+        expected = 422
+    resp = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+    assert resp.status_code == expected
+
+
+@pytest.mark.asyncio
+async def test_create_receipt_with_existing_counterparty_id(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+) -> None:
+    cp = Counterparty(id="test-cp", name="Тест", type="STORE")
+    session.add(cp)
+    session.commit()
+
+    resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn=None, fd=None, fpd=None, counterparty_id="test-cp"),
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["counterparty_id"] == "test-cp"
+
+
+@pytest.mark.asyncio
+async def test_create_receipt_autocreates_counterparty_by_inn(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+) -> None:
+    payload = _receipt_payload(fn=None, fd=None, fpd=None)
+    payload["counterparty_name"] = "Авто Магазин"
+    payload["counterparty_inn"] = "1234567890"
+
+    resp = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+    assert resp.status_code == 201
+    cp_id = resp.json()["counterparty_id"]
+    assert cp_id is not None
+    cp = session.get(Counterparty, cp_id)
+    assert cp is not None and cp.inn == "1234567890"
 
 
 @pytest.mark.asyncio
