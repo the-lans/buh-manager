@@ -39,4 +39,6 @@ export const documentsApi = {
         statement_end: end,
       })
       .then((r) => r.data),
+  reset: (documentId: string): Promise<Document> =>
+    apiClient.post<Document>(`/documents/${documentId}/reset`).then((r) => r.data),
 }

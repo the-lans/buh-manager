@@ -153,6 +153,20 @@ export const handlers = [
     HttpResponse.json({ document_id: 'doc-2', status: 'PROCESSED', updated_count: 3, message: null }),
   ),
 
+  http.post('/api/v1/documents/:id/reset', ({ params }) =>
+    HttpResponse.json({
+      id: params.id,
+      user_id: 'user-1',
+      type: 'BANK_STATEMENT',
+      url: '/media/fake/doc-2',
+      name: 'statement.pdf',
+      status: 'PENDING',
+      uploaded_at: '2026-03-01T10:00:00',
+      email_source: null,
+      file_hash: 'abc123',
+    }),
+  ),
+
   http.get('/api/v1/receipts', () =>
     HttpResponse.json<ReceiptListItem[]>([
       {

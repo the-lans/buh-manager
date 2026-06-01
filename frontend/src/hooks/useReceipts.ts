@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { receiptsApi } from '../api/receipts'
 
-export function useReceipts(params?: { skip?: number; limit?: number }) {
+export function useReceipts(params?: { skip?: number; limit?: number; enabled?: boolean }) {
+  const { enabled = true, ...queryParams } = params ?? {}
   return useQuery({
-    queryKey: ['receipts', params],
-    queryFn: () => receiptsApi.list(params),
+    queryKey: ['receipts', queryParams],
+    queryFn: () => receiptsApi.list(queryParams),
+    enabled,
   })
 }
 

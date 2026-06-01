@@ -3,11 +3,12 @@ import { useCallback, useRef, useState } from 'react'
 import { documentsApi } from '../api/documents'
 import { DataTable } from '../components/DataTable'
 import { StatusBadge } from '../components/StatusBadge'
-import { useAccounts } from '../hooks/useAccounts'
+import { useAccountsLazy } from '../hooks/useAccounts'
 import {
   useLinkDocumentToReceipt,
   useLinkDocumentToStatement,
   useDocuments,
+  useResetDocument,
   useUploadDocument,
 } from '../hooks/useDocuments'
 import { useReceipts } from '../hooks/useReceipts'
@@ -61,8 +62,10 @@ export default function Documents() {
 
   const linkReceipt = useLinkDocumentToReceipt()
   const linkStatement = useLinkDocumentToStatement()
-  const { data: receiptList = [] } = useReceipts({ limit: 200 })
-  const { data: accounts = [] } = useAccounts()
+  const resetDoc = useResetDocument()
+  const processModalOpen = processDoc !== null
+  const { data: receiptList = [] } = useReceipts({ limit: 500, enabled: processModalOpen && processDoc?.type === 'RECEIPT' })
+  const { data: accounts = [] } = useAccountsLazy(processModalOpen && processDoc?.type === 'BANK_STATEMENT')
 
   const handleOpen = useCallback(async (id: string) => {
     const url = await documentsApi.getOpenUrl(id)
@@ -224,6 +227,14 @@ export default function Documents() {
                     className="text-xs text-emerald-600 hover:underline"
                   >
                     Обработать
+                  </button>
+                )}
+                {doc.status === 'ERROR' && (
+                  <button
+                    onClick={() => resetDoc.mutate(doc.id)}
+                    className="text-xs text-amber-600 hover:underline"
+                  >
+                    Сбросить
                   </button>
                 )}
               </div>

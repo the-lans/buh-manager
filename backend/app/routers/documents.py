@@ -53,7 +53,7 @@ async def upload_document(
     content = await file.read()
     file_hash = compute_file_hash(content)
 
-    duplicate = check_document_duplicate(session=session, file_hash=file_hash)
+    duplicate = check_document_duplicate(session=session, file_hash=file_hash, user_id=current_user.id)
     if duplicate is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -291,6 +291,42 @@ def link_document_to_statement(
         updated_count=total,
         message=message,
     )
+
+
+@router.post(
+    "/{document_id}/reset",
+    response_model=DocumentRead,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_DOCUMENTS))],
+)
+def reset_document(
+    document_id: UUID,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> DocumentRead:
+    """Reset a document from ERROR status back to PENDING so it can be re-processed."""
+    doc = get_document_by_id(session=session, document_id=document_id, user_id=current_user.id)
+    doc = get_or_404(doc, "Document not found.")
+
+    if doc.status != DocumentStatus.ERROR:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only documents with ERROR status can be reset.",
+        )
+
+    doc.status = DocumentStatus.PENDING
+    session.add(doc)
+    audit_update(
+        session=session,
+        entity_type=AuditEntityType.IMPORT,
+        entity_id=document_id,
+        changed_by=ChangedBy.USER,
+        user_id=current_user.id,
+        before={"document_status": DocumentStatus.ERROR},
+        after={"document_status": DocumentStatus.PENDING},
+    )
+    session.commit()
+    session.refresh(doc)
+    return DocumentRead.model_validate(doc)
 
 
 def _is_local_path(url: str) -> bool:

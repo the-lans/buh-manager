@@ -6,8 +6,12 @@ from sqlmodel import Session, select
 from app.models.document import Document
 
 
-def get_document_by_hash(*, session: Session, file_hash: str) -> Document | None:
-    return session.exec(select(Document).where(Document.file_hash == file_hash)).first()
+def get_document_by_hash(*, session: Session, file_hash: str, user_id: UUID) -> Document | None:
+    return session.exec(
+        select(Document)
+        .where(Document.file_hash == file_hash)
+        .where(Document.user_id == user_id)
+    ).first()
 
 
 def get_document_by_id(
