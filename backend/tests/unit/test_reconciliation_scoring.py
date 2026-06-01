@@ -2,11 +2,10 @@
 
 from datetime import datetime, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-
-from unittest.mock import patch
 
 from app.constants import (
     SCORE_FUZZY_LOW,
