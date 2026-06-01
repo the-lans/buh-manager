@@ -9,7 +9,7 @@ async function resolveDownloadResponse(id: string, inline: boolean): Promise<str
     params: { inline },
     responseType: 'blob',
   })
-  const contentType = response.headers['content-type'] ?? ''
+  const contentType = String(response.headers['content-type'] ?? '')
   if (contentType.includes(JSON_CONTENT_TYPE)) {
     const payload = JSON.parse(await response.data.text()) as { url: string }
     return payload.url
