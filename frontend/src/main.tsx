@@ -10,6 +10,7 @@ import AuditLog from './pages/AuditLog'
 import AuthCallback from './pages/AuthCallback'
 import Counterparties from './pages/Counterparties'
 import Dashboard from './pages/Dashboard'
+import Documents from './pages/Documents'
 import Login from './pages/Login'
 import Receipts from './pages/Receipts'
 import Reconciliation from './pages/Reconciliation'
@@ -42,6 +43,7 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="transactions" element={<Transactions />} />
           <Route path="receipts" element={<Receipts />} />
+          <Route path="documents" element={<Documents />} />
           <Route path="counterparties" element={<Counterparties />} />
           <Route path="reconciliation" element={<Reconciliation />} />
           <Route path="audit-log" element={<AuditLog />} />

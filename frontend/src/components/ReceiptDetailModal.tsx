@@ -1,4 +1,6 @@
+import { documentsApi } from '../api/documents'
 import { useCounterpartyMap } from '../hooks/useCounterparties'
+import { useDocument } from '../hooks/useDocuments'
 import { useReceipt } from '../hooks/useReceipts'
 import { formatDate } from '../utils/date'
 
@@ -10,6 +12,7 @@ interface Props {
 export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
   const { data: receipt, isLoading, isError } = useReceipt(receiptId)
   const counterpartyMap = useCounterpartyMap()
+  const { data: document } = useDocument(receipt?.document_id ?? null)
 
   if (!receiptId) return null
 
@@ -110,6 +113,28 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
                 </tfoot>
               </table>
             </div>
+            {receipt.document_id && (
+              <div className="border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-4 text-sm">
+                <span className="text-gray-600 truncate">
+                  📄 {document?.name ?? 'Документ'}
+                </span>
+                <div className="flex gap-3 shrink-0">
+                  <button
+                    onClick={() => window.open(documentsApi.downloadUrl(receipt.document_id!), '_blank')}
+                    className="text-indigo-600 hover:underline"
+                  >
+                    Открыть
+                  </button>
+                  <a
+                    href={documentsApi.downloadUrl(receipt.document_id)}
+                    download={document?.name}
+                    className="text-gray-500 hover:underline"
+                  >
+                    Скачать
+                  </a>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

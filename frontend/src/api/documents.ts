@@ -14,4 +14,5 @@ export const documentsApi = {
   list: (params?: { type?: string; status?: string; skip?: number; limit?: number }) =>
     apiClient.get<Document[]>('/documents', { params }).then((r) => r.data),
   get: (id: string) => apiClient.get<Document>(`/documents/${id}`).then((r) => r.data),
+  downloadUrl: (id: string): string => `/api/v1/documents/${id}/download`,
 }
