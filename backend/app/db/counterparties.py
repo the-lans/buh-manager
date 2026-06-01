@@ -1,4 +1,5 @@
 import re
+from typing import Any
 
 from sqlmodel import Session, select
 
@@ -20,26 +21,50 @@ def get_or_create_counterparty(
     session: Session,
     name: str,
     type: str = "STORE",
+    inn: str | None = None,
+    kpp: str | None = None,
 ) -> Counterparty:
-    existing = session.exec(
-        select(Counterparty).where(Counterparty.name == name)
-    ).first()
-    if existing is not None:
-        return existing
+    # Deduplicate by INN first (when provided)
+    if inn is not None:
+        existing_by_inn = session.exec(select(Counterparty).where(Counterparty.inn == inn)).first()
+        if existing_by_inn is not None:
+            return existing_by_inn
+
+    existing_by_name = session.exec(select(Counterparty).where(Counterparty.name == name)).first()
+    if existing_by_name is not None:
+        return existing_by_name
 
     slug = _slug_from_name(name)
-    # Ensure slug uniqueness
     base_slug = slug
     counter = 1
     while session.get(Counterparty, slug) is not None:
         slug = f"{base_slug}-{counter}"
         counter += 1
 
-    counterparty = Counterparty(id=slug, name=name, type=type)
+    counterparty = Counterparty(id=slug, name=name, type=type, inn=inn, kpp=kpp)
     session.add(counterparty)
     session.flush()
     session.refresh(counterparty)
     return counterparty
+
+
+def update_counterparty(
+    *,
+    session: Session,
+    counterparty: Counterparty,
+    update_data: dict[str, Any],
+) -> Counterparty:
+    for field, value in update_data.items():
+        setattr(counterparty, field, value)
+    session.add(counterparty)
+    session.flush()
+    session.refresh(counterparty)
+    return counterparty
+
+
+def delete_counterparty(*, session: Session, counterparty: Counterparty) -> None:
+    session.delete(counterparty)
+    session.flush()
 
 
 def list_counterparties(*, session: Session) -> list[Counterparty]:

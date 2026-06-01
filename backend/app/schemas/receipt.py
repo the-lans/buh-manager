@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
@@ -5,6 +6,8 @@ from uuid import UUID
 from pydantic import BaseModel, field_validator
 
 from app.utils.dt import normalize_to_utc
+
+_INN_RE = re.compile(r"^\d{10}(\d{2})?$")
 
 
 class ReceiptItemCreate(BaseModel):
@@ -19,13 +22,22 @@ class ReceiptItemCreate(BaseModel):
 
 class ReceiptCreate(BaseModel):
     document_id: UUID | None = None
+    counterparty_id: str | None = None
     counterparty_name: str | None = None
+    counterparty_inn: str | None = None
     paid_at: datetime
     total_amount: Decimal
     fn: str | None = None
     fd: str | None = None
     fpd: str | None = None
     items: list[ReceiptItemCreate] = []
+
+    @field_validator("counterparty_inn")
+    @classmethod
+    def validate_counterparty_inn(cls, v: str | None) -> str | None:
+        if v is not None and not _INN_RE.match(v):
+            raise ValueError("ИНН должен содержать 10 или 12 цифр")
+        return v
 
     @field_validator("paid_at", mode="after")
     @classmethod
@@ -34,7 +46,7 @@ class ReceiptCreate(BaseModel):
 
 
 class ReceiptUpdate(BaseModel):
-    counterparty_name: str | None = None
+    counterparty_id: str | None = None
     paid_at: datetime | None = None
     total_amount: Decimal | None = None
     fn: str | None = None

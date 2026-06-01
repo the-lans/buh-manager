@@ -98,6 +98,32 @@ export interface Counterparty {
   id: string
   name: string
   type: string
+  inn: string | null
+  kpp: string | null
+}
+
+export interface CounterpartyCreate {
+  name: string
+  type?: string
+  inn?: string | null
+  kpp?: string | null
+}
+
+export interface CounterpartyUpdate {
+  name?: string
+  type?: string
+  inn?: string | null
+  kpp?: string | null
+}
+
+export interface AuditLogEntry {
+  id: string
+  entity_type: string
+  entity_id: string
+  action: string
+  changed_by: string
+  changed_at: string
+  diff: string | null
 }
 
 export interface ExchangeRate {

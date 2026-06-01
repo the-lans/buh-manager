@@ -8,6 +8,14 @@ export function useReceipts(params?: { skip?: number; limit?: number }) {
   })
 }
 
+export function useReceipt(id: string | null) {
+  return useQuery({
+    queryKey: ['receipts', id],
+    queryFn: () => receiptsApi.get(id!),
+    enabled: !!id,
+  })
+}
+
 export function useDeleteReceipt() {
   const qc = useQueryClient()
   return useMutation({

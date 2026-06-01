@@ -1,7 +1,7 @@
 # ТЗ: Сервис «Персональный бухгалтер»
 
-> Техническое задание для Claude Code  
-> Версия: 1.2  
+> Техническое задание для Claude Code
+> Версия: 1.2
 > Дата: 2026-05-03 (обновлено)
 
 ---
@@ -76,8 +76,8 @@ YANDEX_SECRET_KEY=
 
 ## 4. Схема базы данных
 
-> Все модели описываются через SQLModel (table=True).  
-> UUID генерируется на стороне Python (`default_factory=uuid4`).  
+> Все модели описываются через SQLModel (table=True).
+> UUID генерируется на стороне Python (`default_factory=uuid4`).
 > Поля `created_at` / `updated_at` проставляются автоматически.
 
 ### 4.1 users
@@ -177,7 +177,7 @@ YANDEX_SECRET_KEY=
 | `import_status` | VARCHAR | IMPORTED, DUPLICATE_SKIPPED, CONFLICT |
 | `document_id` | UUID (FK → documents.id, NULL) | Выписка, из которой загружена транзакция |
 
-> **Дедупликация:** UNIQUE INDEX на `(account_id, occurred_at, balance_after)`.  
+> **Дедупликация:** UNIQUE INDEX на `(account_id, occurred_at, balance_after)`.
 > Ключ дедупликации — `(occurred_at + balance_after)`, а не `(occurred_at + amount)`, т.к. `balance_after` уникален в цепочке операций даже при одинаковых суммах.
 
 ### 4.9 balances
@@ -324,7 +324,7 @@ YANDEX_SECRET_KEY=
 | `GET` | `/reconciliation/report` | Последний отчёт без перезапуска. |
 | `POST` | `/reconciliation/match` | Ручная привязка: `{"transaction_id": "uuid", "receipt_id": "uuid"}`. |
 | `POST` | `/reconciliation/ignore` | Пометить транзакцию как `IGNORED_BY_USER`: `{"transaction_id": "uuid"}`. |
-| `POST` | `/reconciliation/resolve-conflict` | Разрешить конфликт импорта: `{"transaction_id": "uuid", "action": "KEEP_OLD" или "UPDATE_FROM_NEW"}`. |
+| `POST` | `/reconciliation/resolve-conflict` | Разрешить только незакрытый конфликт импорта: `{"transaction_id": "uuid", "action": "KEEP_OLD" или "UPDATE_FROM_NEW"}`. При `UPDATE_FROM_NEW` сервер применяет входящие данные, сохранённые при импорте конфликтной выписки. |
 
 #### Схема ответа `POST /reconciliation/run`
 ```json
@@ -381,7 +381,7 @@ YANDEX_SECRET_KEY=
 
 Связка `(account_id, occurred_at ± 1 минута, balance_after)` является «отпечатком» транзакции.
 
-**Почему `balance_after`, а не `amount`?**  
+**Почему `balance_after`, а не `amount`?**
 Если два платежа имеют одинаковую сумму в один день, остаток счёта после каждого из них будет разным — это гарантирует уникальность. `balance_after` — это фактически «хэш состояния счёта» в конкретный момент времени.
 
 ### Шаги алгоритма
@@ -428,7 +428,7 @@ LIMIT 1;
 calculated_balance[n] = calculated_balance[n-1] + amount[n]
 ```
 
-Начальной точкой служит `opening_balance` из шапки выписки.  
+Начальной точкой служит `opening_balance` из шапки выписки.
 Для каждой транзакции заполняется поле `calculated_balance_after` и флаг `balance_mismatch = (balance_after ≠ calculated_balance_after)`.
 
 Если `balance_mismatch = true` хотя бы у одной транзакции — в цепочке есть пропущенная операция (например, комиссия банка, обработанная вне периода выписки).
@@ -452,12 +452,13 @@ is_consistent = (discrepancy == 0)
 
 Конфликты не разрешаются автоматически. Они:
 - Записываются в `audit_log` (`action = IMPORT_CONFLICT`)
+- Помечают существующую транзакцию как `import_status = CONFLICT`
 - Возвращаются в `conflicts[]` поля ответа `ImportReport`
 - Доступны для ручного разрешения через `POST /reconciliation/resolve-conflict`
 
 Пользователь выбирает одно из двух действий:
 - `KEEP_OLD` — оставить существующую запись без изменений
-- `UPDATE_FROM_NEW` — перезаписать данными из новой выписки (с записью в `audit_log`)
+- `UPDATE_FROM_NEW` — перезаписать данными из конфликтной выписки, сохранёнными на сервере (с записью в `audit_log`)
 
 ### Псевдокод сервиса импорта
 
@@ -661,7 +662,7 @@ bookkeeper/
 | Конфликт при импорте выписки | IMPORT_CONFLICT | import |
 | Разрешение конфликта пользователем | UPDATE | transaction |
 
-Поле `changed_by`: `"AGENT"` (API-вызов от агента) или `"USER"` (действие с фронта).  
+Поле `changed_by`: `"AGENT"` (API-вызов от агента) или `"USER"` (действие с фронта).
 Поле `diff`: JSON-снапшот `{"before": {...}, "after": {...}}`.
 
 ---
@@ -699,8 +700,8 @@ YANDEX_SECRET_KEY=
 
 ### Концепция
 
-Авторизация реализована через **Authorization Code Flow** (Google OAuth2).  
-Пользователь входит через Google-аккаунт → бэкенд выдаёт собственный **JWT** → фронт передаёт его в заголовке `Authorization: Bearer <token>` при каждом запросе.  
+Авторизация реализована через **Authorization Code Flow** (Google OAuth2).
+Пользователь входит через Google-аккаунт → бэкенд выдаёт собственный **JWT** → фронт передаёт его в заголовке `Authorization: Bearer <token>` при каждом запросе.
 Пароли не хранятся.
 
 ### Зависимости
@@ -880,7 +881,7 @@ app.include_router(documents_router, **protected)
 
 ### Изоляция данных пользователей
 
-Каждый запрос к БД **обязан** фильтровать по `current_user.id` через JOIN с `accounts`.  
+Каждый запрос к БД **обязан** фильтровать по `current_user.id` через JOIN с `accounts`.
 Нарушение этого правила позволяет одному пользователю читать данные другого.
 
 ```python
