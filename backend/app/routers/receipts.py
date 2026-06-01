@@ -77,6 +77,16 @@ def create_receipt_endpoint(
         cp = get_or_create_counterparty(session=session, name=data.counterparty_name)
         counterparty_id = cp.id
 
+    if data.document_id is not None:
+        doc = get_document_by_id(
+            session=session,
+            document_id=data.document_id,
+            user_id=current_user.id,
+        )
+        doc = get_or_404(doc, "Document not found.")
+    else:
+        doc = None
+
     receipt = create_receipt(
         session=session,
         data=data,
