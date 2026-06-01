@@ -113,3 +113,5 @@ S3_ENDPOINT_URL: str = "https://storage.yandexcloud.net"
 API_KEY_PREFIX: str = "bm_"
 API_KEY_RANDOM_BYTES: int = 32
 API_KEY_PREFIX_LENGTH: int = 8
+
+DEFAULT_AUDIT_LOG_LIMIT: int = 50

@@ -1,4 +1,4 @@
-from uuid import UUID
+from uuid import UUID  # noqa: TCH003
 
 from fastapi import HTTPException, status
 from sqlmodel import Session
@@ -87,6 +87,7 @@ def import_bank_statement(
                     "occurred_at": str(existing.occurred_at),
                 },
                 incoming_data={"amount": str(tx_in.amount), "occurred_at": str(tx_in.occurred_at)},
+                user_id=current_user.id,
             )
             conflicts.append(
                 ConflictItem(

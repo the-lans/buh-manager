@@ -36,12 +36,12 @@ async def test_create_counterparty(
 ) -> None:
     resp = await client.post(
         "/api/v1/counterparties",
-        json=_cp_payload(name="ООО Ромашка", inn="1234567890", kpp="123456789"),
+        json=_cp_payload(name="ООО Ромашка", inn="1234567890", kpp="123456789"),  # noqa: RUF001
         headers=auth_headers,
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["name"] == "ООО Ромашка"
+    assert data["name"] == "ООО Ромашка"  # noqa: RUF001
     assert data["inn"] == "1234567890"
     assert data["kpp"] == "123456789"
     assert "id" in data
@@ -67,11 +67,11 @@ async def test_create_counterparty_without_inn(
 @pytest.mark.parametrize(
     ("inn", "kpp"),
     [
-        ("123", None),          # INN слишком короткий
+        ("123", None),  # INN слишком короткий
         ("12345678901234", None),  # INN слишком длинный
-        ("12345678ab", None),   # INN не цифры
-        (None, "12345"),        # KPP слишком короткий
-        (None, "1234567890"),   # KPP слишком длинный
+        ("12345678ab", None),  # INN не цифры
+        (None, "12345"),  # KPP слишком короткий
+        (None, "1234567890"),  # KPP слишком длинный
     ],
 )
 async def test_create_counterparty_invalid_inn_kpp(

@@ -1,9 +1,9 @@
 import json
 from uuid import UUID
 
-from sqlalchemy import exists
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
+from app.models.account import Account
 from app.models.document import Document
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
@@ -65,14 +65,34 @@ def get_receipts_for_user(
 
 
 def get_unmatched_receipts(*, session: Session, user_id: UUID) -> list[Receipt]:
+    matched_receipts = (
+        select(Transaction.receipt_id)
+        .join(Account, Transaction.account_id == Account.id)  # type: ignore[arg-type]
+        .where(Account.user_id == user_id)
+        .where(col(Transaction.receipt_id).is_not(None))
+    )
     return list(
         session.exec(
             select(Receipt)
             .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
             .where((Receipt.user_id == user_id) | (Document.user_id == user_id))
-            .where(~exists().where(Transaction.receipt_id == Receipt.id))  # type: ignore[arg-type]
+            .where(col(Receipt.id).not_in(matched_receipts))
         ).all()
     )
+
+
+def get_receipt_linked_transaction(
+    *,
+    session: Session,
+    receipt_id: UUID,
+    user_id: UUID,
+) -> Transaction | None:
+    return session.exec(
+        select(Transaction)
+        .join(Account, Transaction.account_id == Account.id)  # type: ignore[arg-type]
+        .where(Transaction.receipt_id == receipt_id)
+        .where(Account.user_id == user_id)
+    ).first()
 
 
 def create_receipt(

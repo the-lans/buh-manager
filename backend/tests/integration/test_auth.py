@@ -83,20 +83,25 @@ def _mock_oauth(userinfo: dict) -> AsyncMock:
 @pytest.mark.asyncio
 async def test_google_callback_blocks_disallowed_email(client: AsyncClient) -> None:
     userinfo = {**_GOOGLE_USERINFO, "email": "blocked@evil.com"}
-    with patch("app.routers.auth.oauth.google.authorize_access_token", new=_mock_oauth(userinfo)):
-        with patch.object(settings, "allowed_emails", ["allowed@example.com"]):
-            response = await client.get("/api/v1/auth/google/callback")
+    with (
+        patch("app.routers.auth.oauth.google.authorize_access_token", new=_mock_oauth(userinfo)),
+        patch.object(settings, "allowed_emails", ["allowed@example.com"]),
+    ):
+        response = await client.get("/api/v1/auth/google/callback")
     assert response.status_code in (302, 307)
     assert response.headers["location"].endswith("/auth/forbidden")
 
 
 @pytest.mark.asyncio
 async def test_google_callback_allows_whitelisted_email(client: AsyncClient) -> None:
-    with patch(
-        "app.routers.auth.oauth.google.authorize_access_token", new=_mock_oauth(_GOOGLE_USERINFO)
+    with (
+        patch(
+            "app.routers.auth.oauth.google.authorize_access_token",
+            new=_mock_oauth(_GOOGLE_USERINFO),
+        ),
+        patch.object(settings, "allowed_emails", ["allowed@example.com"]),
     ):
-        with patch.object(settings, "allowed_emails", ["allowed@example.com"]):
-            response = await client.get("/api/v1/auth/google/callback")
+        response = await client.get("/api/v1/auth/google/callback")
     assert response.status_code in (302, 307)
     assert "/auth/forbidden" not in response.headers["location"]
 
@@ -104,8 +109,10 @@ async def test_google_callback_allows_whitelisted_email(client: AsyncClient) -> 
 @pytest.mark.asyncio
 async def test_google_callback_allows_any_email_when_whitelist_empty(client: AsyncClient) -> None:
     userinfo = {**_GOOGLE_USERINFO, "email": "anyone@random.com"}
-    with patch("app.routers.auth.oauth.google.authorize_access_token", new=_mock_oauth(userinfo)):
-        with patch.object(settings, "allowed_emails", []):
-            response = await client.get("/api/v1/auth/google/callback")
+    with (
+        patch("app.routers.auth.oauth.google.authorize_access_token", new=_mock_oauth(userinfo)),
+        patch.object(settings, "allowed_emails", []),
+    ):
+        response = await client.get("/api/v1/auth/google/callback")
     assert response.status_code in (302, 307)
     assert "/auth/forbidden" not in response.headers["location"]

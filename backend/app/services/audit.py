@@ -14,6 +14,7 @@ def audit_create(
     entity_type: AuditEntityType,
     entity_id: UUID,
     changed_by: ChangedBy,
+    user_id: UUID | None = None,
     after: dict[str, Any],
 ) -> AuditLog:
     return write_audit_log_entry(
@@ -22,6 +23,7 @@ def audit_create(
         entity_id=entity_id,
         action=AuditAction.CREATE,
         changed_by=changed_by,
+        user_id=user_id,
         diff_after=after,
     )
 
@@ -32,6 +34,7 @@ def audit_update(
     entity_type: AuditEntityType,
     entity_id: UUID,
     changed_by: ChangedBy,
+    user_id: UUID | None = None,
     before: dict[str, Any],
     after: dict[str, Any],
 ) -> AuditLog:
@@ -41,6 +44,7 @@ def audit_update(
         entity_id=entity_id,
         action=AuditAction.UPDATE,
         changed_by=changed_by,
+        user_id=user_id,
         diff_before=before,
         diff_after=after,
     )
@@ -52,6 +56,7 @@ def audit_delete(
     entity_type: AuditEntityType,
     entity_id: UUID,
     changed_by: ChangedBy,
+    user_id: UUID | None = None,
     before: dict[str, Any],
 ) -> AuditLog:
     return write_audit_log_entry(
@@ -60,6 +65,7 @@ def audit_delete(
         entity_id=entity_id,
         action=AuditAction.DELETE,
         changed_by=changed_by,
+        user_id=user_id,
         diff_before=before,
     )
 
@@ -70,6 +76,7 @@ def audit_match(
     transaction_id: UUID,
     receipt_id: UUID,
     changed_by: ChangedBy,
+    user_id: UUID | None = None,
 ) -> AuditLog:
     return write_audit_log_entry(
         session=session,
@@ -77,6 +84,7 @@ def audit_match(
         entity_id=transaction_id,
         action=AuditAction.MATCH,
         changed_by=changed_by,
+        user_id=user_id,
         diff_after={"receipt_id": str(receipt_id)},
     )
 
@@ -87,6 +95,7 @@ def audit_conflict(
     transaction_id: UUID,
     existing_data: dict[str, Any],
     incoming_data: dict[str, Any],
+    user_id: UUID | None = None,
 ) -> AuditLog:
     return write_audit_log_entry(
         session=session,
@@ -94,6 +103,7 @@ def audit_conflict(
         entity_id=transaction_id,
         action=AuditAction.IMPORT_CONFLICT,
         changed_by=ChangedBy.AGENT,
+        user_id=user_id,
         diff_before=existing_data,
         diff_after=incoming_data,
     )
