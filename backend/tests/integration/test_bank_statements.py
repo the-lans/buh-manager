@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import uuid4
 
 import pytest
@@ -148,3 +149,26 @@ async def test_import_wrong_account_returns_403(
     payload = _stmt_payload(str(uuid4()), doc_id, [])
     resp = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
     assert resp.status_code == 403
+
+
+@pytest.mark.parametrize("document_case", ["nonexistent", "other_user"])
+@pytest.mark.asyncio
+async def test_import_rejects_invalid_document(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    second_auth_headers: dict[str, str],
+    test_account: Account,
+    document_case: Literal["nonexistent", "other_user"],
+) -> None:
+    document_id = (
+        await _create_doc(client, second_auth_headers)
+        if document_case == "other_user"
+        else str(uuid4())
+    )
+    payload = _stmt_payload(
+        str(test_account.id),
+        document_id,
+        [_tx("2024-01-05T10:00:00", -100.0, 900.0)],
+    )
+    resp = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
+    assert resp.status_code == 404

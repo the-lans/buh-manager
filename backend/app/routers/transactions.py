@@ -7,6 +7,7 @@ from app.constants import ApiKeyScope, AuditEntityType, ChangedBy
 from app.database import get_session
 from app.db.accounts import get_account_by_id
 from app.db.counterparties import get_or_create_counterparty
+from app.db.expense_types import get_expense_type_by_id
 from app.db.transactions import (
     create_transaction,
     delete_transaction,
@@ -74,6 +75,14 @@ def create_transaction_endpoint(
     if data.counterparty_name:
         cp = get_or_create_counterparty(session=session, name=data.counterparty_name)
         counterparty_id = cp.id
+    if data.expense_type_id is not None:
+        get_or_404(
+            get_expense_type_by_id(
+                session=session,
+                expense_type_id=data.expense_type_id,
+            ),
+            "Expense type not found.",
+        )
 
     tx = create_transaction(
         session=session,
@@ -118,6 +127,14 @@ def update_transaction_endpoint(
         session=session, transaction_id=transaction_id, user_id=current_user.id
     )
     tx = get_or_404(tx, "Transaction not found.")
+    if data.expense_type_id is not None:
+        get_or_404(
+            get_expense_type_by_id(
+                session=session,
+                expense_type_id=data.expense_type_id,
+            ),
+            "Expense type not found.",
+        )
 
     before = {"amount": str(tx.amount), "occurred_at": str(tx.occurred_at)}
     tx = update_transaction(session=session, transaction=tx, data=data)

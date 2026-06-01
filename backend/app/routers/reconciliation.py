@@ -156,11 +156,10 @@ def resolve_conflict(
         session=session, transaction_id=data.transaction_id, user_id=current_user.id
     )
     tx = get_or_404(tx, "Transaction not found.")
-
     if tx.import_status != ImportStatus.CONFLICT:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Transaction is not in CONFLICT status.",
+            detail="Transaction has no unresolved import conflict.",
         )
 
     before = {"amount": str(tx.amount), "import_status": str(tx.import_status)}

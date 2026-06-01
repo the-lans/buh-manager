@@ -7,6 +7,7 @@ from app.constants import BalanceSource, ImportStatus
 from app.db.accounts import get_account_by_id
 from app.db.balances import has_any_balance, upsert_balance
 from app.db.counterparties import get_or_create_counterparty
+from app.db.documents import get_document_by_id
 from app.db.transactions import create_transaction, find_transaction_by_dedup_key
 from app.models.user import User
 from app.schemas.bank_statement import (
@@ -34,6 +35,16 @@ def import_bank_statement(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account not found or access denied.",
+        )
+    document = get_document_by_id(
+        session=session,
+        document_id=statement.document_id,
+        user_id=current_user.id,
+    )
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found.",
         )
 
     is_initial_import = not has_any_balance(session=session, account_id=statement.account_id)
@@ -79,6 +90,8 @@ def import_bank_statement(
             skipped_count += 1
 
         else:
+            existing.import_status = ImportStatus.CONFLICT
+            session.add(existing)
             audit_conflict(
                 session=session,
                 transaction_id=existing.id,

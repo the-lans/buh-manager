@@ -52,3 +52,25 @@ def list_audit_log_entries(
         query = query.where(AuditLog.entity_type == entity_type)
     query = query.order_by(col(AuditLog.changed_at).desc()).offset(skip).limit(limit)
     return list(session.exec(query).all())
+
+
+def get_latest_audit_diff_after(
+    *,
+    session: Session,
+    user_id: UUID,
+    entity_id: UUID,
+    action: str,
+) -> dict[str, Any] | None:
+    entry = session.exec(
+        select(AuditLog)
+        .where(AuditLog.user_id == user_id)
+        .where(AuditLog.entity_id == entity_id)
+        .where(AuditLog.action == action)
+        .order_by(col(AuditLog.changed_at).desc())
+    ).first()
+    if entry is None or entry.diff is None:
+        return None
+
+    diff = json.loads(entry.diff)
+    after = diff.get("after")
+    return after if isinstance(after, dict) else None
