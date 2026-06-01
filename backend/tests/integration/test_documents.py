@@ -1,15 +1,47 @@
 import io
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlmodel import Session
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session, select
 
-from app.constants import DocumentStatus, MEDIA_PATH
+from app.constants import MEDIA_PATH, DocumentStatus
+from app.main import app
 from app.models.account import Account
 from app.models.balance import Balance
+from app.models.document import Document
+from app.models.receipt import Receipt
 from app.models.transaction import Transaction
+from app.routers import documents as documents_router
+from storage import get_storage_provider
+
+
+class RecordingStorageProvider:
+    def __init__(self) -> None:
+        self.uploaded_url: str | None = None
+        self.deleted_url: str | None = None
+        self.fail_delete = False
+
+    async def upload_file(self, *, file: object, file_id: str) -> str:  # noqa: ARG002
+        self.uploaded_url = f"/media/fake/{file_id}"
+        return self.uploaded_url
+
+    async def delete_file(self, *, doc_url: str) -> None:
+        if self.fail_delete:
+            raise RuntimeError("delete failed")
+        self.deleted_url = doc_url
+
+    def get_download_url(
+        self,
+        *,
+        doc_url: str,
+        filename: str,  # noqa: ARG002
+        inline: bool = False,  # noqa: ARG002
+        expires_in: int = 3600,  # noqa: ARG002
+    ) -> str:
+        return doc_url
 
 
 def _pdf_bytes(content: str = "fake pdf content") -> bytes:
@@ -51,6 +83,54 @@ async def test_upload_duplicate_document_returns_409(
     )
     assert response.status_code == 409
     assert "document_id" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_upload_integrity_error_returns_409_and_deletes_uploaded_file(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage = RecordingStorageProvider()
+    app.dependency_overrides[get_storage_provider] = lambda: storage
+
+    def raise_integrity_error(**_: object) -> None:
+        raise IntegrityError("insert document", {}, Exception("unique violation"))
+
+    monkeypatch.setattr(documents_router, "create_document", raise_integrity_error)
+
+    response = await client.post(
+        "/api/v1/documents",
+        headers=auth_headers,
+        files={"file": ("doc.pdf", io.BytesIO(_pdf_bytes("race")), "application/pdf")},
+    )
+
+    assert response.status_code == 409
+    assert storage.deleted_url == storage.uploaded_url
+
+
+@pytest.mark.asyncio
+async def test_upload_integrity_error_returns_409_when_cleanup_fails(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage = RecordingStorageProvider()
+    storage.fail_delete = True
+    app.dependency_overrides[get_storage_provider] = lambda: storage
+
+    def raise_integrity_error(**_: object) -> None:
+        raise IntegrityError("insert document", {}, Exception("unique violation"))
+
+    monkeypatch.setattr(documents_router, "create_document", raise_integrity_error)
+
+    response = await client.post(
+        "/api/v1/documents",
+        headers=auth_headers,
+        files={"file": ("doc.pdf", io.BytesIO(_pdf_bytes("race-cleanup")), "application/pdf")},
+    )
+
+    assert response.status_code == 409
 
 
 @pytest.mark.asyncio
@@ -200,6 +280,7 @@ async def test_download_other_user_document_returns_404(
 
 # ── link-receipt endpoint ──────────────────────────────────────────────────────
 
+
 def _receipt_payload(total: float = 100.0) -> dict:
     return {
         "paid_at": "2024-03-01T10:00:00",
@@ -240,7 +321,9 @@ async def test_link_receipt_to_document_success(
     session: Session,
 ) -> None:
     doc_id = await _create_receipt_doc(client, auth_headers)
-    receipt_resp = await client.post("/api/v1/receipts", json=_receipt_payload(), headers=auth_headers)
+    receipt_resp = await client.post(
+        "/api/v1/receipts", json=_receipt_payload(), headers=auth_headers
+    )
     assert receipt_resp.status_code == 201
     receipt_id = receipt_resp.json()["id"]
 
@@ -254,17 +337,12 @@ async def test_link_receipt_to_document_success(
     assert data["status"] == DocumentStatus.PROCESSED
     assert data["updated_count"] == 1
 
-    # Verify DB: document is PROCESSED
-    from uuid import UUID as _UUID
-    from app.models.document import Document
     session.expire_all()
-    doc = session.get(Document, _UUID(doc_id))
+    doc = session.get(Document, UUID(doc_id))
     assert doc is not None
     assert doc.status == DocumentStatus.PROCESSED
 
-    # Verify DB: receipt has document_id set
-    from app.models.receipt import Receipt
-    receipt = session.get(Receipt, _UUID(receipt_id))
+    receipt = session.get(Receipt, UUID(receipt_id))
     assert receipt is not None
     assert str(receipt.document_id) == doc_id
 
@@ -275,7 +353,9 @@ async def test_link_receipt_wrong_doc_type_returns_400(
     auth_headers: dict[str, str],
 ) -> None:
     doc_id = await _create_stmt_doc(client, auth_headers)
-    receipt_resp = await client.post("/api/v1/receipts", json=_receipt_payload(), headers=auth_headers)
+    receipt_resp = await client.post(
+        "/api/v1/receipts", json=_receipt_payload(), headers=auth_headers
+    )
     receipt_id = receipt_resp.json()["id"]
 
     resp = await client.post(
@@ -319,7 +399,9 @@ async def test_link_receipt_already_has_document_returns_409(
 ) -> None:
     doc1 = await _create_receipt_doc(client, auth_headers)
     doc2 = await _create_receipt_doc(client, auth_headers)
-    receipt_resp = await client.post("/api/v1/receipts", json=_receipt_payload(), headers=auth_headers)
+    receipt_resp = await client.post(
+        "/api/v1/receipts", json=_receipt_payload(), headers=auth_headers
+    )
     receipt_id = receipt_resp.json()["id"]
 
     # Link receipt to doc1
@@ -359,7 +441,9 @@ async def test_link_receipt_other_user_doc_returns_404(
     second_auth_headers: dict[str, str],
 ) -> None:
     doc_id = await _create_receipt_doc(client, auth_headers)
-    receipt_resp = await client.post("/api/v1/receipts", json=_receipt_payload(), headers=second_auth_headers)
+    receipt_resp = await client.post(
+        "/api/v1/receipts", json=_receipt_payload(), headers=second_auth_headers
+    )
     receipt_id = receipt_resp.json()["id"]
 
     resp = await client.post(
@@ -391,15 +475,18 @@ async def test_link_statement_to_document_success(
         "closing_balance": 900.0,
         "transactions": [{"occurred_at": "2024-02-10T12:00:00", "amount": -100.0, "type": "DEBIT"}],
     }
-    import_resp = await client.post("/api/v1/bank-statements", json=stmt_payload, headers=auth_headers)
+    import_resp = await client.post(
+        "/api/v1/bank-statements", json=stmt_payload, headers=auth_headers
+    )
     assert import_resp.status_code == 200
 
     # Now unlink transactions from their document to simulate PENDING scenario
-    from sqlmodel import select as _select
-    for tx in session.exec(_select(Transaction).where(Transaction.account_id == test_account.id)).all():
+    for tx in session.exec(
+        select(Transaction).where(Transaction.account_id == test_account.id)
+    ).all():
         tx.document_id = None
         session.add(tx)
-    for bal in session.exec(_select(Balance).where(Balance.account_id == test_account.id)).all():
+    for bal in session.exec(select(Balance).where(Balance.account_id == test_account.id)).all():
         bal.document_id = None
         session.add(bal)
     session.commit()
@@ -446,10 +533,8 @@ async def test_link_statement_no_transactions_sets_error(
     assert data["updated_count"] == 0
 
     # Verify document status in DB
-    from uuid import UUID as _UUID
-    from app.models.document import Document
     session.expire_all()
-    doc = session.get(Document, _UUID(doc_id))
+    doc = session.get(Document, UUID(doc_id))
     assert doc is not None
     assert doc.status == DocumentStatus.ERROR
 
@@ -585,10 +670,8 @@ async def test_reset_error_document_to_pending(
     assert resp.json()["status"] == DocumentStatus.PENDING
 
     # Verify DB
-    from uuid import UUID as _UUID
-    from app.models.document import Document
     session.expire_all()
-    doc = session.get(Document, _UUID(doc_id))
+    doc = session.get(Document, UUID(doc_id))
     assert doc is not None
     assert doc.status == DocumentStatus.PENDING
 
@@ -647,11 +730,12 @@ async def test_reset_after_error_allows_reprocessing(
     await client.post("/api/v1/bank-statements", json=stmt_payload, headers=auth_headers)
 
     # Unlink transactions
-    from sqlmodel import select as _select
-    for tx in session.exec(_select(Transaction).where(Transaction.account_id == test_account.id)).all():
+    for tx in session.exec(
+        select(Transaction).where(Transaction.account_id == test_account.id)
+    ).all():
         tx.document_id = None
         session.add(tx)
-    for bal in session.exec(_select(Balance).where(Balance.account_id == test_account.id)).all():
+    for bal in session.exec(select(Balance).where(Balance.account_id == test_account.id)).all():
         bal.document_id = None
         session.add(bal)
     session.commit()

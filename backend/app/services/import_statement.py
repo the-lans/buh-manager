@@ -3,11 +3,11 @@ from uuid import UUID  # noqa: TCH003
 from fastapi import HTTPException, status
 from sqlmodel import Session
 
-from app.constants import BalanceSource, ImportStatus
+from app.constants import BalanceSource, DocumentStatus, DocumentType, ImportStatus
 from app.db.accounts import get_account_by_id
 from app.db.balances import has_any_balance, upsert_balance
 from app.db.counterparties import get_or_create_counterparty
-from app.db.documents import get_document_by_id
+from app.db.documents import claim_document_for_processing, get_document_by_id
 from app.db.transactions import create_transaction, find_transaction_by_dedup_key
 from app.models.user import User
 from app.schemas.bank_statement import (
@@ -45,6 +45,21 @@ def import_bank_statement(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found.",
+        )
+    if document.type != DocumentType.BANK_STATEMENT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document type must be BANK_STATEMENT.",
+        )
+    if document.status != DocumentStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is already processed.",
+        )
+    if not claim_document_for_processing(session=session, document=document):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is already processed.",
         )
 
     is_initial_import = not has_any_balance(session=session, account_id=statement.account_id)

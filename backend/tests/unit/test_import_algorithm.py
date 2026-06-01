@@ -90,7 +90,9 @@ def test_import_duplicate_skipped(session: Session, test_user: User, test_accoun
     stmt = _make_statement(test_account.id, doc.id, txs)
 
     import_bank_statement(session=session, statement=stmt, current_user=test_user)
-    report = import_bank_statement(session=session, statement=stmt, current_user=test_user)
+    doc2 = _create_document(session, test_user.id)
+    stmt2 = _make_statement(test_account.id, doc2.id, txs)
+    report = import_bank_statement(session=session, statement=stmt2, current_user=test_user)
 
     assert report.summary.duplicate_count == 1
     assert report.summary.imported_count == 0

@@ -1,9 +1,10 @@
 import io
 from typing import Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from app.constants import DocumentStatus, DocumentType
@@ -11,6 +12,7 @@ from app.models.account import Account
 from app.models.counterparty import Counterparty
 from app.models.document import Document
 from app.models.user import User
+from app.routers import receipts as receipts_router
 from app.utils.dt import utcnow
 from tests.conftest import make_jwt
 
@@ -42,14 +44,18 @@ def _receipt_payload(
     return payload
 
 
-async def _create_doc(client: AsyncClient, headers: dict[str, str]) -> str:
+async def _create_doc(
+    client: AsyncClient,
+    headers: dict[str, str],
+    doc_type: str = "RECEIPT",
+) -> str:
     resp = await client.post(
         "/api/v1/documents",
         headers=headers,
         files={
             "file": (f"receipt_doc_{uuid4()}.pdf", io.BytesIO(uuid4().bytes), "application/pdf")
         },
-        params={"doc_type": "RECEIPT"},
+        params={"doc_type": doc_type},
     )
     assert resp.status_code == 201
     return resp.json()["id"]
@@ -358,15 +364,110 @@ async def test_create_receipt_with_already_linked_document_returns_409(
 
 
 @pytest.mark.asyncio
+async def test_create_receipt_integrity_error_returns_409_and_rolls_back_document_claim(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    doc_id = await _create_doc(client, auth_headers)
+    payload = _receipt_payload(fn="7777777777", fd="777777", fpd="7777777777")
+    payload["document_id"] = doc_id
+
+    def raise_integrity_error(**_: object) -> None:
+        raise IntegrityError("insert receipt", {}, Exception("unique violation"))
+
+    monkeypatch.setattr(receipts_router, "create_receipt", raise_integrity_error)
+
+    resp = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+
+    assert resp.status_code == 409
+    session.expire_all()
+    doc = session.get(Document, UUID(doc_id))
+    assert doc is not None
+    assert doc.status == DocumentStatus.PENDING
+
+
+@pytest.mark.asyncio
+async def test_create_receipt_rejects_bank_statement_document(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    doc_id = await _create_doc(client, auth_headers, doc_type="BANK_STATEMENT")
+    payload = _receipt_payload(fn="3333333333", fd="333333", fpd="3333333333")
+    payload["document_id"] = doc_id
+
+    resp = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_update_receipt_rejects_processed_document(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    doc_id = await _create_doc(client, auth_headers)
+    linked_payload = _receipt_payload(fn="4444444444", fd="444444", fpd="4444444444")
+    linked_payload["document_id"] = doc_id
+    first = await client.post("/api/v1/receipts", json=linked_payload, headers=auth_headers)
+    assert first.status_code == 201
+
+    receipt_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="5555555555", fd="555555", fpd="5555555555"),
+        headers=auth_headers,
+    )
+    assert receipt_resp.status_code == 201
+
+    resp = await client.put(
+        f"/api/v1/receipts/{receipt_resp.json()['id']}",
+        json={"document_id": doc_id},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_update_receipt_integrity_error_returns_409_and_rolls_back_document_claim(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    doc_id = await _create_doc(client, auth_headers)
+    receipt_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="8888888888", fd="888888", fpd="8888888888"),
+        headers=auth_headers,
+    )
+    assert receipt_resp.status_code == 201
+
+    def raise_integrity_error(**_: object) -> None:
+        raise IntegrityError("update receipt", {}, Exception("unique violation"))
+
+    monkeypatch.setattr(receipts_router, "update_receipt", raise_integrity_error)
+
+    resp = await client.put(
+        f"/api/v1/receipts/{receipt_resp.json()['id']}",
+        json={"document_id": doc_id},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 409
+    session.expire_all()
+    doc = session.get(Document, UUID(doc_id))
+    assert doc is not None
+    assert doc.status == DocumentStatus.PENDING
+
+
+@pytest.mark.asyncio
 async def test_update_receipt_links_and_unlinks_document(
     client: AsyncClient,
     auth_headers: dict[str, str],
     session: Session,
 ) -> None:
-    from uuid import UUID as UUIDType
-
-    from app.models.document import Document as DocumentModel
-
     doc_id = await _create_doc(client, auth_headers)
     receipt_resp = await client.post(
         "/api/v1/receipts",
@@ -386,7 +487,7 @@ async def test_update_receipt_links_and_unlinks_document(
     assert link_resp.json()["document_id"] == doc_id
 
     session.expire_all()
-    doc = session.get(DocumentModel, UUIDType(doc_id))
+    doc = session.get(Document, UUID(doc_id))
     assert doc is not None
     assert doc.status == "PROCESSED"
 
@@ -400,9 +501,33 @@ async def test_update_receipt_links_and_unlinks_document(
     assert unlink_resp.json()["document_id"] is None
 
     session.expire_all()
-    doc = session.get(DocumentModel, UUIDType(doc_id))
+    doc = session.get(Document, UUID(doc_id))
     assert doc is not None
     assert doc.status == "PENDING"
+
+
+@pytest.mark.asyncio
+async def test_delete_receipt_resets_linked_document_to_pending(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+) -> None:
+    doc_id = await _create_doc(client, auth_headers)
+    payload = _receipt_payload(fn="6666666666", fd="666666", fpd="6666666666")
+    payload["document_id"] = doc_id
+    receipt_resp = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+    assert receipt_resp.status_code == 201
+
+    delete_resp = await client.delete(
+        f"/api/v1/receipts/{receipt_resp.json()['id']}",
+        headers=auth_headers,
+    )
+    assert delete_resp.status_code == 204
+
+    session.expire_all()
+    doc = session.get(Document, UUID(doc_id))
+    assert doc is not None
+    assert doc.status == DocumentStatus.PENDING
 
 
 @pytest.mark.asyncio

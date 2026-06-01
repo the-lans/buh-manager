@@ -1,8 +1,7 @@
+import re
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
-
-import re
 
 from pydantic import BaseModel, field_validator
 

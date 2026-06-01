@@ -3,14 +3,16 @@ from uuid import UUID
 
 from pydantic import BaseModel, model_validator
 
+from app.constants import DocumentStatus, DocumentType
+
 
 class DocumentRead(BaseModel):
     id: UUID
     user_id: UUID
-    type: str
+    type: DocumentType
     url: str
     name: str
-    status: str
+    status: DocumentStatus
     email_source: str | None
     file_hash: str
     uploaded_at: datetime
@@ -20,9 +22,9 @@ class DocumentRead(BaseModel):
 
 class DocumentListItem(BaseModel):
     id: UUID
-    type: str
+    type: DocumentType
     name: str
-    status: str
+    status: DocumentStatus
     uploaded_at: datetime
 
     model_config = {"from_attributes": True}
@@ -46,6 +48,6 @@ class LinkStatementRequest(BaseModel):
 
 class LinkResult(BaseModel):
     document_id: UUID
-    status: str
+    status: DocumentStatus
     updated_count: int
     message: str | None = None

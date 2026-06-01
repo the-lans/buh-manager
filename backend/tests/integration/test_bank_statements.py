@@ -1,10 +1,14 @@
+import io
 from typing import Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
+from sqlmodel import Session
 
+from app.constants import DocumentStatus
 from app.models.account import Account
+from app.models.document import Document
 
 
 def _stmt_payload(
@@ -32,14 +36,16 @@ def _tx(occurred: str, amount: float, balance_after: float | None = None) -> dic
     return d
 
 
-async def _create_doc(client: AsyncClient, headers: dict[str, str]) -> str:
-    import io
-
+async def _create_doc(
+    client: AsyncClient,
+    headers: dict[str, str],
+    doc_type: str = "BANK_STATEMENT",
+) -> str:
     resp = await client.post(
         "/api/v1/documents",
         headers=headers,
         files={"file": (f"stmt_{uuid4()}.pdf", io.BytesIO(uuid4().bytes), "application/pdf")},
-        params={"doc_type": "BANK_STATEMENT"},
+        params={"doc_type": doc_type},
     )
     return resp.json()["id"]
 
@@ -49,6 +55,7 @@ async def test_import_clean(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    session: Session,
 ) -> None:
     doc_id = await _create_doc(client, auth_headers)
     payload = _stmt_payload(
@@ -64,6 +71,69 @@ async def test_import_clean(
     assert data["summary"]["imported_count"] == 1
     assert data["summary"]["duplicate_count"] == 0
     assert data["is_initial_import"] is True
+
+    session.expire_all()
+    doc = session.get(Document, UUID(doc_id))
+    assert doc is not None
+    assert doc.status == DocumentStatus.PROCESSED
+
+
+@pytest.mark.asyncio
+async def test_import_rejects_processed_document(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    doc_id = await _create_doc(client, auth_headers)
+    payload = _stmt_payload(
+        str(test_account.id),
+        doc_id,
+        [_tx("2024-01-05T10:00:00", -100.0, 900.0)],
+    )
+    first = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
+    assert first.status_code == 200
+
+    second = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
+
+    assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_import_rejects_receipt_document(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    doc_id = await _create_doc(client, auth_headers, doc_type="RECEIPT")
+    payload = _stmt_payload(
+        str(test_account.id),
+        doc_id,
+        [_tx("2024-01-05T10:00:00", -100.0, 900.0)],
+    )
+
+    resp = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
+
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_import_rejects_invalid_statement_period(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    doc_id = await _create_doc(client, auth_headers)
+    payload = _stmt_payload(
+        str(test_account.id),
+        doc_id,
+        [_tx("2024-01-05T10:00:00", -100.0, 900.0)],
+    )
+    payload["statement_start"] = "2024-01-31T23:59:59"
+    payload["statement_end"] = "2024-01-01T00:00:00"
+
+    resp = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
+
+    assert resp.status_code == 422
 
 
 @pytest.mark.asyncio

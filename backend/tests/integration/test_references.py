@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import pytest
 from httpx import AsyncClient
 
@@ -71,8 +73,6 @@ async def test_initialize_balance_wrong_account_returns_403(
     client: AsyncClient,
     auth_headers: dict[str, str],
 ) -> None:
-    from uuid import uuid4
-
     resp = await client.post(
         f"/api/v1/accounts/{uuid4()}/initialize-balance",
         json={"amount": 100.0, "recorded_at": "2024-01-01T00:00:00", "source": "OPENING"},

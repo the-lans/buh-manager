@@ -1,8 +1,24 @@
 import { apiClient } from './client'
 import type { Document, LinkResult } from '../types'
 
+const JSON_CONTENT_TYPE = 'application/json'
+const BANK_STATEMENT_DOC_TYPE = 'BANK_STATEMENT'
+
+async function resolveDownloadResponse(id: string, inline: boolean): Promise<string> {
+  const response = await apiClient.get<Blob>(`/documents/${id}/download`, {
+    params: { inline },
+    responseType: 'blob',
+  })
+  const contentType = response.headers['content-type'] ?? ''
+  if (contentType.includes(JSON_CONTENT_TYPE)) {
+    const payload = JSON.parse(await response.data.text()) as { url: string }
+    return payload.url
+  }
+  return URL.createObjectURL(response.data)
+}
+
 export const documentsApi = {
-  upload: (file: File, doc_type = 'BANK_STATEMENT') => {
+  upload: (file: File, doc_type = BANK_STATEMENT_DOC_TYPE) => {
     const form = new FormData()
     form.append('file', file)
     return apiClient
@@ -15,13 +31,9 @@ export const documentsApi = {
     apiClient.get<Document[]>('/documents', { params }).then((r) => r.data),
   get: (id: string) => apiClient.get<Document>(`/documents/${id}`).then((r) => r.data),
   getOpenUrl: (id: string): Promise<string> =>
-    apiClient
-      .get<{ url: string }>(`/documents/${id}/download?inline=true`)
-      .then((r) => r.data.url),
+    resolveDownloadResponse(id, true),
   getDownloadUrl: (id: string): Promise<string> =>
-    apiClient
-      .get<{ url: string }>(`/documents/${id}/download`)
-      .then((r) => r.data.url),
+    resolveDownloadResponse(id, false),
   linkToReceipt: (documentId: string, receiptId: string): Promise<LinkResult> =>
     apiClient
       .post<LinkResult>(`/documents/${documentId}/link-receipt`, { receipt_id: receiptId })

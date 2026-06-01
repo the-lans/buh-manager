@@ -18,6 +18,7 @@ from app.main import app
 from app.models.account import Account
 from app.models.user import User
 from app.utils.dt import utcnow
+from storage import get_storage_provider
 from storage.base import StorageProvider
 
 # ── In-memory SQLite engine ──────────────────────────────────────────────────
@@ -116,6 +117,9 @@ class FakeStorageProvider:
     async def upload_file(self, *, file: object, file_id: str) -> str:  # noqa: ARG002
         return f"/media/fake/{file_id}"
 
+    async def delete_file(self, *, doc_url: str) -> None:  # noqa: ARG002
+        return None
+
     def get_download_url(
         self,
         *,
@@ -138,8 +142,6 @@ async def client(engine: Engine) -> AsyncClient:
 
     def override_storage() -> StorageProvider:
         return FakeStorageProvider()  # type: ignore[return-value]
-
-    from storage import get_storage_provider
 
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_storage_provider] = override_storage

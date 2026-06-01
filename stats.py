@@ -1,81 +1,66 @@
-import os
+from pathlib import Path
+from typing import TypedDict
+
+EXCLUDED_DIRS: set[str] = {".git", "venv", ".venv", "__pycache__", ".idea", "build", "dist"}
+PYTHON_SUFFIX = ".py"
+TEST_DIR_NAME = "tests"
 
 
-def analyze_file(filepath):
-    """
-    Анализирует один файл и возвращает количество общих, пустых и
-    комментированных строк, учитывая многострочные комментарии (docstrings).
-    """
-    total_lines = 0
-    empty_lines = 0
-    comment_lines = 0
+class LineStats(TypedDict):
+    total: int
+    empty: int
+    comment: int
+
+
+def analyze_file(filepath: Path) -> LineStats:
+    stats: LineStats = {"total": 0, "empty": 0, "comment": 0}
     in_multiline_comment = False
 
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            for line in f:
-                total_lines += 1
+        with filepath.open("r", encoding="utf-8") as file:
+            for line in file:
+                stats["total"] += 1
                 stripped_line = line.strip()
 
                 if not stripped_line:
-                    empty_lines += 1
+                    stats["empty"] += 1
                     continue
 
-                # Логика для отслеживания состояния внутри/вне многострочного комментария
                 if in_multiline_comment:
-                    comment_lines += 1
-                    # Если в строке есть закрывающие кавычки, выходим из состояния
+                    stats["comment"] += 1
                     if '"""' in stripped_line or "'''" in stripped_line:
                         in_multiline_comment = False
                     continue
 
-                # Проверяем, не начинается ли строка с однострочного комментария
                 if stripped_line.startswith("#"):
-                    comment_lines += 1
+                    stats["comment"] += 1
                     continue
 
-                # Проверяем на начало многострочного комментария
-                if stripped_line.startswith('"""') or stripped_line.startswith("'''"):
-                    comment_lines += 1
-                    # Если комментарий не закрывается на той же строке,
-                    # входим в состояние многострочного комментария
-                    if not (stripped_line.endswith('"""') or stripped_line.endswith("'''")) or len(stripped_line) <= 3:
+                if stripped_line.startswith(('"""', "'''")):
+                    stats["comment"] += 1
+                    is_single_line = (
+                        len(stripped_line) > 3
+                        and (stripped_line.endswith('"""') or stripped_line.endswith("'''"))
+                    )
+                    if not is_single_line:
                         in_multiline_comment = True
-                    continue
+    except (FileNotFoundError, UnicodeDecodeError) as exc:
+        print(f"Не удалось прочитать файл: {filepath}, ошибка: {exc}")
 
-                # Все остальные строки считаются кодом
-                # (даже если у них есть комментарий в конце, т.к. это строка с кодом)
-
-    except (UnicodeDecodeError, FileNotFoundError) as e:
-        print(f"Не удалось прочитать файл: {filepath}, ошибка: {e}")
-        return 0, 0, 0
-
-    return total_lines, empty_lines, comment_lines
+    return stats
 
 
-def is_test_file(filepath, root_dir):
-    """
-    Проверяет, является ли файл тестовым согласно заданным правилам.
-    """
-    filename = os.path.basename(filepath)
-
-    if filename == "conftest.py":
-        return True
-    if filename.startswith("test_"):
-        return True
-    if filename.endswith("_test.py"):
-        return True
-    # Проверяем, есть ли папка 'tests' в пути к файлу
-    if os.path.sep + "tests" + os.path.sep in os.path.sep + root_dir + os.path.sep:
-        return True
-
-    return False
+def is_test_file(filepath: Path) -> bool:
+    filename = filepath.name
+    return (
+        filename == "conftest.py"
+        or filename.startswith("test_")
+        or filename.endswith("_test.py")
+        or TEST_DIR_NAME in filepath.parts
+    )
 
 
-def print_stats(title, stats):
-    """
-    Красиво выводит на экран собранную статистику.
-    """
+def print_stats(title: str, stats: LineStats) -> None:
     print("-" * 30)
     print(title)
     print("-" * 30)
@@ -87,36 +72,30 @@ def print_stats(title, stats):
     print()
 
 
-def main():
-    """
-    Основная функция для сбора и вывода статистики.
-    """
-    project_stats = {"total": 0, "empty": 0, "comment": 0}
-    test_stats = {"total": 0, "empty": 0, "comment": 0}
+def add_stats(target: LineStats, source: LineStats) -> None:
+    target["total"] += source["total"]
+    target["empty"] += source["empty"]
+    target["comment"] += source["comment"]
 
-    exclude_dirs = {".git", "venv", ".venv", "__pycache__", ".idea", "build", "dist"}
-    current_script_name = os.path.basename(__file__)
 
-    for root, dirs, files in os.walk(".", topdown=True):
-        dirs[:] = [d for d in dirs if d not in exclude_dirs]
+def iter_python_files(root: Path) -> list[Path]:
+    return [
+        filepath
+        for filepath in root.rglob(f"*{PYTHON_SUFFIX}")
+        if not any(part in EXCLUDED_DIRS for part in filepath.parts)
+        and filepath != Path(__file__).resolve()
+    ]
 
-        for filename in files:
-            if filename.endswith(".py"):
-                if filename == current_script_name and root == ".":
-                    continue
 
-                filepath = os.path.join(root, filename)
+def main() -> None:
+    project_stats: LineStats = {"total": 0, "empty": 0, "comment": 0}
+    test_stats: LineStats = {"total": 0, "empty": 0, "comment": 0}
 
-                total, empty, comment = analyze_file(filepath)
-
-                project_stats["total"] += total
-                project_stats["empty"] += empty
-                project_stats["comment"] += comment
-
-                if is_test_file(filepath, root):
-                    test_stats["total"] += total
-                    test_stats["empty"] += empty
-                    test_stats["comment"] += comment
+    for filepath in iter_python_files(Path.cwd()):
+        file_stats = analyze_file(filepath)
+        add_stats(project_stats, file_stats)
+        if is_test_file(filepath):
+            add_stats(test_stats, file_stats)
 
     print_stats("Общая статистика по файлам .py", project_stats)
     print_stats("Статистика по тестам", test_stats)

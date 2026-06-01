@@ -34,9 +34,7 @@ async def _import_statement(
         "statement_end": "2024-04-30T23:59:59",
         "opening_balance": opening,
         "closing_balance": closing,
-        "transactions": [
-            {"occurred_at": "2024-04-10T10:00:00", "amount": -100.0, "type": "DEBIT"}
-        ],
+        "transactions": [{"occurred_at": "2024-04-10T10:00:00", "amount": -100.0, "type": "DEBIT"}],
     }
     resp = await client.post("/api/v1/bank-statements", json=payload, headers=headers)
     assert resp.status_code == 200
