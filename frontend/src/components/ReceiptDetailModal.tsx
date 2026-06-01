@@ -1,3 +1,4 @@
+import { useCounterpartyMap } from '../hooks/useCounterparties'
 import { useReceipt } from '../hooks/useReceipts'
 import { formatDate } from '../utils/date'
 
@@ -8,6 +9,7 @@ interface Props {
 
 export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
   const { data: receipt, isLoading, isError } = useReceipt(receiptId)
+  const counterpartyMap = useCounterpartyMap()
 
   if (!receiptId) return null
 
@@ -45,7 +47,11 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
               <dd className="text-gray-900">{formatDate(receipt.paid_at)}</dd>
 
               <dt className="text-gray-500">Контрагент</dt>
-              <dd className="text-gray-900">{receipt.counterparty_id ?? '—'}</dd>
+              <dd className="text-gray-900">
+                {receipt.counterparty_id
+                  ? (counterpartyMap.get(receipt.counterparty_id) ?? receipt.counterparty_id)
+                  : '—'}
+              </dd>
 
               {receipt.fn && (
                 <>
