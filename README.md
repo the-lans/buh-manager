@@ -392,7 +392,9 @@ sudo systemctl stop buh-manager
 | `POST` | `/accounts/{id}/initialize-balance` | Установить начальный баланс вручную (для банков без остатков в выписке) |
 | `GET/POST` | `/expense-types` | Список / создать тип расходов |
 | `PUT/DELETE` | `/expense-types/{id}` | Обновить / удалить тип расходов |
-| `GET/POST` | `/counterparties` | Список / создать контрагента |
+| `GET/POST` | `/counterparties` | Список / создать контрагента (с дедупликацией по ИНН) |
+| `PUT/DELETE` | `/counterparties/{id}` | Обновить / удалить контрагента |
+| `GET` | `/audit-log` | Журнал изменений (`?entity_type=&skip=&limit=`) |
 | `POST` | `/exchange-rates` | Добавить курс валюты |
 
 ---
