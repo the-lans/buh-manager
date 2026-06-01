@@ -128,3 +128,27 @@ async def test_resolve_conflict_rejects_invalid_transaction_state(
     )
 
     assert resp.status_code == expected_status
+
+
+@pytest.mark.asyncio
+async def test_resolve_conflict_already_resolved_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+    test_account: Account,
+) -> None:
+    tx_id = await _make_tx(client, auth_headers, str(test_account.id))
+    await _mark_conflict(session, tx_id)
+    first = await client.post(
+        "/api/v1/reconciliation/resolve-conflict",
+        json={"transaction_id": tx_id, "action": "KEEP_OLD"},
+        headers=auth_headers,
+    )
+    assert first.status_code == 200
+
+    second = await client.post(
+        "/api/v1/reconciliation/resolve-conflict",
+        json={"transaction_id": tx_id, "action": "KEEP_OLD"},
+        headers=auth_headers,
+    )
+    assert second.status_code == 409
