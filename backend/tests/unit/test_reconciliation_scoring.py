@@ -1,4 +1,5 @@
 """Unit tests for the reconciliation scoring and time-window logic."""
+
 from datetime import datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
@@ -45,16 +46,17 @@ def _receipt(paid_at: datetime, total: Decimal = Decimal("100")) -> Receipt:
 
 # ── Time scoring ─────────────────────────────────────────────────────────────
 
+
 @pytest.mark.parametrize(
     "delta_seconds, expected_time_score",
     [
-        (600, SCORE_TIME_UNDER_1H),           # 10 min → <1h
-        (3599, SCORE_TIME_UNDER_1H),          # just under 1h
-        (3601, SCORE_TIME_UNDER_12H),         # just over 1h → <12h
-        (43199, SCORE_TIME_UNDER_12H),        # just under 12h
-        (43201, SCORE_TIME_UNDER_3D),         # just over 12h → <3d
-        (259199, SCORE_TIME_UNDER_3D),        # just under 3d
-        (259201, 0),                           # over 3d → 0 time score
+        (600, SCORE_TIME_UNDER_1H),  # 10 min → <1h
+        (3599, SCORE_TIME_UNDER_1H),  # just under 1h
+        (3601, SCORE_TIME_UNDER_12H),  # just over 1h → <12h
+        (43199, SCORE_TIME_UNDER_12H),  # just under 12h
+        (43201, SCORE_TIME_UNDER_3D),  # just over 12h → <3d
+        (259199, SCORE_TIME_UNDER_3D),  # just under 3d
+        (259201, 0),  # over 3d → 0 time score
     ],
 )
 def test_time_score_brackets(delta_seconds: int, expected_time_score: int) -> None:
@@ -93,14 +95,15 @@ def test_auto_match_with_matching_counterparty() -> None:
 
 # ── Time window ───────────────────────────────────────────────────────────────
 
+
 @pytest.mark.parametrize(
     "offset_hours, expected_in_window",
     [
-        (-11, True),          # 11h before paid_at → within PRE window (12h)
-        (-13, False),         # 13h before → outside
-        (0, True),            # same time
-        (71, True),           # 71h after → within POST window (3 days = 72h)
-        (73, False),          # 73h after → outside
+        (-11, True),  # 11h before paid_at → within PRE window (12h)
+        (-13, False),  # 13h before → outside
+        (0, True),  # same time
+        (71, True),  # 71h after → within POST window (3 days = 72h)
+        (73, False),  # 73h after → outside
     ],
 )
 def test_time_window(offset_hours: int, expected_in_window: bool) -> None:

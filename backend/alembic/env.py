@@ -2,17 +2,17 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
+
+from alembic import context
 
 # Make app importable from alembic env
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # Import all models so SQLModel.metadata is fully populated
-import app.models  # noqa: F401, E402
-
-from app.config import settings  # noqa: E402
+import app.models  # noqa: F401
+from app.config import settings
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

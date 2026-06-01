@@ -18,16 +18,12 @@ def get_account_by_id(
     user_id: UUID,
 ) -> Account | None:
     return session.exec(
-        select(Account)
-        .where(Account.id == account_id)
-        .where(Account.user_id == user_id)
+        select(Account).where(Account.id == account_id).where(Account.user_id == user_id)
     ).first()
 
 
 def has_balances_for_account(*, session: Session, account_id: UUID) -> bool:
-    count = session.exec(
-        select(func.count()).where(Balance.account_id == account_id)
-    ).one()
+    count = session.exec(select(func.count()).where(Balance.account_id == account_id)).one()
     return count > 0
 
 

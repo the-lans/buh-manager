@@ -97,7 +97,6 @@ async def test_get_other_user_document_returns_404(
 ) -> None:
     from uuid import uuid4
 
-
     # We need access to the session to insert another user's document
     # We'll just request a non-existent UUID
     resp = await client.get(

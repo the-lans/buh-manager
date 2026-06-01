@@ -26,9 +26,7 @@ class Transaction(SQLModel, table=True):
     expense_type_id: str | None = Field(default=None, foreign_key="expense_types.id")
     description: str | None = None
     balance_after: Decimal | None = Field(default=None, decimal_places=2, max_digits=14)
-    calculated_balance_after: Decimal | None = Field(
-        default=None, decimal_places=2, max_digits=14
-    )
+    calculated_balance_after: Decimal | None = Field(default=None, decimal_places=2, max_digits=14)
     balance_mismatch: bool = Field(default=False)
     receipt_id: UUID | None = Field(default=None, foreign_key="receipts.id")
     reconciled_status: str = Field(default=ReconciledStatus.UNMATCHED)

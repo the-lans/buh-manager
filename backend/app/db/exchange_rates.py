@@ -19,9 +19,7 @@ def create_exchange_rate(*, session: Session, data: ExchangeRateCreate) -> Excha
 
 
 def get_latest_rates(*, session: Session) -> list[ExchangeRate]:
-    all_rates = session.exec(
-        select(ExchangeRate).order_by(desc(ExchangeRate.recorded_at))
-    ).all()
+    all_rates = session.exec(select(ExchangeRate).order_by(desc(ExchangeRate.recorded_at))).all()
 
     # Keep only the latest record per currency pair
     seen: set[tuple[str, str]] = set()
