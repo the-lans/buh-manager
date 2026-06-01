@@ -39,17 +39,17 @@ async def _create_receipt(
     total: float = 100.0,
     paid: str = "2024-01-10T12:30:00",
     fn: str | None = None,
+    counterparty_name: str | None = None,
 ) -> str:
-    resp = await client.post(
-        "/api/v1/receipts",
-        json={
-            "paid_at": paid,
-            "total_amount": total,
-            "fn": fn,
-            "items": [{"name": "Item", "quantity": "1", "price": str(total), "amount": str(total)}],
-        },
-        headers=headers,
-    )
+    payload: dict = {
+        "paid_at": paid,
+        "total_amount": total,
+        "fn": fn,
+        "items": [{"name": "Item", "quantity": "1", "price": str(total), "amount": str(total)}],
+    }
+    if counterparty_name is not None:
+        payload["counterparty_name"] = counterparty_name
+    resp = await client.post("/api/v1/receipts", json=payload, headers=headers)
     assert resp.status_code == 201
     return resp.json()["id"]
 
@@ -430,3 +430,76 @@ async def test_manual_match_rejects_invalid_transaction_or_receipt(
     )
 
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_transaction_no_matching_receipt_amount(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    # Transaction with unique amount, no receipt at that amount → missing_receipts
+    await _create_transaction(client, auth_headers, str(test_account.id), -300.0)
+
+    run_resp = await client.post("/api/v1/reconciliation/run", headers=auth_headers)
+    data = run_resp.json()
+    assert data["summary"]["missing_receipts_count"] >= 1
+    assert data["summary"]["auto_matched_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_auto_match_with_counterparty(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    session: Session,
+) -> None:
+    # Both sides share same counterparty slug: score = 40 (time) + 40 (fuzzy-high) + 20 (single) = 100
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2024-01-10T12:00:00",
+            "amount": -100.0,
+            "type": "EXPENSE",
+            "counterparty_name": "Sberbank",
+        },
+        headers=auth_headers,
+    )
+    assert tx_resp.status_code == 201
+    tx_id = tx_resp.json()["id"]
+
+    await _create_receipt(
+        client, auth_headers, 100.0, "2024-01-10T12:30:00", counterparty_name="Sberbank"
+    )
+
+    run_resp = await client.post("/api/v1/reconciliation/run", headers=auth_headers)
+    assert run_resp.status_code == 200
+    data = run_resp.json()
+    assert data["summary"]["auto_matched_count"] == 1
+    assert data["summary"]["missing_receipts_count"] == 0
+    assert data["summary"]["unmatched_receipts_count"] == 0
+
+    tx = session.get(Transaction, UUID(tx_id))
+    assert tx is not None
+    session.refresh(tx)
+    assert tx.reconciled_status == ReconciledStatus.MATCHED
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_outside_time_window(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    # tx occurred 9 days before receipt → outside the ±12h / +3d window
+    await _create_transaction(
+        client, auth_headers, str(test_account.id), -100.0, "2024-01-01T12:00:00"
+    )
+    await _create_receipt(client, auth_headers, 100.0, "2024-01-10T12:30:00")
+
+    run_resp = await client.post("/api/v1/reconciliation/run", headers=auth_headers)
+    data = run_resp.json()
+    assert data["summary"]["auto_matched_count"] == 0
+    assert data["summary"]["missing_receipts_count"] == 1
+    assert data["summary"]["unmatched_receipts_count"] == 1
