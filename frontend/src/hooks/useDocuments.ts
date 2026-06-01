@@ -64,3 +64,11 @@ export function useLinkDocumentToStatement() {
     },
   })
 }
+
+export function useResetDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (documentId: string) => documentsApi.reset(documentId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
+  })
+}

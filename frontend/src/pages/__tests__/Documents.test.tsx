@@ -77,6 +77,37 @@ describe('Documents page', () => {
     expect(screen.getByText('Выберите чек')).toBeInTheDocument()
   })
 
+  it('shows "Сбросить" button only for ERROR documents', async () => {
+    server.use(
+      http.get('/api/v1/documents', () =>
+        HttpResponse.json<Document[]>([
+          {
+            id: 'doc-err',
+            user_id: 'user-1',
+            type: 'BANK_STATEMENT',
+            url: '/',
+            name: 'err.pdf',
+            status: 'ERROR',
+            uploaded_at: '2026-04-01T10:00:00',
+          },
+          {
+            id: 'doc-ok',
+            user_id: 'user-1',
+            type: 'BANK_STATEMENT',
+            url: '/',
+            name: 'ok.pdf',
+            status: 'PROCESSED',
+            uploaded_at: '2026-03-01T10:00:00',
+          },
+        ]),
+      ),
+    )
+    renderWithProviders(<Documents />)
+    await waitFor(() => expect(screen.getByText('err.pdf')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Сбросить' })).toBeInTheDocument()
+    expect(screen.queryByText('Обработать')).not.toBeInTheDocument()
+  })
+
   it('backward pagination button is disabled on first page', async () => {
     renderWithProviders(<Documents />)
     await waitFor(() => expect(screen.getByText('receipt.pdf')).toBeInTheDocument())

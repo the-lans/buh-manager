@@ -8,6 +8,7 @@ import {
   useUploadDocument,
   useLinkDocumentToReceipt,
   useLinkDocumentToStatement,
+  useResetDocument,
 } from '../useDocuments'
 import { makeTestQueryClient } from '../../test/utils'
 import { server } from '../../test/server'
@@ -137,6 +138,49 @@ describe('useLinkDocumentToReceipt', () => {
     result.current.mutate({ documentId: 'doc-1', receiptId: 'rec-999' })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data?.status).toBe('ERROR')
+  })
+})
+
+describe('useResetDocument', () => {
+  beforeEach(() => {
+    server.use(
+      http.post('/api/v1/documents/:id/reset', ({ params }) =>
+        HttpResponse.json({
+          id: params.id,
+          user_id: 'user-1',
+          type: 'BANK_STATEMENT',
+          url: '/',
+          name: 'stmt.pdf',
+          status: 'PENDING',
+          uploaded_at: '2026-01-01T00:00:00',
+          email_source: null,
+          file_hash: 'abc',
+        }),
+      ),
+    )
+  })
+
+  it('invalidates documents query after reset', async () => {
+    const qc = makeTestQueryClient()
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries')
+    const { result } = renderHook(() => useResetDocument(), { wrapper: makeWrapper(qc) })
+
+    result.current.mutate('doc-error')
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['documents'] })
+    expect(result.current.data?.status).toBe('PENDING')
+  })
+
+  it('transitions to isError when server returns 409', async () => {
+    server.use(
+      http.post('/api/v1/documents/:id/reset', () =>
+        HttpResponse.json({ detail: 'Only documents with ERROR status can be reset.' }, { status: 409 }),
+      ),
+    )
+    const { result } = renderHook(() => useResetDocument(), { wrapper: makeWrapper() })
+    result.current.mutate('doc-pending')
+    await waitFor(() => expect(result.current.isError).toBe(true))
   })
 })
 

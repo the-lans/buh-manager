@@ -11,7 +11,7 @@ class Receipt(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
     document_id: UUID | None = Field(default=None, foreign_key="documents.id", index=True)
-    paid_at: datetime
+    paid_at: datetime = Field(index=True)
     total_amount: Decimal = Field(decimal_places=2, max_digits=14)
     counterparty_id: str | None = Field(default=None, foreign_key="counterparties.id")
     fn: str | None = None

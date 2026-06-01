@@ -54,6 +54,30 @@ async def test_upload_duplicate_document_returns_409(
 
 
 @pytest.mark.asyncio
+async def test_two_users_can_upload_same_file(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    second_auth_headers: dict[str, str],
+) -> None:
+    """Per-user SHA-256 dedup: different users may upload the same file."""
+    content = _pdf_bytes("shared file content for both users")
+    r1 = await client.post(
+        "/api/v1/documents",
+        headers=auth_headers,
+        files={"file": ("shared.pdf", io.BytesIO(content), "application/pdf")},
+    )
+    assert r1.status_code == 201
+
+    r2 = await client.post(
+        "/api/v1/documents",
+        headers=second_auth_headers,
+        files={"file": ("shared.pdf", io.BytesIO(content), "application/pdf")},
+    )
+    assert r2.status_code == 201
+    assert r1.json()["id"] != r2.json()["id"]  # separate documents for each user
+
+
+@pytest.mark.asyncio
 async def test_list_documents_with_type_filter(
     client: AsyncClient,
     auth_headers: dict[str, str],
@@ -530,3 +554,132 @@ async def test_link_document_error_status_returns_409(
         headers=auth_headers,
     )
     assert resp.status_code == 409
+
+
+# ── reset endpoint ─────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_reset_error_document_to_pending(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    session: Session,
+) -> None:
+    """ERROR document can be reset back to PENDING for retry."""
+    doc_id = await _create_stmt_doc(client, auth_headers)
+
+    # Drive document into ERROR
+    await client.post(
+        f"/api/v1/documents/{doc_id}/link-statement",
+        json={
+            "account_id": str(test_account.id),
+            "statement_start": "2099-01-01T00:00:00",
+            "statement_end": "2099-01-31T23:59:59",
+        },
+        headers=auth_headers,
+    )
+
+    resp = await client.post(f"/api/v1/documents/{doc_id}/reset", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == DocumentStatus.PENDING
+
+    # Verify DB
+    from uuid import UUID as _UUID
+    from app.models.document import Document
+    session.expire_all()
+    doc = session.get(Document, _UUID(doc_id))
+    assert doc is not None
+    assert doc.status == DocumentStatus.PENDING
+
+
+@pytest.mark.asyncio
+async def test_reset_pending_document_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """Cannot reset a PENDING document (already in initial state)."""
+    doc_id = await _create_stmt_doc(client, auth_headers)
+    resp = await client.post(f"/api/v1/documents/{doc_id}/reset", headers=auth_headers)
+    assert resp.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_reset_processed_document_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """Cannot reset a PROCESSED document (already linked)."""
+    doc_id = await _create_receipt_doc(client, auth_headers)
+    receipt_resp = await client.post(
+        "/api/v1/receipts", json=_receipt_payload(), headers=auth_headers
+    )
+    receipt_id = receipt_resp.json()["id"]
+    await client.post(
+        f"/api/v1/documents/{doc_id}/link-receipt",
+        json={"receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+
+    resp = await client.post(f"/api/v1/documents/{doc_id}/reset", headers=auth_headers)
+    assert resp.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_reset_after_error_allows_reprocessing(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    session: Session,
+) -> None:
+    """After reset, link-statement should succeed if transactions exist now."""
+    # Import a statement first so transactions exist
+    import_doc = await _create_stmt_doc(client, auth_headers)
+    stmt_payload = {
+        "document_id": import_doc,
+        "account_id": str(test_account.id),
+        "statement_start": "2024-06-01T00:00:00",
+        "statement_end": "2024-06-30T23:59:59",
+        "opening_balance": 1000.0,
+        "closing_balance": 900.0,
+        "transactions": [{"occurred_at": "2024-06-10T10:00:00", "amount": -100.0, "type": "DEBIT"}],
+    }
+    await client.post("/api/v1/bank-statements", json=stmt_payload, headers=auth_headers)
+
+    # Unlink transactions
+    from sqlmodel import select as _select
+    for tx in session.exec(_select(Transaction).where(Transaction.account_id == test_account.id)).all():
+        tx.document_id = None
+        session.add(tx)
+    for bal in session.exec(_select(Balance).where(Balance.account_id == test_account.id)).all():
+        bal.document_id = None
+        session.add(bal)
+    session.commit()
+
+    # New document in ERROR state (wrong date range initially)
+    doc_id = await _create_stmt_doc(client, auth_headers)
+    await client.post(
+        f"/api/v1/documents/{doc_id}/link-statement",
+        json={
+            "account_id": str(test_account.id),
+            "statement_start": "2099-01-01T00:00:00",
+            "statement_end": "2099-01-31T23:59:59",
+        },
+        headers=auth_headers,
+    )
+
+    # Reset
+    await client.post(f"/api/v1/documents/{doc_id}/reset", headers=auth_headers)
+
+    # Retry with correct date range
+    resp = await client.post(
+        f"/api/v1/documents/{doc_id}/link-statement",
+        json={
+            "account_id": str(test_account.id),
+            "statement_start": "2024-06-01T00:00:00",
+            "statement_end": "2024-06-30T23:59:59",
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == DocumentStatus.PROCESSED
