@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFil
 from fastapi.responses import FileResponse, JSONResponse
 from sqlmodel import Session
 
-from app.constants import ApiKeyScope, DocumentStatus, MEDIA_PATH
+from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, DocumentStatus, MEDIA_PATH
 from app.database import get_session
 from app.db.accounts import get_account_by_id
 from app.db.balances import link_balances_to_document
@@ -15,11 +15,11 @@ from app.db.documents import (
     create_document,
     get_document_by_id,
     get_documents_for_user,
-    update_document_status,
 )
 from app.db.receipts import get_receipt_by_id
 from app.db.transactions import link_transactions_to_document
 from app.dependencies.auth import get_current_user, require_scope
+from app.services.audit import audit_update
 from app.models.user import User
 from app.schemas.common import PaginationParams
 from app.schemas.document import (
@@ -195,7 +195,17 @@ def link_document_to_receipt(
 
     receipt.document_id = document_id
     session.add(receipt)
-    update_document_status(session=session, document=doc, status=DocumentStatus.PROCESSED)
+    doc.status = DocumentStatus.PROCESSED
+    session.add(doc)
+    audit_update(
+        session=session,
+        entity_type=AuditEntityType.RECEIPT,
+        entity_id=receipt.id,
+        changed_by=ChangedBy.USER,
+        user_id=current_user.id,
+        before={"document_id": None},
+        after={"document_id": str(document_id)},
+    )
     session.commit()
 
     return LinkResult(
@@ -258,7 +268,21 @@ def link_document_to_statement(
         new_status = DocumentStatus.PROCESSED
         message = None
 
-    update_document_status(session=session, document=doc, status=new_status)
+    doc.status = new_status
+    session.add(doc)
+    audit_update(
+        session=session,
+        entity_type=AuditEntityType.IMPORT,
+        entity_id=document_id,
+        changed_by=ChangedBy.USER,
+        user_id=current_user.id,
+        before={"document_status": DocumentStatus.PENDING},
+        after={
+            "document_status": new_status,
+            "linked_transactions": tx_count,
+            "linked_balances": bal_count,
+        },
+    )
     session.commit()
 
     return LinkResult(

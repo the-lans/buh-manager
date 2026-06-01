@@ -11,7 +11,7 @@ import {
   useUploadDocument,
 } from '../hooks/useDocuments'
 import { useReceipts } from '../hooks/useReceipts'
-import { formatDate } from '../utils/date'
+import { formatDate, localInputToUtcIso } from '../utils/date'
 import type { Document } from '../types'
 
 const PAGE_SIZE = 20
@@ -125,8 +125,8 @@ export default function Documents() {
         const result = await linkStatement.mutateAsync({
           documentId: processDoc.id,
           accountId: linkAccountId,
-          start: new Date(linkStart).toISOString(),
-          end: new Date(linkEnd).toISOString(),
+          start: localInputToUtcIso(linkStart),
+          end: localInputToUtcIso(linkEnd),
         })
         if (result.status === 'ERROR') {
           setLinkError(result.message ?? 'Ошибка привязки.')
