@@ -154,6 +154,8 @@ def update_receipt(
     data: ReceiptUpdate,
     counterparty_id: str | None = None,
 ) -> Receipt:
+    if data.document_id is not None:
+        receipt.document_id = data.document_id
     if data.paid_at is not None:
         receipt.paid_at = data.paid_at
     if data.total_amount is not None:

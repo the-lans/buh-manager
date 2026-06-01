@@ -1,3 +1,5 @@
+import { useCallback } from 'react'
+
 import { documentsApi } from '../api/documents'
 import { DataTable } from '../components/DataTable'
 import { StatusBadge } from '../components/StatusBadge'
@@ -11,6 +13,19 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 
 export default function Documents() {
   const { data: documents = [], isLoading } = useDocuments({ limit: 100 })
+
+  const handleOpen = useCallback(async (id: string) => {
+    const url = await documentsApi.getOpenUrl(id)
+    window.open(url, '_blank')
+  }, [])
+
+  const handleDownload = useCallback(async (id: string, name: string) => {
+    const url = await documentsApi.getDownloadUrl(id)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    a.click()
+  }, [])
 
   return (
     <div className="space-y-4">
@@ -40,18 +55,17 @@ export default function Documents() {
             <td className="px-4 py-2">
               <div className="flex gap-2">
                 <button
-                  onClick={() => window.open(documentsApi.downloadUrl(doc.id), '_blank')}
+                  onClick={() => handleOpen(doc.id)}
                   className="text-xs text-indigo-600 hover:underline"
                 >
                   Открыть
                 </button>
-                <a
-                  href={documentsApi.downloadUrl(doc.id)}
-                  download={doc.name}
+                <button
+                  onClick={() => handleDownload(doc.id, doc.name)}
                   className="text-xs text-gray-500 hover:underline"
                 >
                   Скачать
-                </a>
+                </button>
               </div>
             </td>
           </tr>
