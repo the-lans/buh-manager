@@ -1,10 +1,14 @@
 import io
+import mimetypes
+from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlmodel import Session
 
-from app.constants import ApiKeyScope, DocumentStatus
+from app.config import settings
+from app.constants import ApiKeyScope, DocumentStatus, MEDIA_PATH
 from app.database import get_session
 from app.db.documents import (
     create_document,
@@ -102,3 +106,33 @@ def get_document(
     doc = get_document_by_id(session=session, document_id=document_id, user_id=current_user.id)
     doc = get_or_404(doc, "Document not found.")
     return DocumentRead.model_validate(doc)
+
+
+@router.get(
+    "/{document_id}/download",
+    response_model=None,
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_DOCUMENTS))],
+)
+def download_document(
+    document_id: UUID,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> FileResponse | RedirectResponse:
+    doc = get_document_by_id(session=session, document_id=document_id, user_id=current_user.id)
+    doc = get_or_404(doc, "Document not found.")
+
+    if settings.is_local:
+        local_path = Path(MEDIA_PATH) / Path(doc.url).name
+        if not local_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="File not found on disk.",
+            )
+        media_type = mimetypes.guess_type(doc.name)[0] or "application/octet-stream"
+        return FileResponse(
+            path=str(local_path),
+            filename=doc.name,
+            media_type=media_type,
+        )
+
+    return RedirectResponse(url=doc.url, status_code=302)

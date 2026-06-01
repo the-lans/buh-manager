@@ -1,4 +1,6 @@
 import io
+from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
@@ -95,12 +97,62 @@ async def test_get_other_user_document_returns_404(
     client: AsyncClient,
     auth_headers: dict[str, str],
 ) -> None:
-    from uuid import uuid4
-
-    # We need access to the session to insert another user's document
-    # We'll just request a non-existent UUID
     resp = await client.get(
         f"/api/v1/documents/{uuid4()}",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_download_document_serves_file(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    content = b"%PDF-1.4 fake pdf"
+    upload = await client.post(
+        "/api/v1/documents",
+        headers=auth_headers,
+        files={"file": ("invoice.pdf", io.BytesIO(content), "application/pdf")},
+        params={"doc_type": "RECEIPT"},
+    )
+    assert upload.status_code == 201
+    doc_id = upload.json()["id"]
+    doc_url = upload.json()["url"]
+
+    # Write the fake file to the media directory so FileResponse can serve it
+    from app.constants import MEDIA_PATH
+    media_dir = Path(MEDIA_PATH)
+    media_dir.mkdir(exist_ok=True)
+    file_name = Path(doc_url).name
+    (media_dir / file_name).write_bytes(content)
+
+    resp = await client.get(f"/api/v1/documents/{doc_id}/download", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.content == content
+
+
+@pytest.mark.asyncio
+async def test_download_nonexistent_document_returns_404(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    resp = await client.get(
+        f"/api/v1/documents/{uuid4()}/download",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_download_other_user_document_returns_404(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    resp = await client.get(
+        f"/api/v1/documents/{uuid4()}/download",
         headers=auth_headers,
     )
     assert resp.status_code == 404
