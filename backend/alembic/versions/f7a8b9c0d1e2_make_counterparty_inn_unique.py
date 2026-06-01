@@ -19,17 +19,21 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    duplicate_inns = op.get_bind().execute(
-        sa.text(
-            """
+    duplicate_inns = (
+        op.get_bind()
+        .execute(
+            sa.text(
+                """
             SELECT inn, COUNT(*) AS duplicate_count
             FROM counterparties
             WHERE inn IS NOT NULL
             GROUP BY inn
             HAVING COUNT(*) > 1
             """
+            )
         )
-    ).fetchall()
+        .fetchall()
+    )
     if duplicate_inns:
         values = ", ".join(f"{row.inn} ({row.duplicate_count})" for row in duplicate_inns)
         raise RuntimeError(f"Cannot create unique INN index; duplicate INNs exist: {values}")

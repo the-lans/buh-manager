@@ -70,7 +70,7 @@ def manual_match(
     )
     tx = get_or_404(tx, "Transaction not found.")
 
-    if tx.reconciled_status == ReconciledStatus.MATCHED:
+    if tx.reconciled_status == ReconciledStatus.MATCHED or tx.receipt_id is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Transaction is already matched.",

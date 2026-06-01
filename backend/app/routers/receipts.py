@@ -61,17 +61,6 @@ def create_receipt_endpoint(
                 detail={"message": "Receipt already exists.", "receipt_id": str(existing.id)},
             )
 
-    doc = None
-    if data.document_id is not None:
-        doc = get_document_by_id(
-            session=session, document_id=data.document_id, user_id=current_user.id
-        )
-        if doc is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found.",
-            )
-
     counterparty_id: str | None = None
     if data.counterparty_name:
         cp = get_or_create_counterparty(session=session, name=data.counterparty_name)

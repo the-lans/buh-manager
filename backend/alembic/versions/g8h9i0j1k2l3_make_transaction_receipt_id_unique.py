@@ -19,17 +19,21 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    duplicate_receipts = op.get_bind().execute(
-        sa.text(
-            """
+    duplicate_receipts = (
+        op.get_bind()
+        .execute(
+            sa.text(
+                """
             SELECT receipt_id, COUNT(*) AS duplicate_count
             FROM transactions
             WHERE receipt_id IS NOT NULL
             GROUP BY receipt_id
             HAVING COUNT(*) > 1
             """
+            )
         )
-    ).fetchall()
+        .fetchall()
+    )
     if duplicate_receipts:
         values = ", ".join(
             f"{row.receipt_id} ({row.duplicate_count})" for row in duplicate_receipts
