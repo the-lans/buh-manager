@@ -350,6 +350,7 @@ sudo systemctl stop buh-manager
 | `GET` | `/documents/{id}/download` | Скачать / открыть документ (presigned URL или локальный файл) |
 | `POST` | `/documents/{id}/link-receipt` | Привязать PENDING-документ типа `RECEIPT` к существующему чеку; статус → `PROCESSED` |
 | `POST` | `/documents/{id}/link-statement` | Привязать PENDING-документ типа `BANK_STATEMENT` к транзакциям/остаткам по счёту в диапазоне дат; статус → `PROCESSED` или `ERROR` |
+| `POST` | `/documents/{id}/reset` | Сбросить документ из статуса `ERROR` обратно в `PENDING` для повторной обработки |
 
 ### 🧾 Чеки
 
@@ -386,6 +387,21 @@ sudo systemctl stop buh-manager
 | `POST` | `/reconciliation/ignore` | Пометить транзакцию как `IGNORED_BY_USER` (чек не нужен) |
 | `POST` | `/reconciliation/resolve-conflict` | Разрешить незакрытый конфликт импорта: `KEEP_OLD` или `UPDATE_FROM_NEW` |
 
+### 📋 Журнал аудита
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/audit-log` | Список записей аудита (создание/обновление/удаление сущностей); фильтр по типу сущности и дате |
+
+### 🔑 API-ключи
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/api-keys` | Список API-ключей текущего пользователя |
+| `POST` | `/api-keys` | Создать новый API-ключ с набором разрешений (`scopes`) |
+| `PATCH` | `/api-keys/{id}` | Обновить API-ключ (имя, scopes, активность) |
+| `DELETE` | `/api-keys/{id}` | Отозвать API-ключ |
+
 ### ⚙️ Справочники
 
 | Метод | Путь | Описание |
@@ -399,6 +415,7 @@ sudo systemctl stop buh-manager
 | `GET/POST` | `/counterparties` | Список / создать контрагента |
 | `PUT/DELETE` | `/counterparties/{id}` | Обновить / удалить контрагента (нельзя удалить, если привязан к чекам или транзакциям — 409) |
 | `POST` | `/exchange-rates` | Добавить курс валюты |
+| `GET` | `/exchange-rates/latest` | Последние курсы по каждой валютной паре |
 
 ---
 
