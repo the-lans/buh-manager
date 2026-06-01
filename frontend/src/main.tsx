@@ -6,13 +6,15 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from './lib/queryClient'
 import { useAuth } from './hooks/useAuth'
 import AppShell from './components/layout/AppShell'
-import Login from './pages/Login'
+import AuditLog from './pages/AuditLog'
 import AuthCallback from './pages/AuthCallback'
+import Counterparties from './pages/Counterparties'
 import Dashboard from './pages/Dashboard'
-import Transactions from './pages/Transactions'
+import Login from './pages/Login'
 import Receipts from './pages/Receipts'
 import Reconciliation from './pages/Reconciliation'
 import Settings from './pages/Settings'
+import Transactions from './pages/Transactions'
 import './index.css'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -40,7 +42,9 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="transactions" element={<Transactions />} />
           <Route path="receipts" element={<Receipts />} />
+          <Route path="counterparties" element={<Counterparties />} />
           <Route path="reconciliation" element={<Reconciliation />} />
+          <Route path="audit-log" element={<AuditLog />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

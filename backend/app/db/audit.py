@@ -2,7 +2,7 @@ import json
 from typing import Any
 from uuid import UUID
 
-from sqlmodel import Session
+from sqlmodel import Session, col, select
 
 from app.models.audit_log import AuditLog
 from app.utils.dt import utcnow
@@ -34,3 +34,17 @@ def write_audit_log_entry(
     )
     session.add(entry)
     return entry
+
+
+def list_audit_log_entries(
+    *,
+    session: Session,
+    entity_type: str | None = None,
+    skip: int = 0,
+    limit: int = 50,
+) -> list[AuditLog]:
+    query = select(AuditLog)
+    if entity_type is not None:
+        query = query.where(AuditLog.entity_type == entity_type)
+    query = query.order_by(col(AuditLog.changed_at).desc()).offset(skip).limit(limit)
+    return list(session.exec(query).all())
