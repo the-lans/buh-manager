@@ -21,7 +21,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.add_column("counterparties", sa.Column("inn", sa.String(12), nullable=True))
     op.add_column("counterparties", sa.Column("kpp", sa.String(9), nullable=True))
-    op.create_index("ix_counterparties_inn", "counterparties", ["inn"])
+    op.create_index("ix_counterparties_inn", "counterparties", ["inn"], unique=True)
 
 
 def downgrade() -> None:

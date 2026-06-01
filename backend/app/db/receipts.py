@@ -178,3 +178,4 @@ def delete_receipt(*, session: Session, receipt: Receipt) -> None:
         session.delete(item)
     session.flush()  # ensure items are removed before receipt to satisfy FK constraint
     session.delete(receipt)
+    session.flush()
