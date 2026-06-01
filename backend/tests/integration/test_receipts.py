@@ -7,6 +7,7 @@ from httpx import AsyncClient
 from sqlmodel import Session
 
 from app.constants import DocumentStatus, DocumentType
+from app.models.account import Account
 from app.models.document import Document
 from app.models.user import User
 from app.utils.dt import utcnow
@@ -168,6 +169,44 @@ async def test_delete_receipt(
 
     get_resp = await client.get(f"/api/v1/receipts/{receipt_id}", headers=auth_headers)
     assert get_resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_receipt_linked_to_transaction_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="9999999999", fd="999999", fpd="9999999999"),
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    receipt_id = create_resp.json()["id"]
+
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2024-01-15T11:30:00",
+            "amount": -100.0,
+            "type": "EXPENSE",
+        },
+        headers=auth_headers,
+    )
+    assert tx_resp.status_code == 201
+    tx_id = tx_resp.json()["id"]
+
+    match_resp = await client.post(
+        "/api/v1/reconciliation/match",
+        json={"transaction_id": tx_id, "receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+    assert match_resp.status_code == 200
+
+    del_resp = await client.delete(f"/api/v1/receipts/{receipt_id}", headers=auth_headers)
+    assert del_resp.status_code == 409
 
 
 @pytest.mark.asyncio

@@ -14,6 +14,7 @@ from app.db.receipts import (
     get_receipt_by_fiscal,
     get_receipt_by_id,
     get_receipt_items,
+    get_receipt_linked_transaction,
     get_receipts_for_user,
     update_receipt,
 )
@@ -188,6 +189,17 @@ def delete_receipt_endpoint(
 ) -> None:
     receipt = get_receipt_by_id(session=session, receipt_id=receipt_id, user_id=current_user.id)
     receipt = get_or_404(receipt, "Receipt not found.")
+
+    linked_tx = get_receipt_linked_transaction(
+        session=session,
+        receipt_id=receipt.id,
+        user_id=current_user.id,
+    )
+    if linked_tx is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Receipt is linked to a transaction and cannot be deleted.",
+        )
 
     before = {"receipt_id": str(receipt.id)}
     audit_delete(

@@ -6,7 +6,10 @@ from uuid import uuid4
 
 import pytest
 
+from unittest.mock import patch
+
 from app.constants import (
+    SCORE_FUZZY_LOW,
     SCORE_SINGLE_PAIR_BONUS,
     SCORE_THRESHOLD_AUTO,
     SCORE_TIME_UNDER_1H,
@@ -81,6 +84,17 @@ def test_auto_match_threshold_reached() -> None:
     score = _score_pair(tx=tx, receipt=receipt, is_single_pair=True)
     # 40 + 20 = 60 < 75 — not auto-matched without counterparty
     assert score < SCORE_THRESHOLD_AUTO
+
+
+def test_fuzzy_low_score() -> None:
+    tx = _tx(BASE)
+    tx.counterparty_id = "alpha-corp"
+    receipt = _receipt(BASE + timedelta(minutes=30))
+    receipt.counterparty_id = "beta-corp"
+    # Patch ratio to a value in (FUZZY_LOW_THRESHOLD, FUZZY_HIGH_THRESHOLD]
+    with patch("app.services.reconciliation.fuzz.token_set_ratio", return_value=60):
+        score = _score_pair(tx=tx, receipt=receipt, is_single_pair=False)
+    assert score == SCORE_TIME_UNDER_1H + SCORE_FUZZY_LOW
 
 
 def test_auto_match_with_matching_counterparty() -> None:
