@@ -156,6 +156,32 @@ async def test_manual_match_rejects_already_matched_transaction(
 
 
 @pytest.mark.asyncio
+async def test_manual_match_rejects_transaction_with_existing_receipt_link(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    session: Session,
+) -> None:
+    tx_id = await _create_transaction(client, auth_headers, str(test_account.id))
+    receipt_id_1 = await _create_receipt(client, auth_headers, fn="match-link-r1")
+    receipt_id_2 = await _create_receipt(client, auth_headers, fn="match-link-r2")
+
+    tx = session.get(Transaction, UUID(tx_id))
+    assert tx is not None
+    tx.receipt_id = UUID(receipt_id_1)
+    tx.reconciled_status = ReconciledStatus.UNMATCHED
+    session.add(tx)
+    session.commit()
+
+    resp = await client.post(
+        "/api/v1/reconciliation/match",
+        json={"transaction_id": tx_id, "receipt_id": receipt_id_2},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 409
+
+
+@pytest.mark.asyncio
 async def test_manual_match_rejects_already_matched_receipt(
     client: AsyncClient,
     auth_headers: dict[str, str],
