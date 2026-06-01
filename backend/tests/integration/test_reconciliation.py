@@ -39,7 +39,7 @@ async def _create_receipt(
     total: float = 100.0,
     paid: str = "2024-01-10T12:30:00",
     fn: str | None = None,
-    counterparty_name: str | None = None,
+    counterparty_id: str | None = None,
 ) -> str:
     payload: dict = {
         "paid_at": paid,
@@ -47,8 +47,8 @@ async def _create_receipt(
         "fn": fn,
         "items": [{"name": "Item", "quantity": "1", "price": str(total), "amount": str(total)}],
     }
-    if counterparty_name is not None:
-        payload["counterparty_name"] = counterparty_name
+    if counterparty_id is not None:
+        payload["counterparty_id"] = counterparty_id
     resp = await client.post("/api/v1/receipts", json=payload, headers=headers)
     assert resp.status_code == 201
     return resp.json()["id"]
@@ -454,7 +454,7 @@ async def test_reconciliation_auto_match_with_counterparty(
     test_account: Account,
     session: Session,
 ) -> None:
-    # Both sides share same counterparty slug: score = 40 (time) + 40 (fuzzy-high) + 20 (single) = 100
+    # Both sides share the same counterparty: score = 40 (time) + 40 (fuzzy-high) + 20 (single) = 100
     tx_resp = await client.post(
         "/api/v1/transactions",
         json={
@@ -468,9 +468,10 @@ async def test_reconciliation_auto_match_with_counterparty(
     )
     assert tx_resp.status_code == 201
     tx_id = tx_resp.json()["id"]
+    tx_counterparty_id = tx_resp.json()["counterparty_id"]
 
     await _create_receipt(
-        client, auth_headers, 100.0, "2024-01-10T12:30:00", counterparty_name="Sberbank"
+        client, auth_headers, 100.0, "2024-01-10T12:30:00", counterparty_id=tx_counterparty_id
     )
 
     run_resp = await client.post("/api/v1/reconciliation/run", headers=auth_headers)

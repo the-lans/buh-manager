@@ -6,7 +6,7 @@ from sqlmodel import Session
 
 from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, DocumentStatus
 from app.database import get_session
-from app.db.counterparties import get_or_create_counterparty
+from app.db.counterparties import get_counterparty_by_id, get_or_create_counterparty
 from app.db.documents import get_document_by_id, update_document_status
 from app.db.receipts import (
     create_receipt,
@@ -62,10 +62,7 @@ def create_receipt_endpoint(
                 detail={"message": "Receipt already exists.", "receipt_id": str(existing.id)},
             )
 
-    counterparty_id: str | None = None
-    if data.counterparty_name:
-        cp = get_or_create_counterparty(session=session, name=data.counterparty_name)
-        counterparty_id = cp.id
+    resolved_counterparty_id = _resolve_counterparty(session=session, data=data)
 
     if data.document_id is not None:
         doc = get_document_by_id(
@@ -80,7 +77,7 @@ def create_receipt_endpoint(
     receipt = create_receipt(
         session=session,
         data=data,
-        counterparty_id=counterparty_id,
+        counterparty_id=resolved_counterparty_id,
         user_id=current_user.id,
     )
 
@@ -152,13 +149,12 @@ def update_receipt_endpoint(
 
     before = {"total_amount": str(receipt.total_amount), "paid_at": str(receipt.paid_at)}
 
-    counterparty_id: str | None = None
-    if data.counterparty_name:
-        cp = get_or_create_counterparty(session=session, name=data.counterparty_name)
-        counterparty_id = cp.id
+    if data.counterparty_id is not None:
+        if get_counterparty_by_id(session=session, counterparty_id=data.counterparty_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Counterparty not found.")
 
     receipt = update_receipt(
-        session=session, receipt=receipt, data=data, counterparty_id=counterparty_id
+        session=session, receipt=receipt, data=data, counterparty_id=data.counterparty_id
     )
     after = {"total_amount": str(receipt.total_amount), "paid_at": str(receipt.paid_at)}
 
@@ -212,6 +208,30 @@ def delete_receipt_endpoint(
     )
     delete_receipt(session=session, receipt=receipt)
     session.commit()
+
+
+def _resolve_counterparty(*, session: Session, data: ReceiptCreate) -> str | None:
+    """Return the counterparty id to use for the receipt.
+
+    Priority:
+    1. counterparty_id provided → validate it exists, raise 404 if not.
+    2. counterparty_id absent but inn + name provided → find-or-create by INN.
+    3. Neither → None.
+    """
+    if data.counterparty_id is not None:
+        if get_counterparty_by_id(session=session, counterparty_id=data.counterparty_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Counterparty not found.")
+        return data.counterparty_id
+
+    if data.counterparty_inn and data.counterparty_name:
+        cp = get_or_create_counterparty(
+            session=session,
+            name=data.counterparty_name,
+            inn=data.counterparty_inn,
+        )
+        return cp.id
+
+    return None
 
 
 def _build_receipt_read(receipt: Receipt, items: list[ReceiptItem]) -> ReceiptRead:
