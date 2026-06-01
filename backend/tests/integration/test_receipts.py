@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import uuid4
 
 import pytest
@@ -196,26 +197,32 @@ async def test_user_b_cannot_access_user_a_receipt(
     assert resp.status_code == 404
 
 
+@pytest.mark.parametrize("document_case", ["nonexistent", "other_user"])
 @pytest.mark.asyncio
-async def test_create_receipt_with_foreign_document_id_returns_404(
+async def test_create_receipt_with_invalid_document_id_returns_404(
     client: AsyncClient,
     auth_headers: dict[str, str],
     second_test_user: User,
     session: Session,
+    document_case: Literal["nonexistent", "other_user"],
 ) -> None:
-    doc = Document(
-        user_id=second_test_user.id,
-        type=DocumentType.RECEIPT,
-        url="/media/fake/foreign.pdf",
-        name="foreign.pdf",
-        status=DocumentStatus.PENDING,
-        file_hash="foreign-doc-hash-unique",
-    )
-    session.add(doc)
-    session.commit()
+    if document_case == "other_user":
+        doc = Document(
+            user_id=second_test_user.id,
+            type=DocumentType.RECEIPT,
+            url=f"/media/fake/{uuid4()}.pdf",
+            name="foreign.pdf",
+            status=DocumentStatus.PENDING,
+            file_hash=f"foreign-doc-hash-{uuid4()}",
+        )
+        session.add(doc)
+        session.commit()
+        document_id = str(doc.id)
+    else:
+        document_id = str(uuid4())
 
     payload = _receipt_payload(fn=None, fd=None, fpd=None)
-    payload["document_id"] = str(doc.id)
+    payload["document_id"] = document_id
 
     resp = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
     assert resp.status_code == 404

@@ -28,7 +28,7 @@ class Transaction(SQLModel, table=True):
     balance_after: Decimal | None = Field(default=None, decimal_places=2, max_digits=14)
     calculated_balance_after: Decimal | None = Field(default=None, decimal_places=2, max_digits=14)
     balance_mismatch: bool = Field(default=False)
-    receipt_id: UUID | None = Field(default=None, foreign_key="receipts.id")
+    receipt_id: UUID | None = Field(default=None, foreign_key="receipts.id", unique=True)
     reconciled_status: str = Field(default=ReconciledStatus.UNMATCHED)
     import_status: str = Field(default=ImportStatus.IMPORTED)
     document_id: UUID | None = Field(default=None, foreign_key="documents.id")

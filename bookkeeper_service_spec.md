@@ -324,7 +324,7 @@ YANDEX_SECRET_KEY=
 | `GET` | `/reconciliation/report` | Последний отчёт без перезапуска. |
 | `POST` | `/reconciliation/match` | Ручная привязка: `{"transaction_id": "uuid", "receipt_id": "uuid"}`. |
 | `POST` | `/reconciliation/ignore` | Пометить транзакцию как `IGNORED_BY_USER`: `{"transaction_id": "uuid"}`. |
-| `POST` | `/reconciliation/resolve-conflict` | Разрешить конфликт импорта: `{"transaction_id": "uuid", "action": "KEEP_OLD" или "UPDATE_FROM_NEW"}`. |
+| `POST` | `/reconciliation/resolve-conflict` | Разрешить только незакрытый конфликт импорта: `{"transaction_id": "uuid", "action": "KEEP_OLD" или "UPDATE_FROM_NEW"}`. При `UPDATE_FROM_NEW` сервер применяет входящие данные, сохранённые при импорте конфликтной выписки. |
 
 #### Схема ответа `POST /reconciliation/run`
 ```json
@@ -452,12 +452,13 @@ is_consistent = (discrepancy == 0)
 
 Конфликты не разрешаются автоматически. Они:
 - Записываются в `audit_log` (`action = IMPORT_CONFLICT`)
+- Помечают существующую транзакцию как `import_status = CONFLICT`
 - Возвращаются в `conflicts[]` поля ответа `ImportReport`
 - Доступны для ручного разрешения через `POST /reconciliation/resolve-conflict`
 
 Пользователь выбирает одно из двух действий:
 - `KEEP_OLD` — оставить существующую запись без изменений
-- `UPDATE_FROM_NEW` — перезаписать данными из новой выписки (с записью в `audit_log`)
+- `UPDATE_FROM_NEW` — перезаписать данными из конфликтной выписки, сохранёнными на сервере (с записью в `audit_log`)
 
 ### Псевдокод сервиса импорта
 

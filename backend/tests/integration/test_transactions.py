@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import uuid4
 
 import pytest
@@ -29,6 +30,36 @@ async def test_create_transaction(
     assert resp.status_code == 201
     data = resp.json()
     assert float(data["amount"]) == -100.0
+
+
+@pytest.mark.parametrize("operation", ["create", "update"])
+@pytest.mark.asyncio
+async def test_transaction_rejects_unknown_expense_type(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    operation: Literal["create", "update"],
+) -> None:
+    if operation == "create":
+        resp = await client.post(
+            "/api/v1/transactions",
+            json={**_tx_payload(str(test_account.id)), "expense_type_id": "missing-expense-type"},
+            headers=auth_headers,
+        )
+    else:
+        create_resp = await client.post(
+            "/api/v1/transactions",
+            json=_tx_payload(str(test_account.id)),
+            headers=auth_headers,
+        )
+        assert create_resp.status_code == 201
+        resp = await client.put(
+            f"/api/v1/transactions/{create_resp.json()['id']}",
+            json={"expense_type_id": "missing-expense-type"},
+            headers=auth_headers,
+        )
+
+    assert resp.status_code == 404
 
 
 @pytest.mark.asyncio

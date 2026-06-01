@@ -381,7 +381,7 @@ sudo systemctl stop buh-manager
 | `GET` | `/reconciliation/report` | Последний сохранённый отчёт о сверке |
 | `POST` | `/reconciliation/match` | Вручную связать транзакцию с чеком |
 | `POST` | `/reconciliation/ignore` | Пометить транзакцию как `IGNORED_BY_USER` (чек не нужен) |
-| `POST` | `/reconciliation/resolve-conflict` | Разрешить коллизию: `KEEP_OLD` или `UPDATE_FROM_NEW` |
+| `POST` | `/reconciliation/resolve-conflict` | Разрешить незакрытый конфликт импорта: `KEEP_OLD` или `UPDATE_FROM_NEW` |
 
 ### ⚙️ Справочники
 
@@ -560,7 +560,7 @@ paid_at − 12 часов  ≤  occurred_at  ≤  paid_at + 3 дня
 |----------|----------|----------|
 | Вручную сопоставить | `POST /reconciliation/match` | Принудительно связать транзакцию с чеком |
 | Игнорировать | `POST /reconciliation/ignore` | Пометить транзакцию как `IGNORED_BY_USER` (чек не нужен) |
-| Разрешить коллизию | `POST /reconciliation/resolve-conflict` | `KEEP_OLD` — оставить как есть; `UPDATE_FROM_NEW` — пересчитать |
+| Разрешить конфликт импорта | `POST /reconciliation/resolve-conflict` | `KEEP_OLD` — оставить как есть; `UPDATE_FROM_NEW` — применить входящие данные конфликтной выписки, сохранённые на сервере |
 
 ---
 
