@@ -5,6 +5,8 @@ from uuid import uuid4
 import pytest
 from httpx import AsyncClient
 
+from app.constants import MEDIA_PATH
+
 
 def _pdf_bytes(content: str = "fake pdf content") -> bytes:
     return content.encode()
@@ -96,11 +98,17 @@ async def test_get_document_by_id(
 async def test_get_other_user_document_returns_404(
     client: AsyncClient,
     auth_headers: dict[str, str],
+    second_auth_headers: dict[str, str],
 ) -> None:
-    resp = await client.get(
-        f"/api/v1/documents/{uuid4()}",
+    upload = await client.post(
+        "/api/v1/documents",
         headers=auth_headers,
+        files={"file": ("private.pdf", io.BytesIO(_pdf_bytes("private")), "application/pdf")},
     )
+    assert upload.status_code == 201
+    doc_id = upload.json()["id"]
+
+    resp = await client.get(f"/api/v1/documents/{doc_id}", headers=second_auth_headers)
     assert resp.status_code == 404
 
 
@@ -108,8 +116,6 @@ async def test_get_other_user_document_returns_404(
 async def test_download_document_serves_file(
     client: AsyncClient,
     auth_headers: dict[str, str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     content = b"%PDF-1.4 fake pdf"
     upload = await client.post(
@@ -122,16 +128,16 @@ async def test_download_document_serves_file(
     doc_id = upload.json()["id"]
     doc_url = upload.json()["url"]
 
-    # Write the fake file to the media directory so FileResponse can serve it
-    from app.constants import MEDIA_PATH
     media_dir = Path(MEDIA_PATH)
     media_dir.mkdir(exist_ok=True)
-    file_name = Path(doc_url).name
-    (media_dir / file_name).write_bytes(content)
-
-    resp = await client.get(f"/api/v1/documents/{doc_id}/download", headers=auth_headers)
-    assert resp.status_code == 200
-    assert resp.content == content
+    file_path = media_dir / Path(doc_url).name
+    file_path.write_bytes(content)
+    try:
+        resp = await client.get(f"/api/v1/documents/{doc_id}/download", headers=auth_headers)
+        assert resp.status_code == 200
+        assert resp.content == content
+    finally:
+        file_path.unlink(missing_ok=True)
 
 
 @pytest.mark.asyncio
@@ -150,9 +156,15 @@ async def test_download_nonexistent_document_returns_404(
 async def test_download_other_user_document_returns_404(
     client: AsyncClient,
     auth_headers: dict[str, str],
+    second_auth_headers: dict[str, str],
 ) -> None:
-    resp = await client.get(
-        f"/api/v1/documents/{uuid4()}/download",
+    upload = await client.post(
+        "/api/v1/documents",
         headers=auth_headers,
+        files={"file": ("secret.pdf", io.BytesIO(_pdf_bytes("secret")), "application/pdf")},
     )
+    assert upload.status_code == 201
+    doc_id = upload.json()["id"]
+
+    resp = await client.get(f"/api/v1/documents/{doc_id}/download", headers=second_auth_headers)
     assert resp.status_code == 404
