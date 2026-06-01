@@ -62,9 +62,7 @@ async def auth_via_google_callback(
     )
 
     access_token = _create_access_token(user)
-    return RedirectResponse(
-        url=f"{settings.frontend_url}/auth/callback?token={access_token}"
-    )
+    return RedirectResponse(url=f"{settings.frontend_url}/auth/callback?token={access_token}")
 
 
 @router.get("/me", response_model=UserRead)

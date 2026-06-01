@@ -44,9 +44,7 @@ def verify_balance_chain(
         session.add(tx)
 
     closing_calculated = running
-    discrepancy = (
-        (expected_closing - closing_calculated) if expected_closing is not None else None
-    )
+    discrepancy = (expected_closing - closing_calculated) if expected_closing is not None else None
     is_consistent = discrepancy == Decimal(0) if discrepancy is not None else None
 
     return BalanceCheck(

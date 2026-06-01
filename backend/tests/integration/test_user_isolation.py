@@ -1,4 +1,5 @@
 """Verify that user A cannot access user B's data."""
+
 from uuid import uuid4
 
 import pytest

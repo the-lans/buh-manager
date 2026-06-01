@@ -40,12 +40,20 @@ async def test_list_transactions_with_filters(
     # Create two transactions
     await client.post(
         "/api/v1/transactions",
-        json={**_tx_payload(str(test_account.id)), "type": "DEBIT", "occurred_at": "2024-01-10T10:00:00"},
+        json={
+            **_tx_payload(str(test_account.id)),
+            "type": "DEBIT",
+            "occurred_at": "2024-01-10T10:00:00",
+        },
         headers=auth_headers,
     )
     await client.post(
         "/api/v1/transactions",
-        json={**_tx_payload(str(test_account.id), 500.0), "type": "INCOME", "occurred_at": "2024-01-11T10:00:00"},
+        json={
+            **_tx_payload(str(test_account.id), 500.0),
+            "type": "INCOME",
+            "occurred_at": "2024-01-11T10:00:00",
+        },
         headers=auth_headers,
     )
 

@@ -5,6 +5,7 @@ from app.models.account import Account
 
 # ── Accounts ─────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_crud_accounts(
     client: AsyncClient,
@@ -71,6 +72,7 @@ async def test_initialize_balance_wrong_account_returns_403(
     auth_headers: dict[str, str],
 ) -> None:
     from uuid import uuid4
+
     resp = await client.post(
         f"/api/v1/accounts/{uuid4()}/initialize-balance",
         json={"amount": 100.0, "recorded_at": "2024-01-01T00:00:00", "source": "OPENING"},
@@ -80,6 +82,7 @@ async def test_initialize_balance_wrong_account_returns_403(
 
 
 # ── Expense types ─────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_crud_expense_types(
@@ -110,6 +113,7 @@ async def test_crud_expense_types(
 
 # ── Counterparties ────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_counterparties_get_or_create(
     client: AsyncClient,
@@ -132,6 +136,7 @@ async def test_counterparties_get_or_create(
 
 # ── Exchange rates ────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_exchange_rates_latest(
     client: AsyncClient,
@@ -139,12 +144,22 @@ async def test_exchange_rates_latest(
 ) -> None:
     await client.post(
         "/api/v1/exchange-rates",
-        json={"base_currency": "USD", "quote_currency": "RUB", "rate": "90.0", "recorded_at": "2024-01-01T12:00:00"},
+        json={
+            "base_currency": "USD",
+            "quote_currency": "RUB",
+            "rate": "90.0",
+            "recorded_at": "2024-01-01T12:00:00",
+        },
         headers=auth_headers,
     )
     await client.post(
         "/api/v1/exchange-rates",
-        json={"base_currency": "USD", "quote_currency": "RUB", "rate": "91.5", "recorded_at": "2024-01-02T12:00:00"},
+        json={
+            "base_currency": "USD",
+            "quote_currency": "RUB",
+            "rate": "91.5",
+            "recorded_at": "2024-01-02T12:00:00",
+        },
         headers=auth_headers,
     )
 

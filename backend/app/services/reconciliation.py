@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import timedelta
-from decimal import Decimal  # noqa: TC003
+from decimal import Decimal
 from uuid import uuid4
 
 from rapidfuzz import fuzz

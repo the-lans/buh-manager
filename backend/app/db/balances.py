@@ -8,9 +8,7 @@ from app.models.balance import Balance
 
 
 def has_any_balance(*, session: Session, account_id: UUID) -> bool:
-    count = session.exec(
-        select(func.count()).where(Balance.account_id == account_id)
-    ).one()
+    count = session.exec(select(func.count()).where(Balance.account_id == account_id)).one()
     return count > 0
 
 
@@ -55,8 +53,6 @@ def upsert_balance(
 def get_balances_for_account(*, session: Session, account_id: UUID) -> list[Balance]:
     return list(
         session.exec(
-            select(Balance)
-            .where(Balance.account_id == account_id)
-            .order_by(Balance.recorded_at)  # type: ignore[arg-type]
+            select(Balance).where(Balance.account_id == account_id).order_by(Balance.recorded_at)  # type: ignore[arg-type]
         ).all()
     )

@@ -36,9 +36,7 @@ async def test_create_api_key(client: AsyncClient, auth_headers: dict[str, str])
 
 
 @pytest.mark.asyncio
-async def test_created_key_not_in_list(
-    client: AsyncClient, auth_headers: dict[str, str]
-) -> None:
+async def test_created_key_not_in_list(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     create_resp = await client.post(
         "/api/v1/api-keys",
         json={"name": "Secret key", "scopes": [ApiKeyScope.READ_DOCUMENTS]},
@@ -90,7 +88,10 @@ async def test_update_api_key(client: AsyncClient, auth_headers: dict[str, str])
 
     update_resp = await client.patch(
         f"/api/v1/api-keys/{key_id}",
-        json={"name": "New name", "scopes": [ApiKeyScope.READ_RECEIPTS, ApiKeyScope.WRITE_RECEIPTS]},
+        json={
+            "name": "New name",
+            "scopes": [ApiKeyScope.READ_RECEIPTS, ApiKeyScope.WRITE_RECEIPTS],
+        },
         headers=auth_headers,
     )
     assert update_resp.status_code == 200
@@ -143,14 +144,18 @@ async def test_delete_nonexistent_key_returns_404(
 
 # ── Validation tests ─────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize("body", [
-    {"name": "", "scopes": ["read:receipts"]},
-    {"name": "   ", "scopes": ["read:receipts"]},
-    {"name": "valid", "scopes": []},
-    {"scopes": ["read:receipts"]},  # missing required name
-    {"name": "valid", "scopes": ["read:receipts"], "expires_at": "2020-01-01T00:00:00"},
-])
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"name": "", "scopes": ["read:receipts"]},
+        {"name": "   ", "scopes": ["read:receipts"]},
+        {"name": "valid", "scopes": []},
+        {"scopes": ["read:receipts"]},  # missing required name
+        {"name": "valid", "scopes": ["read:receipts"], "expires_at": "2020-01-01T00:00:00"},
+    ],
+)
 async def test_create_api_key_invalid_input(
     body: dict,
     client: AsyncClient,
@@ -161,11 +166,14 @@ async def test_create_api_key_invalid_input(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("patch_body", [
-    {"name": ""},
-    {"name": "   "},
-    {"scopes": []},
-])
+@pytest.mark.parametrize(
+    "patch_body",
+    [
+        {"name": ""},
+        {"name": "   "},
+        {"scopes": []},
+    ],
+)
 async def test_update_api_key_invalid_input(
     patch_body: dict,
     client: AsyncClient,
@@ -188,6 +196,7 @@ async def test_update_api_key_invalid_input(
 
 
 # ── Access control tests ──────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
@@ -248,10 +257,9 @@ async def test_user_cannot_manage_another_users_key(
 
 # ── End-to-end lifecycle test ─────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
-async def test_api_key_full_lifecycle(
-    client: AsyncClient, auth_headers: dict[str, str]
-) -> None:
+async def test_api_key_full_lifecycle(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     """Simulates a user creating, using, deactivating, reactivating, and deleting a key."""
     # 1. Create key via JWT auth
     create_resp = await client.post(

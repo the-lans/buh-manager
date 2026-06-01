@@ -33,6 +33,7 @@ def _tx(occurred: str, amount: float, balance_after: float | None = None) -> dic
 
 async def _create_doc(client: AsyncClient, headers: dict[str, str]) -> str:
     import io
+
     resp = await client.post(
         "/api/v1/documents",
         headers=headers,
@@ -97,7 +98,8 @@ async def test_import_conflict_detected(
     await client.post(
         "/api/v1/bank-statements",
         json=_stmt_payload(
-            str(test_account.id), doc1,
+            str(test_account.id),
+            doc1,
             [_tx("2024-01-05T10:00:00", -100.0, 900.0)],
         ),
         headers=auth_headers,
@@ -107,7 +109,8 @@ async def test_import_conflict_detected(
     resp = await client.post(
         "/api/v1/bank-statements",
         json=_stmt_payload(
-            str(test_account.id), doc2,
+            str(test_account.id),
+            doc2,
             [_tx("2024-01-05T10:00:30", -150.0, 900.0)],  # same balance_after, different amount
         ),
         headers=auth_headers,

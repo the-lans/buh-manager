@@ -65,9 +65,8 @@ def _create_document(session: Session, user_id: object) -> Document:
 
 # ── (a) All new → IMPORTED ───────────────────────────────────────────────────
 
-def test_import_all_new(
-    session: Session, test_user: User, test_account: Account
-) -> None:
+
+def test_import_all_new(session: Session, test_user: User, test_account: Account) -> None:
     doc = _create_document(session, test_user.id)
     txs = [
         _tx(datetime(2024, 1, 5), Decimal("-100"), Decimal("900")),
@@ -84,9 +83,8 @@ def test_import_all_new(
 
 # ── (b) Exact duplicate → DUPLICATE_SKIPPED ──────────────────────────────────
 
-def test_import_duplicate_skipped(
-    session: Session, test_user: User, test_account: Account
-) -> None:
+
+def test_import_duplicate_skipped(session: Session, test_user: User, test_account: Account) -> None:
     doc = _create_document(session, test_user.id)
     txs = [_tx(datetime(2024, 1, 5), Decimal("-100"), Decimal("900"))]
     stmt = _make_statement(test_account.id, doc.id, txs)
@@ -100,9 +98,8 @@ def test_import_duplicate_skipped(
 
 # ── (c) Same key + different amount → CONFLICT ───────────────────────────────
 
-def test_import_conflict_detected(
-    session: Session, test_user: User, test_account: Account
-) -> None:
+
+def test_import_conflict_detected(session: Session, test_user: User, test_account: Account) -> None:
     doc = _create_document(session, test_user.id)
     occurred = datetime(2024, 1, 5)
 
@@ -124,22 +121,23 @@ def test_import_conflict_detected(
 
 # ── (d) Mixed batch ───────────────────────────────────────────────────────────
 
-def test_import_mixed_batch(
-    session: Session, test_user: User, test_account: Account
-) -> None:
+
+def test_import_mixed_batch(session: Session, test_user: User, test_account: Account) -> None:
     doc = _create_document(session, test_user.id)
     occurred_dup = datetime(2024, 1, 5)
     occurred_new = datetime(2024, 1, 10)
 
     stmt1 = _make_statement(
-        test_account.id, doc.id,
+        test_account.id,
+        doc.id,
         [_tx(occurred_dup, Decimal("-100"), Decimal("900"))],
     )
     import_bank_statement(session=session, statement=stmt1, current_user=test_user)
 
     doc2 = _create_document(session, test_user.id)
     stmt2 = _make_statement(
-        test_account.id, doc2.id,
+        test_account.id,
+        doc2.id,
         [
             _tx(occurred_dup, Decimal("-100"), Decimal("900")),  # duplicate
             _tx(occurred_new, Decimal("-200"), Decimal("700")),  # new
@@ -154,6 +152,7 @@ def test_import_mixed_batch(
 
 # ── (e) Empty transaction list ────────────────────────────────────────────────
 
+
 def test_import_empty_transactions(
     session: Session, test_user: User, test_account: Account
 ) -> None:
@@ -167,9 +166,8 @@ def test_import_empty_transactions(
 
 # ── (f) Account not owned by user → 403 ──────────────────────────────────────
 
-def test_import_wrong_account_raises_403(
-    session: Session, test_account: Account
-) -> None:
+
+def test_import_wrong_account_raises_403(session: Session, test_account: Account) -> None:
     other_user = User(
         id=uuid4(),
         email="other@example.com",
