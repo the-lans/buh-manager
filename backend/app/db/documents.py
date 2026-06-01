@@ -16,9 +16,7 @@ def get_document_by_id(
     user_id: UUID,
 ) -> Document | None:
     return session.exec(
-        select(Document)
-        .where(Document.id == document_id)
-        .where(Document.user_id == user_id)
+        select(Document).where(Document.id == document_id).where(Document.user_id == user_id)
     ).first()
 
 

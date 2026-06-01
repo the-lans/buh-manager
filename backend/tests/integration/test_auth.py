@@ -75,6 +75,7 @@ async def test_get_me_with_non_uuid_sub_returns_401(client: AsyncClient) -> None
 
 # ── Google OAuth callback whitelist ──────────────────────────────────────────
 
+
 def _mock_oauth(userinfo: dict) -> AsyncMock:
     return AsyncMock(return_value={"userinfo": userinfo})
 
@@ -91,7 +92,9 @@ async def test_google_callback_blocks_disallowed_email(client: AsyncClient) -> N
 
 @pytest.mark.asyncio
 async def test_google_callback_allows_whitelisted_email(client: AsyncClient) -> None:
-    with patch("app.routers.auth.oauth.google.authorize_access_token", new=_mock_oauth(_GOOGLE_USERINFO)):
+    with patch(
+        "app.routers.auth.oauth.google.authorize_access_token", new=_mock_oauth(_GOOGLE_USERINFO)
+    ):
         with patch.object(settings, "allowed_emails", ["allowed@example.com"]):
             response = await client.get("/api/v1/auth/google/callback")
     assert response.status_code in (302, 307)
