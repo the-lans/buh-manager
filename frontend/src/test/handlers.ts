@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw'
-import type { Account, Transaction, ExpenseType } from '../types'
+import type { Account, Balance, Counterparty, Document, ReceiptListItem, Transaction, ExpenseType } from '../types'
 import type { AccountCreate } from '../types'
 
 export const handlers = [
@@ -106,4 +106,110 @@ export const handlers = [
       is_active: true,
     }),
   ),
+
+  http.get('/api/v1/documents', () =>
+    HttpResponse.json<Document[]>([
+      {
+        id: 'doc-1',
+        user_id: 'user-1',
+        type: 'RECEIPT',
+        url: '/media/fake/doc-1',
+        name: 'receipt.pdf',
+        status: 'PENDING',
+        uploaded_at: '2026-04-01T10:00:00',
+      },
+      {
+        id: 'doc-2',
+        user_id: 'user-1',
+        type: 'BANK_STATEMENT',
+        url: '/media/fake/doc-2',
+        name: 'statement.pdf',
+        status: 'PROCESSED',
+        uploaded_at: '2026-03-01T10:00:00',
+      },
+    ]),
+  ),
+
+  http.post('/api/v1/documents', () =>
+    HttpResponse.json<Document>(
+      {
+        id: 'doc-new',
+        user_id: 'user-1',
+        type: 'BANK_STATEMENT',
+        url: '/media/fake/doc-new',
+        name: 'upload.pdf',
+        status: 'PENDING',
+        uploaded_at: '2026-04-10T10:00:00',
+      },
+      { status: 201 },
+    ),
+  ),
+
+  http.post('/api/v1/documents/:id/link-receipt', () =>
+    HttpResponse.json({ document_id: 'doc-1', status: 'PROCESSED', updated_count: 1, message: null }),
+  ),
+
+  http.post('/api/v1/documents/:id/link-statement', () =>
+    HttpResponse.json({ document_id: 'doc-2', status: 'PROCESSED', updated_count: 3, message: null }),
+  ),
+
+  http.get('/api/v1/receipts', () =>
+    HttpResponse.json<ReceiptListItem[]>([
+      {
+        id: 'rec-1',
+        paid_at: '2026-04-01T10:00:00',
+        total_amount: '500.00',
+        counterparty_id: 'cp-1',
+        document_id: null,
+      },
+    ]),
+  ),
+
+  http.get('/api/v1/balances', () =>
+    HttpResponse.json<Balance[]>([
+      {
+        id: 'bal-1',
+        account_id: 'acc-1',
+        amount: '50000.00',
+        recorded_at: '2026-04-01T00:00:00',
+        source: 'OPENING',
+        document_id: null,
+      },
+      {
+        id: 'bal-2',
+        account_id: 'acc-1',
+        amount: '48000.00',
+        recorded_at: '2026-04-30T23:59:59',
+        source: 'CLOSING',
+        document_id: 'doc-2',
+      },
+    ]),
+  ),
+
+  http.get('/api/v1/counterparties', () =>
+    HttpResponse.json<Counterparty[]>([
+      { id: 'cp-1', name: 'Магазин Тест', type: 'STORE', inn: null, kpp: null },
+    ]),
+  ),
+
+  http.post('/api/v1/counterparties', async ({ request }) => {
+    const body = (await request.json()) as { name: string; type?: string }
+    return HttpResponse.json<Counterparty>(
+      { id: body.name.toLowerCase(), name: body.name, type: body.type ?? 'STORE', inn: null, kpp: null },
+      { status: 201 },
+    )
+  }),
+
+  http.put('/api/v1/counterparties/:id', async ({ request }) => {
+    const body = (await request.json()) as Partial<Counterparty>
+    return HttpResponse.json<Counterparty>({
+      id: 'cp-1',
+      name: body.name ?? 'Магазин Тест',
+      type: body.type ?? 'STORE',
+      inn: body.inn ?? null,
+      kpp: body.kpp ?? null,
+    })
+  }),
+
+  http.delete('/api/v1/counterparties/:id', () => new HttpResponse(null, { status: 204 })),
 ]

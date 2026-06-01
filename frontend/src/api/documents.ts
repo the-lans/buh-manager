@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { Document } from '../types'
+import type { Document, LinkResult } from '../types'
 
 export const documentsApi = {
   upload: (file: File, doc_type = 'BANK_STATEMENT') => {
@@ -22,4 +22,21 @@ export const documentsApi = {
     apiClient
       .get<{ url: string }>(`/documents/${id}/download`)
       .then((r) => r.data.url),
+  linkToReceipt: (documentId: string, receiptId: string): Promise<LinkResult> =>
+    apiClient
+      .post<LinkResult>(`/documents/${documentId}/link-receipt`, { receipt_id: receiptId })
+      .then((r) => r.data),
+  linkToStatement: (
+    documentId: string,
+    accountId: string,
+    start: string,
+    end: string,
+  ): Promise<LinkResult> =>
+    apiClient
+      .post<LinkResult>(`/documents/${documentId}/link-statement`, {
+        account_id: accountId,
+        statement_start: start,
+        statement_end: end,
+      })
+      .then((r) => r.data),
 }

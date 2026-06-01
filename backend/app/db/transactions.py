@@ -188,3 +188,27 @@ def update_transaction_receipt_link(
     transaction.receipt_id = receipt_id
     transaction.reconciled_status = reconciled_status
     session.add(transaction)
+
+
+def link_transactions_to_document(
+    *,
+    session: Session,
+    account_id: UUID,
+    date_start: datetime,
+    date_end: datetime,
+    document_id: UUID,
+) -> int:
+    """Set document_id on transactions in [date_start, date_end] that have no document yet."""
+    rows = list(
+        session.exec(
+            select(Transaction)
+            .where(Transaction.account_id == account_id)
+            .where(Transaction.occurred_at >= date_start)
+            .where(Transaction.occurred_at <= date_end)
+            .where(Transaction.document_id == None)  # noqa: E711
+        ).all()
+    )
+    for tx in rows:
+        tx.document_id = document_id
+        session.add(tx)
+    return len(rows)

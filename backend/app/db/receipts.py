@@ -1,6 +1,7 @@
 import json
 from uuid import UUID
 
+from sqlalchemy import desc
 from sqlmodel import Session, col, select
 
 from app.models.account import Account
@@ -58,6 +59,7 @@ def get_receipts_for_user(
             select(Receipt)
             .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
             .where((Receipt.user_id == user_id) | (Document.user_id == user_id))
+            .order_by(desc(Receipt.paid_at))  # type: ignore[arg-type]
             .offset(skip)
             .limit(limit)
         ).all()

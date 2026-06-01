@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from sqlalchemy import desc
 from sqlmodel import Session, select
 
 from app.models.document import Document
@@ -34,7 +35,7 @@ def get_documents_for_user(
         query = query.where(Document.type == type_filter)
     if status_filter is not None:
         query = query.where(Document.status == status_filter)
-    query = query.offset(skip).limit(limit)
+    query = query.order_by(desc(Document.uploaded_at)).offset(skip).limit(limit)  # type: ignore[arg-type]
     return list(session.exec(query).all())
 
 
