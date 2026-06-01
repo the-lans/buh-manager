@@ -195,3 +195,80 @@ async def test_list_counterparties_returns_all(
     assert resp.status_code == 200
     names = {c["name"] for c in resp.json()}
     assert {"Альфа", "Бета", "Гамма"} <= names
+
+
+@pytest.mark.asyncio
+async def test_delete_counterparty_used_in_receipt_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    from uuid import uuid4 as _uuid4
+
+    cp = await client.post(
+        "/api/v1/counterparties",
+        json=_cp_payload(name="Привязанный магазин"),
+        headers=auth_headers,
+    )
+    cp_id = cp.json()["id"]
+
+    fn = str(_uuid4().int)[:10]
+    fd = str(_uuid4().int)[:6]
+    fpd = str(_uuid4().int)[:10]
+    await client.post(
+        "/api/v1/receipts",
+        json={
+            "paid_at": "2024-05-01T10:00:00",
+            "total_amount": 500.0,
+            "fn": fn,
+            "fd": fd,
+            "fpd": fpd,
+            "counterparty_id": cp_id,
+            "items": [{"name": "Товар", "quantity": "1", "price": "500", "amount": "500"}],
+        },
+        headers=auth_headers,
+    )
+
+    resp = await client.delete(f"/api/v1/counterparties/{cp_id}", headers=auth_headers)
+    assert resp.status_code == 409
+    assert "чеках" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_delete_counterparty_used_in_transaction_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    cp_name = "Транзакционный контрагент"
+    cp = await client.post(
+        "/api/v1/counterparties",
+        json=_cp_payload(name=cp_name),
+        headers=auth_headers,
+    )
+    cp_id = cp.json()["id"]
+
+    # Create an account
+    acc_resp = await client.post(
+        "/api/v1/accounts",
+        json={"bank": "TestBank", "account_number": "40817810000099999999"},
+        headers=auth_headers,
+    )
+    acc_id = acc_resp.json()["id"]
+
+    # Create transaction referencing the counterparty via name (counterparty_name triggers find-or-create)
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": acc_id,
+            "occurred_at": "2024-05-01T10:00:00",
+            "amount": -100.0,
+            "type": "EXPENSE",
+            "counterparty_name": cp_name,
+        },
+        headers=auth_headers,
+    )
+    assert tx_resp.status_code == 201
+    assert tx_resp.json()["counterparty_id"] == cp_id
+
+    resp = await client.delete(f"/api/v1/counterparties/{cp_id}", headers=auth_headers)
+    assert resp.status_code == 409
+    assert "транзакциях" in resp.json()["detail"]

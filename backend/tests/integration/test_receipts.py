@@ -477,3 +477,22 @@ async def test_user_a_receipt_visible_in_own_list(
     resp = await client.get("/api/v1/receipts", headers=auth_headers)
     assert resp.status_code == 200
     assert len(resp.json()) >= 1
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_ordered_by_paid_at_desc(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    dates = ["2024-01-10T10:00:00", "2024-03-20T10:00:00", "2024-02-15T10:00:00"]
+    for i, date in enumerate(dates):
+        payload = _receipt_payload(fn=f"999{i:07d}", fd=f"9{i:05d}", fpd=f"999{i:07d}")
+        payload["paid_at"] = date
+        r = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+        assert r.status_code == 201
+
+    resp = await client.get("/api/v1/receipts", headers=auth_headers)
+    assert resp.status_code == 200
+    items = resp.json()
+    paid_dates = [item["paid_at"] for item in items]
+    assert paid_dates == sorted(paid_dates, reverse=True)

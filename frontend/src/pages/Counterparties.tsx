@@ -33,6 +33,7 @@ export default function Counterparties() {
   const [modal, setModal] = useState<{ mode: 'create' | 'edit'; cp?: Counterparty } | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [error, setError] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   function openCreate() {
     setForm(EMPTY_FORM)
@@ -115,7 +116,14 @@ export default function Counterparties() {
                 Изменить
               </button>
               <button
-                onClick={() => remove.mutate(cp.id)}
+                onClick={async () => {
+                  setDeleteError(null)
+                  try {
+                    await remove.mutateAsync(cp.id)
+                  } catch (e: unknown) {
+                    setDeleteError(extractErrorMessage(e))
+                  }
+                }}
                 className="text-xs text-red-500 hover:underline"
               >
                 Удалить
@@ -124,6 +132,10 @@ export default function Counterparties() {
           </tr>
         ))}
       </DataTable>
+
+      {deleteError && (
+        <p className="text-sm text-red-500 mt-1">{deleteError}</p>
+      )}
 
       {modal && (
         <div

@@ -8,6 +8,7 @@ import { useAuth } from './hooks/useAuth'
 import AppShell from './components/layout/AppShell'
 import AuditLog from './pages/AuditLog'
 import AuthCallback from './pages/AuthCallback'
+import Balances from './pages/Balances'
 import Counterparties from './pages/Counterparties'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
@@ -44,6 +45,7 @@ function App() {
           <Route path="transactions" element={<Transactions />} />
           <Route path="receipts" element={<Receipts />} />
           <Route path="documents" element={<Documents />} />
+          <Route path="balances" element={<Balances />} />
           <Route path="counterparties" element={<Counterparties />} />
           <Route path="reconciliation" element={<Reconciliation />} />
           <Route path="audit-log" element={<AuditLog />} />

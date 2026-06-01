@@ -6,8 +6,11 @@ import { useCounterpartyMap } from '../hooks/useCounterparties'
 import { useDeleteReceipt, useReceipts } from '../hooks/useReceipts'
 import { formatDate } from '../utils/date'
 
+const PAGE_SIZE = 20
+
 export default function Receipts() {
-  const { data: receipts = [], isLoading } = useReceipts({ limit: 50 })
+  const [skip, setSkip] = useState(0)
+  const { data: receipts = [], isLoading } = useReceipts({ skip, limit: PAGE_SIZE })
   const counterpartyMap = useCounterpartyMap()
   const deleteReceipt = useDeleteReceipt()
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null)
@@ -50,6 +53,23 @@ export default function Receipts() {
           </tr>
         ))}
       </DataTable>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setSkip((s) => Math.max(0, s - PAGE_SIZE))}
+          disabled={skip === 0}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+        >
+          ← Назад
+        </button>
+        <button
+          onClick={() => setSkip((s) => s + PAGE_SIZE)}
+          disabled={receipts.length < PAGE_SIZE}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+        >
+          Вперёд →
+        </button>
+      </div>
 
       <ReceiptDetailModal
         receiptId={selectedReceiptId}

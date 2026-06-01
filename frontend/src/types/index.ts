@@ -208,6 +208,22 @@ export interface ReconciliationReport {
   unmatched_receipts: UnmatchedReceiptItem[]
 }
 
+export interface Balance {
+  id: string
+  account_id: string
+  amount: string
+  recorded_at: string
+  source: 'OPENING' | 'CLOSING' | 'MANUAL'
+  document_id: string | null
+}
+
+export interface LinkResult {
+  document_id: string
+  status: string
+  updated_count: number
+  message: string | null
+}
+
 export interface ApiKey {
   id: string
   name: string

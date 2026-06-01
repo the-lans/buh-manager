@@ -1,8 +1,8 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.constants import ApiKeyScope
 from app.database import get_session
@@ -14,7 +14,7 @@ from app.db.accounts import (
     has_balances_for_account,
     update_account,
 )
-from app.db.balances import upsert_balance
+from app.db.balances import get_balances_for_user, upsert_balance
 from app.db.counterparties import (
     delete_counterparty,
     get_counterparty_by_id,
@@ -31,6 +31,8 @@ from app.db.expense_types import (
     update_expense_type,
 )
 from app.dependencies.auth import get_current_user, require_scope
+from app.models.receipt import Receipt
+from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.account import (
     AccountBalanceInit,
@@ -38,6 +40,8 @@ from app.schemas.account import (
     AccountRead,
     AccountUpdate,
 )
+from app.schemas.balance import BalanceRead
+from app.schemas.common import PaginationParams
 from app.schemas.counterparty import CounterpartyCreate, CounterpartyRead, CounterpartyUpdate
 from app.schemas.exchange_rate import ExchangeRateCreate, ExchangeRateRead
 from app.schemas.expense_type import ExpenseTypeCreate, ExpenseTypeRead, ExpenseTypeUpdate
@@ -284,6 +288,20 @@ def delete_counterparty_endpoint(
 ) -> None:
     cp = get_counterparty_by_id(session=session, counterparty_id=counterparty_id)
     cp = get_or_404(cp, "Counterparty not found.")
+
+    if session.exec(select(Receipt).where(Receipt.counterparty_id == counterparty_id).limit(1)).first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Контрагент используется в чеках и не может быть удалён.",
+        )
+    if session.exec(
+        select(Transaction).where(Transaction.counterparty_id == counterparty_id).limit(1)
+    ).first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Контрагент используется в транзакциях и не может быть удалён.",
+        )
+
     delete_counterparty(session=session, counterparty=cp)
     try:
         session.commit()
@@ -293,6 +311,30 @@ def delete_counterparty_endpoint(
             status_code=status.HTTP_409_CONFLICT,
             detail="Контрагент используется в транзакциях или чеках и не может быть удалён.",
         ) from exc
+
+
+# ── Balances ────────────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/balances",
+    response_model=list[BalanceRead],
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_ACCOUNTS))],
+)
+def list_balances_endpoint(
+    account_id: UUID | None = Query(default=None),
+    pagination: PaginationParams = Depends(),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> list[BalanceRead]:
+    balances = get_balances_for_user(
+        session=session,
+        user_id=current_user.id,
+        account_id=account_id,
+        skip=pagination.skip,
+        limit=pagination.limit,
+    )
+    return [BalanceRead.model_validate(b) for b in balances]
 
 
 # ── Exchange Rates ───────────────────────────────────────────────────────────

@@ -9,15 +9,26 @@ from sqlmodel import Session
 
 from app.constants import ApiKeyScope, DocumentStatus, MEDIA_PATH
 from app.database import get_session
+from app.db.accounts import get_account_by_id
+from app.db.balances import link_balances_to_document
 from app.db.documents import (
     create_document,
     get_document_by_id,
     get_documents_for_user,
+    update_document_status,
 )
+from app.db.receipts import get_receipt_by_id
+from app.db.transactions import link_transactions_to_document
 from app.dependencies.auth import get_current_user, require_scope
 from app.models.user import User
 from app.schemas.common import PaginationParams
-from app.schemas.document import DocumentListItem, DocumentRead
+from app.schemas.document import (
+    DocumentListItem,
+    DocumentRead,
+    LinkReceiptRequest,
+    LinkResult,
+    LinkStatementRequest,
+)
 from app.services.deduplication import check_document_duplicate, compute_file_hash
 from app.utils.http import get_or_404
 from storage import get_storage_provider
@@ -144,6 +155,118 @@ def download_document(
         inline=inline,
     )
     return JSONResponse({"url": presigned_url})
+
+
+@router.post(
+    "/{document_id}/link-receipt",
+    response_model=LinkResult,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_DOCUMENTS))],
+)
+def link_document_to_receipt(
+    document_id: UUID,
+    data: LinkReceiptRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> LinkResult:
+    doc = get_document_by_id(session=session, document_id=document_id, user_id=current_user.id)
+    doc = get_or_404(doc, "Document not found.")
+
+    if doc.type != "RECEIPT":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document type must be RECEIPT.",
+        )
+    if doc.status != DocumentStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is already processed.",
+        )
+
+    receipt = get_receipt_by_id(
+        session=session, receipt_id=data.receipt_id, user_id=current_user.id
+    )
+    receipt = get_or_404(receipt, "Receipt not found.")
+
+    if receipt.document_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Receipt already has a linked document.",
+        )
+
+    receipt.document_id = document_id
+    session.add(receipt)
+    update_document_status(session=session, document=doc, status=DocumentStatus.PROCESSED)
+    session.commit()
+
+    return LinkResult(
+        document_id=document_id,
+        status=DocumentStatus.PROCESSED,
+        updated_count=1,
+    )
+
+
+@router.post(
+    "/{document_id}/link-statement",
+    response_model=LinkResult,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_DOCUMENTS))],
+)
+def link_document_to_statement(
+    document_id: UUID,
+    data: LinkStatementRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> LinkResult:
+    doc = get_document_by_id(session=session, document_id=document_id, user_id=current_user.id)
+    doc = get_or_404(doc, "Document not found.")
+
+    if doc.type != "BANK_STATEMENT":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document type must be BANK_STATEMENT.",
+        )
+    if doc.status != DocumentStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is already processed.",
+        )
+
+    account = get_account_by_id(
+        session=session, account_id=data.account_id, user_id=current_user.id
+    )
+    account = get_or_404(account, "Account not found.")
+
+    tx_count = link_transactions_to_document(
+        session=session,
+        account_id=account.id,
+        date_start=data.statement_start,
+        date_end=data.statement_end,
+        document_id=document_id,
+    )
+    bal_count = link_balances_to_document(
+        session=session,
+        account_id=account.id,
+        date_start=data.statement_start,
+        date_end=data.statement_end,
+        document_id=document_id,
+    )
+    total = tx_count + bal_count
+
+    if total == 0:
+        new_status = DocumentStatus.ERROR
+        message = "Не найдено транзакций или остатков для привязки."
+    else:
+        new_status = DocumentStatus.PROCESSED
+        message = None
+
+    update_document_status(session=session, document=doc, status=new_status)
+    session.commit()
+
+    return LinkResult(
+        document_id=document_id,
+        status=new_status,
+        updated_count=total,
+        message=message,
+    )
 
 
 def _is_local_path(url: str) -> bool:
