@@ -16,6 +16,18 @@ export function useReceipt(id: string | null) {
   })
 }
 
+export function useUpdateReceipt() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: object }) => receiptsApi.update(id, data),
+    onSuccess: (receipt) => {
+      qc.invalidateQueries({ queryKey: ['receipts'] })
+      qc.invalidateQueries({ queryKey: ['documents'] })
+      qc.setQueryData(['receipts', receipt.id], receipt)
+    },
+  })
+}
+
 export function useDeleteReceipt() {
   const qc = useQueryClient()
   return useMutation({

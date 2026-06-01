@@ -67,6 +67,7 @@ export interface ReceiptListItem {
   paid_at: string
   total_amount: string
   counterparty_id: string | null
+  document_id: string | null
 }
 
 export interface Transaction {

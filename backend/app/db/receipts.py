@@ -81,6 +81,24 @@ def get_unmatched_receipts(*, session: Session, user_id: UUID) -> list[Receipt]:
     )
 
 
+def get_receipt_by_document_id(
+    *,
+    session: Session,
+    document_id: UUID,
+    user_id: UUID,
+    exclude_receipt_id: UUID | None = None,
+) -> Receipt | None:
+    query = (
+        select(Receipt)
+        .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
+        .where(Receipt.document_id == document_id)
+        .where((Receipt.user_id == user_id) | (Document.user_id == user_id))
+    )
+    if exclude_receipt_id is not None:
+        query = query.where(Receipt.id != exclude_receipt_id)
+    return session.exec(query).first()
+
+
 def get_receipt_linked_transaction(
     *,
     session: Session,
@@ -154,7 +172,7 @@ def update_receipt(
     data: ReceiptUpdate,
     counterparty_id: str | None = None,
 ) -> Receipt:
-    if data.document_id is not None:
+    if "document_id" in data.model_fields_set:
         receipt.document_id = data.document_id
     if data.paid_at is not None:
         receipt.paid_at = data.paid_at

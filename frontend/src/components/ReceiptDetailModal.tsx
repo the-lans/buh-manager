@@ -2,8 +2,8 @@ import { useCallback } from 'react'
 
 import { documentsApi } from '../api/documents'
 import { useCounterpartyMap } from '../hooks/useCounterparties'
-import { useDocument } from '../hooks/useDocuments'
-import { useReceipt } from '../hooks/useReceipts'
+import { useDocument, useDocuments } from '../hooks/useDocuments'
+import { useReceipt, useUpdateReceipt } from '../hooks/useReceipts'
 import { formatDate } from '../utils/date'
 
 interface Props {
@@ -14,7 +14,9 @@ interface Props {
 export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
   const { data: receipt, isLoading, isError } = useReceipt(receiptId)
   const counterpartyMap = useCounterpartyMap()
-  const { data: document } = useDocument(receipt?.document_id ?? null)
+  const { data: linkedDocument } = useDocument(receipt?.document_id ?? null)
+  const { data: receiptDocuments = [] } = useDocuments({ type: 'RECEIPT', limit: 100 })
+  const updateReceipt = useUpdateReceipt()
 
   const handleOpenDocument = useCallback(async (id: string) => {
     const url = await documentsApi.getOpenUrl(id)
@@ -28,6 +30,17 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
     a.download = name
     a.click()
   }, [])
+
+  const handleDocumentChange = useCallback(
+    (selectedId: string) => {
+      if (!receiptId) return
+      updateReceipt.mutate({
+        id: receiptId,
+        data: { document_id: selectedId || null },
+      })
+    },
+    [receiptId, updateReceipt],
+  )
 
   if (!receiptId) return null
 
@@ -129,27 +142,44 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
               </table>
             </div>
 
-            {receipt.document_id && (
-              <div className="border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-4 text-sm">
-                <span className="text-gray-600 truncate">
-                  📄 {document?.name ?? 'Документ'}
-                </span>
-                <div className="flex gap-3 shrink-0">
+            <div className="space-y-2">
+              <label className="block text-sm text-gray-500">Документ</label>
+              <select
+                value={receipt.document_id ?? ''}
+                onChange={(e) => handleDocumentChange(e.target.value)}
+                disabled={updateReceipt.isPending}
+                className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              >
+                <option value="">Не привязан</option>
+                {receiptDocuments.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.name}
+                  </option>
+                ))}
+              </select>
+
+              {receipt.document_id && (
+                <div className="flex gap-3">
                   <button
                     onClick={() => handleOpenDocument(receipt.document_id!)}
-                    className="text-indigo-600 hover:underline"
+                    className="text-sm text-indigo-600 hover:underline"
                   >
                     Открыть
                   </button>
                   <button
-                    onClick={() => handleDownloadDocument(receipt.document_id!, document?.name ?? 'document')}
-                    className="text-gray-500 hover:underline"
+                    onClick={() =>
+                      handleDownloadDocument(
+                        receipt.document_id!,
+                        linkedDocument?.name ?? 'document',
+                      )
+                    }
+                    className="text-sm text-gray-500 hover:underline"
                   >
                     Скачать
                   </button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </>
         )}
       </div>

@@ -11,6 +11,7 @@ from app.db.documents import get_document_by_id, update_document_status
 from app.db.receipts import (
     create_receipt,
     delete_receipt,
+    get_receipt_by_document_id,
     get_receipt_by_fiscal,
     get_receipt_by_id,
     get_receipt_items,
@@ -71,6 +72,15 @@ def create_receipt_endpoint(
             user_id=current_user.id,
         )
         doc = get_or_404(doc, "Document not found.")
+        if get_receipt_by_document_id(
+            session=session,
+            document_id=data.document_id,
+            user_id=current_user.id,
+        ) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Document is already linked to another receipt.",
+            )
     else:
         doc = None
 
@@ -148,6 +158,7 @@ def update_receipt_endpoint(
     receipt = get_or_404(receipt, "Receipt not found.")
 
     before = {"total_amount": str(receipt.total_amount), "paid_at": str(receipt.paid_at)}
+    old_doc_id = receipt.document_id
 
     if data.counterparty_id is not None:
         if get_counterparty_by_id(session=session, counterparty_id=data.counterparty_id) is None:
@@ -156,10 +167,45 @@ def update_receipt_endpoint(
                 detail="Counterparty not found.",
             )
 
+    new_doc = None
+    if "document_id" in data.model_fields_set and data.document_id is not None:
+        new_doc = get_document_by_id(
+            session=session,
+            document_id=data.document_id,
+            user_id=current_user.id,
+        )
+        if new_doc is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found.",
+            )
+        if get_receipt_by_document_id(
+            session=session,
+            document_id=data.document_id,
+            user_id=current_user.id,
+            exclude_receipt_id=receipt.id,
+        ) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Document is already linked to another receipt.",
+            )
+
     receipt = update_receipt(
         session=session, receipt=receipt, data=data, counterparty_id=data.counterparty_id
     )
     after = {"total_amount": str(receipt.total_amount), "paid_at": str(receipt.paid_at)}
+
+    if "document_id" in data.model_fields_set and data.document_id != old_doc_id:
+        if old_doc_id is not None:
+            old_doc = get_document_by_id(
+                session=session, document_id=old_doc_id, user_id=current_user.id
+            )
+            if old_doc is not None:
+                old_doc.status = DocumentStatus.PENDING
+                session.add(old_doc)
+        if new_doc is not None:
+            new_doc.status = DocumentStatus.PROCESSED
+            session.add(new_doc)
 
     audit_update(
         session=session,
