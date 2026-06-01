@@ -95,6 +95,7 @@ def create_transaction_endpoint(
         entity_type=AuditEntityType.TRANSACTION,
         entity_id=tx.id,
         changed_by=ChangedBy.USER,
+        user_id=current_user.id,
         after={"amount": str(data.amount), "occurred_at": str(data.occurred_at)},
     )
     session.commit()
@@ -127,6 +128,7 @@ def update_transaction_endpoint(
         entity_type=AuditEntityType.TRANSACTION,
         entity_id=tx.id,
         changed_by=ChangedBy.USER,
+        user_id=current_user.id,
         before=before,
         after=after,
     )
@@ -154,6 +156,7 @@ def delete_transaction_endpoint(
         entity_type=AuditEntityType.TRANSACTION,
         entity_id=tx.id,
         changed_by=ChangedBy.USER,
+        user_id=current_user.id,
         before={"amount": str(tx.amount), "occurred_at": str(tx.occurred_at)},
     )
     delete_transaction(session=session, transaction=tx)

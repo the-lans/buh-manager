@@ -10,7 +10,7 @@ from app.constants import (
     ReconciledStatus,
 )
 from app.database import get_session
-from app.db.receipts import get_receipt_by_id
+from app.db.receipts import get_receipt_by_id, get_receipt_linked_transaction
 from app.db.reconciliation_reports import get_last_report
 from app.db.transactions import get_transaction_by_id, update_transaction_receipt_link
 from app.dependencies.auth import get_current_user, require_scope
@@ -82,6 +82,16 @@ def manual_match(
         user_id=current_user.id,
     )
     receipt = get_or_404(receipt, "Receipt not found.")
+    linked_tx = get_receipt_linked_transaction(
+        session=session,
+        receipt_id=receipt.id,
+        user_id=current_user.id,
+    )
+    if linked_tx is not None and linked_tx.id != tx.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Receipt is already matched to another transaction.",
+        )
 
     update_transaction_receipt_link(
         session=session,
@@ -94,6 +104,7 @@ def manual_match(
         transaction_id=tx.id,
         receipt_id=receipt.id,
         changed_by=ChangedBy.USER,
+        user_id=current_user.id,
     )
     session.commit()
     return {"status": "matched"}
@@ -123,6 +134,7 @@ def ignore_transaction(
         entity_type=AuditEntityType.TRANSACTION,
         entity_id=tx.id,
         changed_by=ChangedBy.USER,
+        user_id=current_user.id,
         before={"reconciled_status": before_status},
         after={"reconciled_status": ReconciledStatus.IGNORED_BY_USER},
     )
@@ -164,6 +176,7 @@ def resolve_conflict(
         entity_type=AuditEntityType.TRANSACTION,
         entity_id=tx.id,
         changed_by=ChangedBy.USER,
+        user_id=current_user.id,
         before=before,
         after=after,
     )

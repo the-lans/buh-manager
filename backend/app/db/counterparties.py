@@ -1,9 +1,9 @@
 import re
+from typing import Any
 
 from sqlmodel import Session, select
 
 from app.models.counterparty import Counterparty
-from app.schemas.counterparty import CounterpartyUpdate
 
 
 def _slug_from_name(name: str) -> str:
@@ -52,9 +52,8 @@ def update_counterparty(
     *,
     session: Session,
     counterparty: Counterparty,
-    data: CounterpartyUpdate,
+    update_data: dict[str, Any],
 ) -> Counterparty:
-    update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(counterparty, field, value)
     session.add(counterparty)

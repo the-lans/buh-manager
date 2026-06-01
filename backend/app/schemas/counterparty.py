@@ -2,6 +2,8 @@ import re
 
 from pydantic import BaseModel, field_validator
 
+from app.constants import CounterpartyType
+
 _INN_RE = re.compile(r"^\d{10}(\d{2})?$")
 _KPP_RE = re.compile(r"^\d{9}$")
 
@@ -20,7 +22,7 @@ def _validate_kpp(value: str | None) -> str | None:
 
 class CounterpartyCreate(BaseModel):
     name: str
-    type: str = "STORE"
+    type: CounterpartyType = CounterpartyType.STORE
     inn: str | None = None
     kpp: str | None = None
 
@@ -37,9 +39,23 @@ class CounterpartyCreate(BaseModel):
 
 class CounterpartyUpdate(BaseModel):
     name: str | None = None
-    type: str | None = None
+    type: CounterpartyType | None = None
     inn: str | None = None
     kpp: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str | None) -> str:
+        if v is None or not v.strip():
+            raise ValueError("name не может быть пустым или null")
+        return v
+
+    @field_validator("type")
+    @classmethod
+    def validate_type(cls, v: CounterpartyType | None) -> CounterpartyType:
+        if v is None:
+            raise ValueError("type не может быть null")
+        return v
 
     @field_validator("inn")
     @classmethod

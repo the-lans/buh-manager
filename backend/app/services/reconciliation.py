@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal  # noqa: TCH003
 from uuid import uuid4
 
 from rapidfuzz import fuzz
@@ -232,6 +232,7 @@ def run_reconciliation(
                 transaction_id=tx.id,
                 receipt_id=receipt.id,
                 changed_by=ChangedBy.AGENT,
+                user_id=current_user.id,
             )
             auto_matched += 1
         else:

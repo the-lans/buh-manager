@@ -16,3 +16,4 @@ class AuditLog(SQLModel, table=True):
     changed_by: str
     changed_at: datetime = Field(default_factory=utcnow)
     diff: str | None = None  # JSON: {"before": {...}, "after": {...}}
+    user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)

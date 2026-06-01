@@ -92,6 +92,7 @@ def create_receipt_endpoint(
         entity_type=AuditEntityType.RECEIPT,
         entity_id=receipt.id,
         changed_by=ChangedBy.AGENT,
+        user_id=current_user.id,
         after={"receipt_id": str(receipt.id), "total_amount": str(receipt.total_amount)},
     )
     session.commit()
@@ -166,6 +167,7 @@ def update_receipt_endpoint(
         entity_type=AuditEntityType.RECEIPT,
         entity_id=receipt.id,
         changed_by=ChangedBy.USER,
+        user_id=current_user.id,
         before=before,
         after=after,
     )
@@ -194,6 +196,7 @@ def delete_receipt_endpoint(
         entity_type=AuditEntityType.RECEIPT,
         entity_id=receipt.id,
         changed_by=ChangedBy.USER,
+        user_id=current_user.id,
         before=before,
     )
     delete_receipt(session=session, receipt=receipt)

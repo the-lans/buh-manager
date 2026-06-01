@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
@@ -11,6 +11,7 @@ from app.models.user import User
 
 def _write_entry(
     session: Session,
+    user_id: UUID,
     entity_type: str = AuditEntityType.RECEIPT,
     action: str = AuditAction.CREATE,
 ) -> None:
@@ -20,6 +21,7 @@ def _write_entry(
         entity_id=uuid4(),
         action=action,
         changed_by=ChangedBy.USER,
+        user_id=user_id,
         diff_after={"field": "value"},
     )
     session.commit()
@@ -40,9 +42,10 @@ async def test_list_audit_log_returns_entries(
     client: AsyncClient,
     auth_headers: dict[str, str],
     session: Session,
+    test_user: User,
 ) -> None:
-    _write_entry(session, entity_type=AuditEntityType.RECEIPT)
-    _write_entry(session, entity_type=AuditEntityType.TRANSACTION)
+    _write_entry(session, user_id=test_user.id, entity_type=AuditEntityType.RECEIPT)
+    _write_entry(session, user_id=test_user.id, entity_type=AuditEntityType.TRANSACTION)
 
     resp = await client.get("/api/v1/audit-log", headers=auth_headers)
     assert resp.status_code == 200
@@ -56,9 +59,10 @@ async def test_list_audit_log_sorted_desc(
     client: AsyncClient,
     auth_headers: dict[str, str],
     session: Session,
+    test_user: User,
 ) -> None:
     for _ in range(3):
-        _write_entry(session)
+        _write_entry(session, user_id=test_user.id)
 
     resp = await client.get("/api/v1/audit-log", headers=auth_headers)
     assert resp.status_code == 200
@@ -71,10 +75,11 @@ async def test_list_audit_log_filter_by_entity_type(
     client: AsyncClient,
     auth_headers: dict[str, str],
     session: Session,
+    test_user: User,
 ) -> None:
-    _write_entry(session, entity_type=AuditEntityType.RECEIPT)
-    _write_entry(session, entity_type=AuditEntityType.RECEIPT)
-    _write_entry(session, entity_type=AuditEntityType.TRANSACTION)
+    _write_entry(session, user_id=test_user.id, entity_type=AuditEntityType.RECEIPT)
+    _write_entry(session, user_id=test_user.id, entity_type=AuditEntityType.RECEIPT)
+    _write_entry(session, user_id=test_user.id, entity_type=AuditEntityType.TRANSACTION)
 
     resp = await client.get(
         "/api/v1/audit-log",
@@ -92,9 +97,10 @@ async def test_list_audit_log_pagination(
     client: AsyncClient,
     auth_headers: dict[str, str],
     session: Session,
+    test_user: User,
 ) -> None:
     for _ in range(5):
-        _write_entry(session)
+        _write_entry(session, user_id=test_user.id)
 
     resp = await client.get("/api/v1/audit-log", params={"limit": 2}, headers=auth_headers)
     assert resp.status_code == 200

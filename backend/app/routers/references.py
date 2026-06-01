@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from app.constants import ApiKeyScope
@@ -262,7 +263,11 @@ def update_counterparty_endpoint(
 ) -> CounterpartyRead:
     cp = get_counterparty_by_id(session=session, counterparty_id=counterparty_id)
     cp = get_or_404(cp, "Counterparty not found.")
-    cp = update_counterparty(session=session, counterparty=cp, data=data)
+    cp = update_counterparty(
+        session=session,
+        counterparty=cp,
+        update_data=data.model_dump(exclude_unset=True),
+    )
     session.commit()
     return CounterpartyRead.model_validate(cp)
 
@@ -280,7 +285,14 @@ def delete_counterparty_endpoint(
     cp = get_counterparty_by_id(session=session, counterparty_id=counterparty_id)
     cp = get_or_404(cp, "Counterparty not found.")
     delete_counterparty(session=session, counterparty=cp)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Контрагент используется в транзакциях или чеках и не может быть удалён.",
+        ) from exc
 
 
 # ── Exchange Rates ───────────────────────────────────────────────────────────
