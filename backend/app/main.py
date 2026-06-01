@@ -8,6 +8,7 @@ from app.constants import MEDIA_PATH
 from app.dependencies.auth import get_current_user
 from app.routers import (
     api_keys,
+    audit_log,
     auth,
     bank_statements,
     documents,
@@ -41,3 +42,4 @@ app.include_router(bank_statements.router, prefix="/api/v1", **_protected)  # ty
 app.include_router(transactions.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
 app.include_router(reconciliation.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
 app.include_router(references.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
+app.include_router(audit_log.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]

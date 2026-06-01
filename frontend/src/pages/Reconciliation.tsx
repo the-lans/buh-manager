@@ -26,7 +26,7 @@ export default function Reconciliation() {
 
       {report && (
         <>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <Kpi label="Автосовпадений" value={report.summary.auto_matched_count} />
             <Kpi label="Без чека" value={report.summary.missing_receipts_count} warning />
             <Kpi label="Нематчед чеки" value={report.summary.unmatched_receipts_count} />

@@ -25,6 +25,7 @@ export function DataTable({
       {isLoading ? (
         <div className="p-8 text-center text-gray-400">Загрузка...</div>
       ) : (
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -56,6 +57,7 @@ export function DataTable({
             )}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   )
