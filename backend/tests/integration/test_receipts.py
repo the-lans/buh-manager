@@ -341,6 +341,130 @@ async def test_create_receipt_autocreates_counterparty_by_inn(
 
 
 @pytest.mark.asyncio
+async def test_create_receipt_with_already_linked_document_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    doc_id = await _create_doc(client, auth_headers)
+    payload = _receipt_payload(fn="1111111111", fd="111111", fpd="1111111111")
+    payload["document_id"] = doc_id
+    first = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+    assert first.status_code == 201
+
+    payload2 = _receipt_payload(fn="2222222222", fd="222222", fpd="2222222222")
+    payload2["document_id"] = doc_id
+    second = await client.post("/api/v1/receipts", json=payload2, headers=auth_headers)
+    assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_update_receipt_links_and_unlinks_document(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+) -> None:
+    from uuid import UUID as UUIDType
+
+    from app.models.document import Document as DocumentModel
+
+    doc_id = await _create_doc(client, auth_headers)
+    receipt_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn=None, fd=None, fpd=None),
+        headers=auth_headers,
+    )
+    assert receipt_resp.status_code == 201
+    receipt_id = receipt_resp.json()["id"]
+
+    # Link document
+    link_resp = await client.put(
+        f"/api/v1/receipts/{receipt_id}",
+        json={"document_id": doc_id},
+        headers=auth_headers,
+    )
+    assert link_resp.status_code == 200
+    assert link_resp.json()["document_id"] == doc_id
+
+    session.expire_all()
+    doc = session.get(DocumentModel, UUIDType(doc_id))
+    assert doc is not None
+    assert doc.status == "PROCESSED"
+
+    # Unlink document
+    unlink_resp = await client.put(
+        f"/api/v1/receipts/{receipt_id}",
+        json={"document_id": None},
+        headers=auth_headers,
+    )
+    assert unlink_resp.status_code == 200
+    assert unlink_resp.json()["document_id"] is None
+
+    session.expire_all()
+    doc = session.get(DocumentModel, UUIDType(doc_id))
+    assert doc is not None
+    assert doc.status == "PENDING"
+
+
+@pytest.mark.asyncio
+async def test_update_receipt_rejects_foreign_document(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    second_auth_headers: dict[str, str],
+) -> None:
+    foreign_doc_id = await _create_doc(client, second_auth_headers)
+    receipt_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn=None, fd=None, fpd=None),
+        headers=auth_headers,
+    )
+    receipt_id = receipt_resp.json()["id"]
+
+    resp = await client.put(
+        f"/api/v1/receipts/{receipt_id}",
+        json={"document_id": foreign_doc_id},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_update_receipt_rejects_document_linked_to_another_receipt(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    doc_id = await _create_doc(client, auth_headers)
+
+    receipt1 = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="3333333333", fd="333333", fpd="3333333333"),
+        headers=auth_headers,
+    )
+    receipt1_id = receipt1.json()["id"]
+
+    # Link doc to first receipt
+    await client.put(
+        f"/api/v1/receipts/{receipt1_id}",
+        json={"document_id": doc_id},
+        headers=auth_headers,
+    )
+
+    receipt2 = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="4444444444", fd="444444", fpd="4444444444"),
+        headers=auth_headers,
+    )
+    receipt2_id = receipt2.json()["id"]
+
+    # Try to link same doc to second receipt
+    resp = await client.put(
+        f"/api/v1/receipts/{receipt2_id}",
+        json={"document_id": doc_id},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 409
+
+
+@pytest.mark.asyncio
 async def test_user_a_receipt_visible_in_own_list(
     client: AsyncClient,
     auth_headers: dict[str, str],

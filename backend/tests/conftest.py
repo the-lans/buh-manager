@@ -116,6 +116,16 @@ class FakeStorageProvider:
     async def upload_file(self, *, file: object, file_id: str) -> str:  # noqa: ARG002
         return f"/media/fake/{file_id}"
 
+    def get_download_url(
+        self,
+        *,
+        doc_url: str,
+        filename: str,  # noqa: ARG002
+        inline: bool = False,  # noqa: ARG002
+        expires_in: int = 3600,  # noqa: ARG002
+    ) -> str:
+        return doc_url
+
 
 # ── HTTP client for integration tests ────────────────────────────────────────
 
