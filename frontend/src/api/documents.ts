@@ -14,5 +14,12 @@ export const documentsApi = {
   list: (params?: { type?: string; status?: string; skip?: number; limit?: number }) =>
     apiClient.get<Document[]>('/documents', { params }).then((r) => r.data),
   get: (id: string) => apiClient.get<Document>(`/documents/${id}`).then((r) => r.data),
-  downloadUrl: (id: string): string => `/api/v1/documents/${id}/download`,
+  getOpenUrl: (id: string): Promise<string> =>
+    apiClient
+      .get<{ url: string }>(`/documents/${id}/download?inline=true`)
+      .then((r) => r.data.url),
+  getDownloadUrl: (id: string): Promise<string> =>
+    apiClient
+      .get<{ url: string }>(`/documents/${id}/download`)
+      .then((r) => r.data.url),
 }

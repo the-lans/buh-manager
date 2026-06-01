@@ -3,11 +3,10 @@ import mimetypes
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import FileResponse, JSONResponse
 from sqlmodel import Session
 
-from app.config import settings
 from app.constants import ApiKeyScope, DocumentStatus, MEDIA_PATH
 from app.database import get_session
 from app.db.documents import (
@@ -115,13 +114,17 @@ def get_document(
 )
 def download_document(
     document_id: UUID,
+    request: Request,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
-) -> FileResponse | RedirectResponse:
+    storage: StorageProvider = Depends(get_storage_provider),
+) -> FileResponse | JSONResponse:
     doc = get_document_by_id(session=session, document_id=document_id, user_id=current_user.id)
     doc = get_or_404(doc, "Document not found.")
 
-    if settings.is_local:
+    inline = request.query_params.get("inline", "false").lower() == "true"
+
+    if _is_local_path(doc.url):
         local_path = Path(MEDIA_PATH) / Path(doc.url).name
         if not local_path.exists():
             raise HTTPException(
@@ -135,4 +138,13 @@ def download_document(
             media_type=media_type,
         )
 
-    return RedirectResponse(url=doc.url, status_code=302)
+    presigned_url = storage.get_download_url(
+        doc_url=doc.url,
+        filename=doc.name,
+        inline=inline,
+    )
+    return JSONResponse({"url": presigned_url})
+
+
+def _is_local_path(url: str) -> bool:
+    return url.startswith("/")

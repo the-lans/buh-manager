@@ -1,3 +1,5 @@
+import { useCallback } from 'react'
+
 import { documentsApi } from '../api/documents'
 import { useCounterpartyMap } from '../hooks/useCounterparties'
 import { useDocument } from '../hooks/useDocuments'
@@ -13,6 +15,19 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
   const { data: receipt, isLoading, isError } = useReceipt(receiptId)
   const counterpartyMap = useCounterpartyMap()
   const { data: document } = useDocument(receipt?.document_id ?? null)
+
+  const handleOpenDocument = useCallback(async (id: string) => {
+    const url = await documentsApi.getOpenUrl(id)
+    window.open(url, '_blank')
+  }, [])
+
+  const handleDownloadDocument = useCallback(async (id: string, name: string) => {
+    const url = await documentsApi.getDownloadUrl(id)
+    const a = window.document.createElement('a')
+    a.href = url
+    a.download = name
+    a.click()
+  }, [])
 
   if (!receiptId) return null
 
@@ -113,6 +128,7 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
                 </tfoot>
               </table>
             </div>
+
             {receipt.document_id && (
               <div className="border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-4 text-sm">
                 <span className="text-gray-600 truncate">
@@ -120,18 +136,17 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
                 </span>
                 <div className="flex gap-3 shrink-0">
                   <button
-                    onClick={() => window.open(documentsApi.downloadUrl(receipt.document_id!), '_blank')}
+                    onClick={() => handleOpenDocument(receipt.document_id!)}
                     className="text-indigo-600 hover:underline"
                   >
                     Открыть
                   </button>
-                  <a
-                    href={documentsApi.downloadUrl(receipt.document_id)}
-                    download={document?.name}
+                  <button
+                    onClick={() => handleDownloadDocument(receipt.document_id!, document?.name ?? 'document')}
                     className="text-gray-500 hover:underline"
                   >
                     Скачать
-                  </a>
+                  </button>
                 </div>
               </div>
             )}

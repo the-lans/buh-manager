@@ -47,6 +47,7 @@ class ReceiptCreate(BaseModel):
 
 
 class ReceiptUpdate(BaseModel):
+    document_id: UUID | None = None
     counterparty_id: str | None = None
     paid_at: datetime | None = None
     total_amount: Decimal | None = None

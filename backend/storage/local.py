@@ -16,3 +16,8 @@ class LocalStorageProvider:
         content = await file.read()
         dest.write_bytes(content)
         return f"/{MEDIA_PATH}/{file_id}{suffix}"
+
+    def get_download_url(
+        self, *, doc_url: str, filename: str, inline: bool = False, expires_in: int = 3600
+    ) -> str:
+        return doc_url
