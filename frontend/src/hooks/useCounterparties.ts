@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { counterpartiesApi } from '../api/counterparties'
-import { CounterpartyCreate, CounterpartyUpdate } from '../types'
+import type { CounterpartyCreate, CounterpartyUpdate } from '../types'
 
 const QUERY_KEY = 'counterparties'
 

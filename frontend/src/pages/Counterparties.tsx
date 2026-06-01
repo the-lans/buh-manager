@@ -7,7 +7,7 @@ import {
   useDeleteCounterparty,
   useUpdateCounterparty,
 } from '../hooks/useCounterparties'
-import { Counterparty } from '../types'
+import type { Counterparty } from '../types'
 
 interface FormState {
   name: string

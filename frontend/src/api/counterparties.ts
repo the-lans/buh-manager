@@ -1,4 +1,4 @@
-import { Counterparty, CounterpartyCreate, CounterpartyUpdate } from '../types'
+import type { Counterparty, CounterpartyCreate, CounterpartyUpdate } from '../types'
 import { apiClient } from './client'
 
 export const counterpartiesApi = {

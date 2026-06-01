@@ -1,4 +1,4 @@
-import { AuditLogEntry } from '../types'
+import type { AuditLogEntry } from '../types'
 import { apiClient } from './client'
 
 export interface AuditLogParams {
