@@ -14,7 +14,13 @@ from app.db.accounts import (
     update_account,
 )
 from app.db.balances import upsert_balance
-from app.db.counterparties import get_or_create_counterparty, list_counterparties
+from app.db.counterparties import (
+    delete_counterparty,
+    get_counterparty_by_id,
+    get_or_create_counterparty,
+    list_counterparties,
+    update_counterparty,
+)
 from app.db.exchange_rates import create_exchange_rate, get_latest_rates
 from app.db.expense_types import (
     create_expense_type,
@@ -31,7 +37,7 @@ from app.schemas.account import (
     AccountRead,
     AccountUpdate,
 )
-from app.schemas.counterparty import CounterpartyCreate, CounterpartyRead
+from app.schemas.counterparty import CounterpartyCreate, CounterpartyRead, CounterpartyUpdate
 from app.schemas.exchange_rate import ExchangeRateCreate, ExchangeRateRead
 from app.schemas.expense_type import ExpenseTypeCreate, ExpenseTypeRead, ExpenseTypeUpdate
 from app.utils.http import get_or_404
@@ -40,6 +46,7 @@ router = APIRouter(tags=["references"])
 
 
 # ── Accounts ────────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/accounts",
@@ -121,9 +128,7 @@ def initialize_balance_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
-    account = get_account_by_id(
-        session=session, account_id=account_id, user_id=current_user.id
-    )
+    account = get_account_by_id(session=session, account_id=account_id, user_id=current_user.id)
     if account is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account not found.")
 
@@ -146,6 +151,7 @@ def initialize_balance_endpoint(
 
 
 # ── Expense Types ────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/expense-types",
@@ -208,6 +214,7 @@ def delete_expense_type_endpoint(
 
 # ── Counterparties ───────────────────────────────────────────────────────────
 
+
 @router.get(
     "/counterparties",
     response_model=list[CounterpartyRead],
@@ -232,13 +239,52 @@ def create_counterparty_endpoint(
     _current_user: User = Depends(get_current_user),
 ) -> CounterpartyRead:
     cp = get_or_create_counterparty(
-        session=session, name=data.name, type=data.type
+        session=session,
+        name=data.name,
+        type=data.type,
+        inn=data.inn,
+        kpp=data.kpp,
     )
     session.commit()
     return CounterpartyRead.model_validate(cp)
 
 
+@router.put(
+    "/counterparties/{counterparty_id}",
+    response_model=CounterpartyRead,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_COUNTERPARTIES))],
+)
+def update_counterparty_endpoint(
+    counterparty_id: str,
+    data: CounterpartyUpdate,
+    session: Session = Depends(get_session),
+    _current_user: User = Depends(get_current_user),
+) -> CounterpartyRead:
+    cp = get_counterparty_by_id(session=session, counterparty_id=counterparty_id)
+    cp = get_or_404(cp, "Counterparty not found.")
+    cp = update_counterparty(session=session, counterparty=cp, data=data)
+    session.commit()
+    return CounterpartyRead.model_validate(cp)
+
+
+@router.delete(
+    "/counterparties/{counterparty_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_COUNTERPARTIES))],
+)
+def delete_counterparty_endpoint(
+    counterparty_id: str,
+    session: Session = Depends(get_session),
+    _current_user: User = Depends(get_current_user),
+) -> None:
+    cp = get_counterparty_by_id(session=session, counterparty_id=counterparty_id)
+    cp = get_or_404(cp, "Counterparty not found.")
+    delete_counterparty(session=session, counterparty=cp)
+    session.commit()
+
+
 # ── Exchange Rates ───────────────────────────────────────────────────────────
+
 
 @router.post(
     "/exchange-rates",

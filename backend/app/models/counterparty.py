@@ -7,3 +7,5 @@ class Counterparty(SQLModel, table=True):
     id: str = Field(primary_key=True)
     name: str
     type: str
+    inn: str | None = Field(default=None, max_length=12, index=True)
+    kpp: str | None = Field(default=None, max_length=9)

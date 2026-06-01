@@ -86,6 +86,7 @@ class ApiKeyScope(StrEnum):
     WRITE_COUNTERPARTIES = "write:counterparties"
     READ_EXCHANGE_RATES = "read:exchange_rates"
     WRITE_EXCHANGE_RATES = "write:exchange_rates"
+    READ_AUDIT_LOG = "read:audit_log"
 
 
 # Deduplication & algorithm constants
