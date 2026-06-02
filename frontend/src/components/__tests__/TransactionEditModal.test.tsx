@@ -113,4 +113,30 @@ describe('TransactionEditModal', () => {
     renderWithProviders(<TransactionEditModal transaction={BASE_TX} onClose={() => {}} />)
     await waitFor(() => expect(screen.getByText('Питание')).toBeInTheDocument())
   })
+
+  it('includes reconciled_status in the save payload', async () => {
+    const updateSpy = vi.fn((info) =>
+      info.request.json().then((body: Record<string, unknown>) => {
+        expect(body.reconciled_status).toBe('IGNORED_BY_USER')
+        return HttpResponse.json({
+          ...BASE_TX,
+          reconciled_status: 'IGNORED_BY_USER',
+        })
+      }),
+    )
+    server.use(http.put('/api/v1/transactions/:id', updateSpy))
+
+    const onClose = vi.fn()
+    renderWithProviders(<TransactionEditModal transaction={BASE_TX} onClose={onClose} />)
+    const user = userEvent.setup()
+
+    // Change reconciled_status to IGNORED_BY_USER
+    const statusSelect = screen.getByDisplayValue('Не сверено')
+    await user.selectOptions(statusSelect, 'IGNORED_BY_USER')
+
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled())
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+  })
 })

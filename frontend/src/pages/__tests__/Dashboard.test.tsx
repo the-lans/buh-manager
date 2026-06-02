@@ -108,4 +108,85 @@ describe('Dashboard page', () => {
     renderWithProviders(<Dashboard />)
     await waitFor(() => expect(screen.getByText('1 активных')).toBeInTheDocument())
   })
+
+  it('shows "Не задан" row when transaction has no expense_type_id', async () => {
+    server.use(
+      http.get('/api/v1/transactions', () =>
+        HttpResponse.json<Transaction[]>([
+          {
+            id: 'tx-no-type',
+            account_id: 'acc-1',
+            occurred_at: new Date().toISOString(),
+            processed_at: null,
+            amount: '-200.00',
+            type: 'EXPENSE',
+            bank_category: null,
+            counterparty_id: null,
+            expense_type_id: null,
+            description: null,
+            balance_after: null,
+            calculated_balance_after: null,
+            balance_mismatch: false,
+            receipt_id: null,
+            reconciled_status: 'UNMATCHED',
+            import_status: 'IMPORTED',
+            document_id: null,
+          },
+        ]),
+      ),
+    )
+    renderWithProviders(<Dashboard />)
+    await waitFor(() => expect(screen.getByText('Не задан')).toBeInTheDocument())
+  })
+
+  it('aggregates expense amounts by type', async () => {
+    server.use(
+      http.get('/api/v1/transactions', () =>
+        HttpResponse.json<Transaction[]>([
+          {
+            id: 'tx-1',
+            account_id: 'acc-1',
+            occurred_at: new Date().toISOString(),
+            processed_at: null,
+            amount: '-300.00',
+            type: 'EXPENSE',
+            bank_category: null,
+            counterparty_id: null,
+            expense_type_id: 'food',
+            description: null,
+            balance_after: null,
+            calculated_balance_after: null,
+            balance_mismatch: false,
+            receipt_id: null,
+            reconciled_status: 'UNMATCHED',
+            import_status: 'IMPORTED',
+            document_id: null,
+          },
+          {
+            id: 'tx-2',
+            account_id: 'acc-1',
+            occurred_at: new Date().toISOString(),
+            processed_at: null,
+            amount: '-200.00',
+            type: 'EXPENSE',
+            bank_category: null,
+            counterparty_id: null,
+            expense_type_id: 'food',
+            description: null,
+            balance_after: null,
+            calculated_balance_after: null,
+            balance_mismatch: false,
+            receipt_id: null,
+            reconciled_status: 'UNMATCHED',
+            import_status: 'IMPORTED',
+            document_id: null,
+          },
+        ]),
+      ),
+    )
+    renderWithProviders(<Dashboard />)
+    await waitFor(() => expect(screen.getByText('Питание')).toBeInTheDocument())
+    // Total should be 500 ₽ (300 + 200)
+    expect(screen.getByText(/500,00\s*₽/)).toBeInTheDocument()
+  })
 })
