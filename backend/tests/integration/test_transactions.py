@@ -1,4 +1,5 @@
-from typing import Callable, Literal
+from collections.abc import Callable
+from typing import Literal
 from uuid import UUID, uuid4
 
 import pytest
@@ -114,6 +115,27 @@ async def test_update_transaction(
     )
     assert update_resp.status_code == 200
     assert float(update_resp.json()["amount"]) == -200.0
+
+
+@pytest.mark.asyncio
+async def test_update_transaction_rejects_reconciled_status_mutation(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id)),
+        headers=auth_headers,
+    )
+    tx_id = create_resp.json()["id"]
+
+    update_resp = await client.put(
+        f"/api/v1/transactions/{tx_id}",
+        json={"reconciled_status": "MATCHED"},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 422
 
 
 @pytest.mark.asyncio

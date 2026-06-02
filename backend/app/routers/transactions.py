@@ -73,13 +73,18 @@ def create_transaction_endpoint(
 
     counterparty_id: str | None = None
     if data.counterparty_name:
-        cp = get_or_create_counterparty(session=session, name=data.counterparty_name)
+        cp = get_or_create_counterparty(
+            session=session,
+            user_id=current_user.id,
+            name=data.counterparty_name,
+        )
         counterparty_id = cp.id
     if data.expense_type_id is not None:
         get_or_404(
             get_expense_type_by_id(
                 session=session,
                 expense_type_id=data.expense_type_id,
+                user_id=current_user.id,
             ),
             "Expense type not found.",
         )
@@ -131,6 +136,7 @@ def update_transaction_endpoint(
             get_expense_type_by_id(
                 session=session,
                 expense_type_id=data.expense_type_id,
+                user_id=current_user.id,
             ),
             "Expense type not found.",
         )

@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlmodel import Session, desc, select
 
 from app.models.exchange_rate import ExchangeRate
@@ -5,8 +7,11 @@ from app.schemas.exchange_rate import ExchangeRateCreate
 from app.utils.dt import utcnow
 
 
-def create_exchange_rate(*, session: Session, data: ExchangeRateCreate) -> ExchangeRate:
+def create_exchange_rate(
+    *, session: Session, user_id: UUID, data: ExchangeRateCreate
+) -> ExchangeRate:
     rate = ExchangeRate(
+        user_id=user_id,
         base_currency=data.base_currency,
         quote_currency=data.quote_currency,
         rate=data.rate,
@@ -18,8 +23,12 @@ def create_exchange_rate(*, session: Session, data: ExchangeRateCreate) -> Excha
     return rate
 
 
-def get_latest_rates(*, session: Session) -> list[ExchangeRate]:
-    all_rates = session.exec(select(ExchangeRate).order_by(desc(ExchangeRate.recorded_at))).all()
+def get_latest_rates(*, session: Session, user_id: UUID) -> list[ExchangeRate]:
+    all_rates = session.exec(
+        select(ExchangeRate)
+        .where(ExchangeRate.user_id == user_id)
+        .order_by(desc(ExchangeRate.recorded_at))
+    ).all()
 
     # Keep only the latest record per currency pair
     seen: set[tuple[str, str]] = set()

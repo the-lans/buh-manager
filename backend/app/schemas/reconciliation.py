@@ -2,9 +2,10 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_serializer, model_validator
 
 from app.constants import ConflictResolutionAction
+from app.utils.ids import unscope_user_id
 
 
 class ReconciliationSummary(BaseModel):
@@ -20,12 +21,20 @@ class CollisionTransactionItem(BaseModel):
     counterparty_id: str | None
     amount: Decimal
 
+    @field_serializer("counterparty_id")
+    def serialize_counterparty_id(self, value: str | None) -> str | None:
+        return unscope_user_id(value)
+
 
 class CollisionReceiptItem(BaseModel):
     id: UUID
     paid_at: datetime
     counterparty_id: str | None
     total_amount: Decimal
+
+    @field_serializer("counterparty_id")
+    def serialize_counterparty_id(self, value: str | None) -> str | None:
+        return unscope_user_id(value)
 
 
 class CollisionGroup(BaseModel):
@@ -44,12 +53,20 @@ class MissingReceiptItem(BaseModel):
     counterparty_id: str | None
     expense_type_id: str | None
 
+    @field_serializer("counterparty_id", "expense_type_id")
+    def serialize_reference_ids(self, value: str | None) -> str | None:
+        return unscope_user_id(value)
+
 
 class UnmatchedReceiptItem(BaseModel):
     receipt_id: UUID
     paid_at: datetime
     total_amount: Decimal
     counterparty_id: str | None
+
+    @field_serializer("counterparty_id")
+    def serialize_counterparty_id(self, value: str | None) -> str | None:
+        return unscope_user_id(value)
 
 
 class ReconciliationReport(BaseModel):

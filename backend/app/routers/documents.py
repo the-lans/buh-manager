@@ -1,3 +1,4 @@
+import hashlib
 import io
 import mimetypes
 from contextlib import suppress
@@ -44,7 +45,7 @@ from app.schemas.document import (
     LinkStatementRequest,
 )
 from app.services.audit import audit_update
-from app.services.deduplication import check_document_duplicate, compute_file_hash
+from app.services.deduplication import check_document_duplicate
 from app.utils.http import get_or_404
 from storage import get_storage_provider
 from storage.base import StorageProvider
@@ -53,9 +54,14 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 async def _read_with_size_limit(*, file: UploadFile, max_size: int) -> bytes:
+    content, _ = await _read_with_size_limit_and_hash(file=file, max_size=max_size)
+    return content
+
+
+async def _read_with_size_limit_and_hash(*, file: UploadFile, max_size: int) -> tuple[bytes, str]:
     total_size = 0
-    buffer = SpooledTemporaryFile(max_size=max_size)
-    try:
+    hasher = hashlib.sha256()
+    with SpooledTemporaryFile(max_size=max_size) as buffer:
         while True:
             chunk = await file.read(UPLOAD_READ_CHUNK_SIZE)
             if not chunk:
@@ -65,15 +71,13 @@ async def _read_with_size_limit(*, file: UploadFile, max_size: int) -> bytes:
                 raise HTTPException(
                     status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                     detail=(
-                        "File size exceeds maximum allowed size of "
-                        f"{max_size // (1024 * 1024)} MB."
+                        f"File size exceeds maximum allowed size of {max_size // (1024 * 1024)} MB."
                     ),
                 )
+            hasher.update(chunk)
             buffer.write(chunk)
         buffer.seek(0)
-        return buffer.read()
-    finally:
-        buffer.close()
+        return buffer.read(), hasher.hexdigest()
 
 
 @router.post(
@@ -89,12 +93,15 @@ async def upload_document(
     current_user: User = Depends(get_current_user),
     storage: StorageProvider = Depends(get_storage_provider),
 ) -> DocumentRead:
-    content = await _read_with_size_limit(file=file, max_size=MAX_UPLOAD_FILE_SIZE)
-
-    file_hash = compute_file_hash(content)
+    content, file_hash = await _read_with_size_limit_and_hash(
+        file=file,
+        max_size=MAX_UPLOAD_FILE_SIZE,
+    )
 
     duplicate = check_document_duplicate(
-        session=session, file_hash=file_hash, user_id=current_user.id
+        session=session,
+        file_hash=file_hash,
+        user_id=current_user.id,
     )
     if duplicate is not None:
         raise HTTPException(

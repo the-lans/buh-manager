@@ -1,9 +1,11 @@
 import re
 from typing import Any
+from uuid import UUID
 
 from sqlmodel import Session, select
 
 from app.models.counterparty import Counterparty
+from app.utils.ids import scope_user_id
 
 
 def _slug_from_name(name: str) -> str:
@@ -12,13 +14,24 @@ def _slug_from_name(name: str) -> str:
     return slug[:64] or "unknown"
 
 
-def get_counterparty_by_id(*, session: Session, counterparty_id: str) -> Counterparty | None:
-    return session.get(Counterparty, counterparty_id)
+def get_counterparty_by_id(
+    *,
+    session: Session,
+    counterparty_id: str,
+    user_id: UUID,
+) -> Counterparty | None:
+    scoped_id = scope_user_id(user_id=user_id, public_id=counterparty_id)
+    return session.exec(
+        select(Counterparty)
+        .where(Counterparty.id == scoped_id)
+        .where(Counterparty.user_id == user_id)
+    ).first()
 
 
 def get_or_create_counterparty(
     *,
     session: Session,
+    user_id: UUID,
     name: str,
     type: str = "STORE",
     inn: str | None = None,
@@ -26,22 +39,39 @@ def get_or_create_counterparty(
 ) -> Counterparty:
     # Deduplicate by INN first (when provided)
     if inn is not None:
-        existing_by_inn = session.exec(select(Counterparty).where(Counterparty.inn == inn)).first()
+        existing_by_inn = session.exec(
+            select(Counterparty)
+            .where(Counterparty.user_id == user_id)
+            .where(Counterparty.inn == inn)
+        ).first()
         if existing_by_inn is not None:
             return existing_by_inn
 
-    existing_by_name = session.exec(select(Counterparty).where(Counterparty.name == name)).first()
+    existing_by_name = session.exec(
+        select(Counterparty).where(Counterparty.user_id == user_id).where(Counterparty.name == name)
+    ).first()
     if existing_by_name is not None:
         return existing_by_name
 
-    slug = _slug_from_name(name)
-    base_slug = slug
+    public_id = _slug_from_name(name)
+    base_public_id = public_id
     counter = 1
-    while session.get(Counterparty, slug) is not None:
-        slug = f"{base_slug}-{counter}"
+    scoped_id = scope_user_id(user_id=user_id, public_id=public_id)
+    while (
+        session.exec(select(Counterparty).where(Counterparty.id == scoped_id)).first() is not None
+    ):
+        public_id = f"{base_public_id}-{counter}"
+        scoped_id = scope_user_id(user_id=user_id, public_id=public_id)
         counter += 1
 
-    counterparty = Counterparty(id=slug, name=name, type=type, inn=inn, kpp=kpp)
+    counterparty = Counterparty(
+        id=scoped_id,
+        user_id=user_id,
+        name=name,
+        type=type,
+        inn=inn,
+        kpp=kpp,
+    )
     session.add(counterparty)
     session.flush()
     session.refresh(counterparty)
@@ -67,5 +97,5 @@ def delete_counterparty(*, session: Session, counterparty: Counterparty) -> None
     session.flush()
 
 
-def list_counterparties(*, session: Session) -> list[Counterparty]:
-    return list(session.exec(select(Counterparty)).all())
+def list_counterparties(*, session: Session, user_id: UUID) -> list[Counterparty]:
+    return list(session.exec(select(Counterparty).where(Counterparty.user_id == user_id)).all())
