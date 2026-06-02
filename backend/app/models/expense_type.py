@@ -11,4 +11,5 @@ class ExpenseType(SQLModel, table=True):
     id: str = Field(primary_key=True)
     user_id: UUID = Field(foreign_key="users.id", index=True)
     name: str
+    description: str | None = Field(default=None)
     receipt_required: bool = Field(default=True)

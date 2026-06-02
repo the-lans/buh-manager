@@ -96,6 +96,7 @@ export interface Transaction {
 export interface ExpenseType {
   id: string
   name: string
+  description: string | null
   receipt_required: boolean
 }
 

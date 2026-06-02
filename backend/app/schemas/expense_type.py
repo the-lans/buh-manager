@@ -6,17 +6,20 @@ from app.utils.ids import unscope_user_id
 class ExpenseTypeCreate(BaseModel):
     id: str  # slug, e.g. "grocery"
     name: str
+    description: str | None = None
     receipt_required: bool = True
 
 
 class ExpenseTypeUpdate(BaseModel):
     name: str | None = None
+    description: str | None = None
     receipt_required: bool | None = None
 
 
 class ExpenseTypeRead(BaseModel):
     id: str
     name: str
+    description: str | None
     receipt_required: bool
 
     model_config = {"from_attributes": True}

@@ -387,11 +387,14 @@ function ExpenseTypesTab() {
   const createType = useCreateExpenseType()
   const updateType = useUpdateExpenseType()
   const deleteType = useDeleteExpenseType()
-  const [form, setForm] = useState({ id: '', name: '', receipt_required: true })
+  const [form, setForm] = useState({ id: '', name: '', description: '', receipt_required: true })
 
   const handleCreate = async () => {
-    await createType.mutateAsync(form)
-    setForm({ id: '', name: '', receipt_required: true })
+    await createType.mutateAsync({
+      ...form,
+      description: form.description.trim() || null,
+    })
+    setForm({ id: '', name: '', description: '', receipt_required: true })
   }
 
   return (
@@ -409,6 +412,13 @@ function ExpenseTypesTab() {
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+        />
+        <textarea
+          placeholder="Описание (необязательно)"
+          rows={2}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+          value={form.description}
+          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
         />
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input
@@ -432,6 +442,9 @@ function ExpenseTypesTab() {
           <div key={t.id} className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between">
             <div>
               <div className="font-medium text-sm text-gray-900">{t.name}</div>
+              {t.description && (
+                <div className="text-xs text-gray-500 mt-0.5">{t.description}</div>
+              )}
               <div className="text-xs text-gray-400">{t.id}</div>
             </div>
             <div className="flex items-center gap-3">
