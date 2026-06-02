@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 interface ColumnDef {
   label: string
-  align?: 'right'
+  align?: 'right' | 'center'
 }
 
 interface DataTableProps {
@@ -35,9 +35,11 @@ export function DataTable({
                   className={`px-4 py-2 font-medium text-gray-600${
                     col.align === 'right'
                       ? ' text-right tabular-nums'
-                      : col.label
-                        ? ' text-left'
-                        : ''
+                      : col.align === 'center'
+                        ? ' text-center'
+                        : col.label
+                          ? ' text-left'
+                          : ''
                   }`}
                 >
                   {col.label}

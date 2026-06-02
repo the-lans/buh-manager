@@ -18,6 +18,13 @@ describe('Receipts page', () => {
     await waitFor(() => expect(screen.getByText('Документ')).toBeInTheDocument())
   })
 
+  it('has centered "Документ" column header', async () => {
+    renderWithProviders(<Receipts />)
+    await waitFor(() => expect(screen.getByText('Документ')).toBeInTheDocument())
+    const docHeader = screen.getByRole('columnheader', { name: 'Документ' })
+    expect(docHeader.className).toContain('text-center')
+  })
+
   it('shows "—" indicator when receipt has no document', async () => {
     renderWithProviders(<Receipts />)
     await waitFor(() => expect(screen.getByText('500,00 ₽')).toBeInTheDocument())

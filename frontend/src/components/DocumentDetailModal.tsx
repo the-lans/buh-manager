@@ -69,6 +69,9 @@ export default function DocumentDetailModal({ documentId, onClose }: Props) {
               <dt className="text-gray-500">Загружен</dt>
               <dd className="text-gray-900">{formatDate(doc.uploaded_at)}</dd>
 
+              <dt className="text-gray-500">URL</dt>
+              <dd className="text-gray-900 break-all text-xs font-mono">{doc.url}</dd>
+
               {doc.email_source && (
                 <>
                   <dt className="text-gray-500">Email-источник</dt>

@@ -20,6 +20,13 @@ describe('DocumentDetailModal', () => {
     expect(screen.getByText('Обработан')).toBeInTheDocument()
   })
 
+  it('shows URL field in document card', async () => {
+    renderWithProviders(<DocumentDetailModal documentId="doc-1" onClose={() => {}} />)
+    await waitFor(() => expect(screen.getByText('receipt.pdf')).toBeInTheDocument())
+    expect(screen.getByText('URL')).toBeInTheDocument()
+    expect(screen.getByText('/media/fake/doc-1')).toBeInTheDocument()
+  })
+
   it('shows email_source when present', async () => {
     server.use(
       http.get('/api/v1/documents/:id', () =>
