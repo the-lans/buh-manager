@@ -71,9 +71,9 @@ def _score_pair(
     elif time_diff < SCORE_TIME_UNDER_3D_MAX_SECONDS:
         score += SCORE_TIME_UNDER_3D
 
-    tx_name = counterparty_names.get(tx.counterparty_id or "", "") if tx.counterparty_id else ""
+    tx_name = counterparty_names.get(tx.counterparty_id, "") if tx.counterparty_id else ""
     receipt_name = (
-        counterparty_names.get(receipt.counterparty_id or "", "") if receipt.counterparty_id else ""
+        counterparty_names.get(receipt.counterparty_id, "") if receipt.counterparty_id else ""
     )
     if tx_name and receipt_name:
         ratio = fuzz.token_set_ratio(tx_name, receipt_name)
