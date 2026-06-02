@@ -1,5 +1,32 @@
 import { APP_TIMEZONE } from '../config'
 
+export function prevMonth(ym: string): string {
+  const [y, m] = ym.split('-').map(Number)
+  if (m === 1) return `${y - 1}-12`
+  return `${y}-${String(m - 1).padStart(2, '0')}`
+}
+
+export function nextMonth(ym: string): string {
+  const [y, m] = ym.split('-').map(Number)
+  if (m === 12) return `${y + 1}-01`
+  return `${y}-${String(m + 1).padStart(2, '0')}`
+}
+
+export function formatMonthYear(ym: string): string {
+  const [y, m] = ym.split('-').map(Number)
+  const month = new Date(y, m - 1, 1).toLocaleString('ru-RU', { month: 'long' })
+  return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${y}`
+}
+
+export function monthDateRange(ym: string): { date_from: string; date_to: string } {
+  const [y, m] = ym.split('-').map(Number)
+  const lastDay = new Date(y, m, 0).getDate()
+  return {
+    date_from: `${ym}-01T00:00:00`,
+    date_to: `${ym}-${String(lastDay).padStart(2, '0')}T23:59:59`,
+  }
+}
+
 /** Format a UTC ISO string for display in the app timezone. Returns "—" for null/undefined. */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'

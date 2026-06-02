@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useTransactions, useCreateTransaction, useDeleteTransaction } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
+import { useCounterparties } from '../hooks/useCounterparties'
+import { useExpenseTypes } from '../hooks/useExpenseTypes'
 import type { TransactionFilters } from '../api/transactions'
 import type { Transaction } from '../types'
 import { formatDate, localInputToUtcIso } from '../utils/date'
@@ -12,11 +14,13 @@ export default function Transactions() {
   const [filters, setFilters] = useState<TransactionFilters>({ limit: 50 })
   const { data: transactions = [], isLoading } = useTransactions(filters)
   const { data: accounts = [] } = useAccounts()
+  const { data: counterparties = [] } = useCounterparties()
+  const { data: expenseTypes = [] } = useExpenseTypes()
   const createTx = useCreateTransaction()
   const deleteTx = useDeleteTransaction()
 
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE' })
+  const [form, setForm] = useState({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', counterparty_id: '', expense_type_id: '' })
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
@@ -26,9 +30,11 @@ export default function Transactions() {
       occurred_at: localInputToUtcIso(form.occurred_at),
       amount: form.amount as unknown as string,
       type: form.type as 'INCOME' | 'EXPENSE',
+      counterparty_id: form.counterparty_id || null,
+      expense_type_id: form.expense_type_id || null,
     })
     setShowForm(false)
-    setForm({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE' })
+    setForm({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', counterparty_id: '', expense_type_id: '' })
   }
 
   return (
@@ -108,6 +114,26 @@ export default function Transactions() {
           >
             <option value="EXPENSE">Расход</option>
             <option value="INCOME">Доход</option>
+          </select>
+          <select
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            value={form.counterparty_id}
+            onChange={(e) => setForm((f) => ({ ...f, counterparty_id: e.target.value }))}
+          >
+            <option value="">Контрагент (необязательно)</option>
+            {counterparties.map((cp) => (
+              <option key={cp.id} value={cp.id}>{cp.name}</option>
+            ))}
+          </select>
+          <select
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            value={form.expense_type_id}
+            onChange={(e) => setForm((f) => ({ ...f, expense_type_id: e.target.value }))}
+          >
+            <option value="">Вид расхода (необязательно)</option>
+            {expenseTypes.map((et) => (
+              <option key={et.id} value={et.id}>{et.name}</option>
+            ))}
           </select>
           <div className="flex gap-2">
             <button
@@ -202,7 +228,7 @@ export default function Transactions() {
         ))}
       </DataTable>
 
-      <TransactionEditModal transaction={editTx} onClose={() => setEditTx(null)} />
+      <TransactionEditModal key={editTx?.id ?? ''} transaction={editTx} onClose={() => setEditTx(null)} />
     </div>
   )
 }

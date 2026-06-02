@@ -122,8 +122,8 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
                 <thead>
                   <tr className="border-b border-gray-200 text-left text-xs text-gray-500">
                     <th className="pb-2 font-medium">Наименование</th>
-                    <th className="pb-2 font-medium text-right">Кол-во</th>
-                    <th className="pb-2 font-medium">Ед. изм.</th>
+                    <th className="pb-2 font-medium text-center px-2">Кол-во</th>
+                    <th className="pb-2 font-medium text-center px-2">Ед. изм.</th>
                     <th className="pb-2 font-medium text-right">Цена</th>
                     <th className="pb-2 font-medium text-right">Сумма</th>
                   </tr>
@@ -132,10 +132,10 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
                   {receipt.items.map((item) => (
                     <tr key={item.id}>
                       <td className="py-2 text-gray-800">{item.name}</td>
-                      <td className="py-2 text-right tabular-nums text-gray-600">
+                      <td className="py-2 px-2 text-center tabular-nums text-gray-600">
                         {Number(item.quantity).toLocaleString('ru')}
                       </td>
-                      <td className="py-2 text-gray-500 text-xs">{item.unit ?? '—'}</td>
+                      <td className="py-2 px-2 text-center text-gray-500 text-xs">{item.unit ?? '—'}</td>
                       <td className="py-2 text-right tabular-nums text-gray-600">
                         {Number(item.price).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
                       </td>

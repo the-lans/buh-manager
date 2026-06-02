@@ -124,4 +124,44 @@ describe('Transactions page', () => {
     const selects = screen.getAllByRole('combobox')
     expect(selects.length).toBeGreaterThanOrEqual(3) // type, status, account
   })
+
+  it('shows counterparty and expense type selects in new transaction form', async () => {
+    renderWithProviders(<Transactions />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: '+ Добавить' }))
+    await waitFor(() => expect(screen.getByText('Новая транзакция')).toBeInTheDocument())
+    expect(screen.getByRole('option', { name: 'Контрагент (необязательно)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Вид расхода (необязательно)' })).toBeInTheDocument()
+  })
+
+  it('lists counterparties in new transaction form', async () => {
+    renderWithProviders(<Transactions />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: '+ Добавить' }))
+    await waitFor(() => expect(screen.getByText('Новая транзакция')).toBeInTheDocument())
+    // "Магазин Тест" is the counterparty from mock handlers
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Магазин Тест' })).toBeInTheDocument())
+  })
+
+  it('lists expense types in new transaction form', async () => {
+    renderWithProviders(<Transactions />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: '+ Добавить' }))
+    await waitFor(() => expect(screen.getByText('Новая транзакция')).toBeInTheDocument())
+    // "Питание" is the expense type from mock handlers
+    await waitFor(() => {
+      const options = screen.getAllByRole('option', { name: 'Питание' })
+      expect(options.length).toBeGreaterThan(0)
+    })
+  })
+
+  it('opens edit modal with pre-filled amount when Изменить is clicked', async () => {
+    renderWithProviders(<Transactions />)
+    const user = userEvent.setup()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Изменить' })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Изменить' }))
+    await waitFor(() => expect(screen.getByText('Изменить транзакцию')).toBeInTheDocument())
+    // The transaction has amount -1500.00 — it should be pre-filled
+    expect(screen.getByDisplayValue('-1500.00')).toBeInTheDocument()
+  })
 })

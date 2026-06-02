@@ -83,6 +83,21 @@ export const handlers = [
     HttpResponse.json<ExpenseType[]>([{ id: 'food', name: 'Питание', receipt_required: true }]),
   ),
 
+  http.get('/api/v1/reconciliation/report', () =>
+    HttpResponse.json({
+      report_generated_at: '2026-04-01T12:00:00',
+      summary: {
+        auto_matched_count: 0,
+        missing_receipts_count: 0,
+        unmatched_receipts_count: 0,
+        collisions_count: 0,
+      },
+      collisions: [],
+      missing_receipts: [],
+      unmatched_receipts: [],
+    }),
+  ),
+
   http.post('/api/v1/reconciliation/run', () =>
     HttpResponse.json({
       report_generated_at: '2026-04-01T12:00:00',

@@ -36,7 +36,7 @@ export default function Receipts() {
           { label: 'Дата' },
           { label: 'Контрагент' },
           { label: 'Сумма', align: 'right' },
-          { label: 'Документ' },
+          { label: 'Документ', align: 'center' },
           { label: '' },
         ]}
         isEmpty={receipts.length === 0}

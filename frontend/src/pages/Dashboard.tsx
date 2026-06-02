@@ -1,8 +1,18 @@
+import { useState } from 'react'
+
 import { useAccounts } from '../hooks/useAccounts'
 import { useBalances } from '../hooks/useBalances'
-import { useTransactions } from '../hooks/useTransactions'
+import { useExpenseTypes } from '../hooks/useExpenseTypes'
 import { useReconciliationReport } from '../hooks/useReconciliation'
-import { currentYearMonth, formatDate } from '../utils/date'
+import { useTransactions } from '../hooks/useTransactions'
+import {
+  currentYearMonth,
+  formatDate,
+  formatMonthYear,
+  monthDateRange,
+  nextMonth,
+  prevMonth,
+} from '../utils/date'
 import { DataTable } from '../components/DataTable'
 import type { Balance } from '../types'
 
@@ -13,17 +23,20 @@ const SOURCE_LABELS: Record<string, string> = {
 }
 
 export default function Dashboard() {
-  const { data: transactions = [] } = useTransactions({ limit: 100 })
+  const [selectedMonth, setSelectedMonth] = useState(currentYearMonth)
+  const { date_from, date_to } = monthDateRange(selectedMonth)
+
+  const { data: transactions = [] } = useTransactions({ date_from, date_to, limit: 500 })
   const { data: accounts = [] } = useAccounts()
   const { data: report } = useReconciliationReport()
   const { data: balances = [] } = useBalances({ limit: 200 })
+  const { data: expenseTypes = [] } = useExpenseTypes()
 
   const unmatched = transactions.filter((t) => t.reconciled_status === 'UNMATCHED').length
   const conflicts = report?.summary.collisions_count ?? 0
 
-  const currentMonth = currentYearMonth()
   const monthlyExpenses = transactions
-    .filter((t) => t.type === 'EXPENSE' && t.occurred_at.startsWith(currentMonth))
+    .filter((t) => t.type === 'EXPENSE')
     .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0)
 
   // Latest balance per account (balances are sorted by recorded_at DESC from API)
@@ -37,15 +50,51 @@ export default function Dashboard() {
 
   const accountMap = new Map(accounts.map((a) => [a.id, a]))
 
+  // Expense types table: group EXPENSE transactions by expense_type_id
+  const expenseTypeMap = new Map(expenseTypes.map((et) => [et.id, et.name]))
+  const expenseByType = new Map<string | null, { count: number; total: number }>()
+  for (const t of transactions) {
+    if (t.type !== 'EXPENSE') continue
+    const key = t.expense_type_id ?? null
+    const cur = expenseByType.get(key) ?? { count: 0, total: 0 }
+    expenseByType.set(key, { count: cur.count + 1, total: cur.total + Math.abs(Number(t.amount)) })
+  }
+  const expenseTypeRows = Array.from(expenseByType.entries())
+    .map(([id, { count, total }]) => ({ id, name: id ? (expenseTypeMap.get(id) ?? id) : 'Не задан', count, total }))
+    .sort((a, b) => b.total - a.total)
+
+  const canGoNext = selectedMonth < currentYearMonth()
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-gray-900">Дашборд</h1>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setSelectedMonth((m) => prevMonth(m))}
+          className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm leading-none"
+          aria-label="Предыдущий месяц"
+        >
+          ←
+        </button>
+        <h1 className="text-2xl font-semibold text-gray-900 min-w-44 text-center">
+          {formatMonthYear(selectedMonth)}
+        </h1>
+        <button
+          onClick={() => setSelectedMonth((m) => nextMonth(m))}
+          disabled={!canGoNext}
+          className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm leading-none disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="Следующий месяц"
+        >
+          →
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiCard label="Расходы за месяц" value={`${monthlyExpenses.toLocaleString('ru')} ₽`} />
         <KpiCard label="Счета" value={`${accounts.filter((a) => a.is_active).length} активных`} />
         <KpiCard label="Несверено" value={String(unmatched)} warning={unmatched > 0} />
         <KpiCard label="Конфликты" value={String(conflicts)} warning={conflicts > 0} />
       </div>
+
       <section>
         <h2 className="text-base font-medium text-gray-700 mb-3">Остатки на счетах</h2>
         <DataTable
@@ -74,6 +123,29 @@ export default function Dashboard() {
               </tr>
             )
           })}
+        </DataTable>
+      </section>
+
+      <section>
+        <h2 className="text-base font-medium text-gray-700 mb-3">Типы расходов</h2>
+        <DataTable
+          columns={[
+            { label: 'Вид расхода' },
+            { label: 'Операций', align: 'right' },
+            { label: 'Сумма', align: 'right' },
+          ]}
+          isEmpty={expenseTypeRows.length === 0}
+          emptyMessage="Нет расходов за период"
+        >
+          {expenseTypeRows.map((row) => (
+            <tr key={row.id ?? '__none__'}>
+              <td className="px-4 py-2 text-gray-800">{row.name}</td>
+              <td className="px-4 py-2 text-right tabular-nums text-gray-600">{row.count}</td>
+              <td className="px-4 py-2 text-right tabular-nums font-medium text-gray-900">
+                {row.total.toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+              </td>
+            </tr>
+          ))}
         </DataTable>
       </section>
     </div>
