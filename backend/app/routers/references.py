@@ -185,6 +185,7 @@ def create_expense_type_endpoint(
     current_user: User = Depends(get_current_user),
 ) -> ExpenseTypeRead:
     et = create_expense_type(session=session, user_id=current_user.id, data=data)
+    session.commit()
     return ExpenseTypeRead.model_validate(et)
 
 
@@ -206,6 +207,7 @@ def update_expense_type_endpoint(
     )
     et = get_or_404(et, "Expense type not found.")
     et = update_expense_type(session=session, expense_type=et, data=data)
+    session.commit()
     return ExpenseTypeRead.model_validate(et)
 
 
@@ -226,6 +228,7 @@ def delete_expense_type_endpoint(
     )
     et = get_or_404(et, "Expense type not found.")
     delete_expense_type(session=session, expense_type=et)
+    session.commit()
 
 
 # ── Counterparties ───────────────────────────────────────────────────────────

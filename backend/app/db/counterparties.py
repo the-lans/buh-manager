@@ -2,6 +2,7 @@ import re
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.models.counterparty import Counterparty
@@ -72,10 +73,30 @@ def get_or_create_counterparty(
         inn=inn,
         kpp=kpp,
     )
-    session.add(counterparty)
-    session.flush()
-    session.refresh(counterparty)
-    return counterparty
+    try:
+        session.add(counterparty)
+        session.flush()
+        session.refresh(counterparty)
+        return counterparty
+    except IntegrityError:
+        session.rollback()
+        # Concurrent request won the race — look up the record it created.
+        if inn is not None:
+            existing = session.exec(
+                select(Counterparty)
+                .where(Counterparty.user_id == user_id)
+                .where(Counterparty.inn == inn)
+            ).first()
+            if existing is not None:
+                return existing
+        existing = session.exec(
+            select(Counterparty)
+            .where(Counterparty.user_id == user_id)
+            .where(Counterparty.name == name)
+        ).first()
+        if existing is not None:
+            return existing
+        raise
 
 
 def update_counterparty(

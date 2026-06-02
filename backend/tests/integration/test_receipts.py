@@ -11,6 +11,7 @@ from app.constants import DocumentStatus, DocumentType
 from app.models.account import Account
 from app.models.counterparty import Counterparty
 from app.models.document import Document
+from app.models.receipt import Receipt
 from app.models.user import User
 from app.routers import receipts as receipts_router
 from app.utils.dt import utcnow
@@ -633,3 +634,42 @@ async def test_list_receipts_ordered_by_paid_at_desc(
     items = resp.json()
     paid_dates = [item["paid_at"] for item in items]
     assert paid_dates == sorted(paid_dates, reverse=True)
+
+
+@pytest.mark.asyncio
+async def test_update_receipt_stores_scoped_counterparty_id(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+    test_user: User,
+) -> None:
+    """Regression: PUT /receipts/{id} must store scoped counterparty_id, not public one."""
+    cp = Counterparty(
+        id=scope_user_id(user_id=test_user.id, public_id="fix-cp"),
+        user_id=test_user.id,
+        name="Fix CP",
+        type="STORE",
+    )
+    session.add(cp)
+    session.commit()
+
+    receipt_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn=None, fd=None, fpd=None),
+        headers=auth_headers,
+    )
+    assert receipt_resp.status_code == 201
+    receipt_id = receipt_resp.json()["id"]
+
+    update_resp = await client.put(
+        f"/api/v1/receipts/{receipt_id}",
+        json={"counterparty_id": "fix-cp"},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["counterparty_id"] == "fix-cp"
+
+    session.expire_all()
+    r = session.get(Receipt, UUID(receipt_id))
+    assert r is not None
+    assert r.counterparty_id == scope_user_id(user_id=test_user.id, public_id="fix-cp")
