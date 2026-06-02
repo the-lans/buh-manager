@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useTransactions, useCreateTransaction, useDeleteTransaction } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import type { TransactionFilters } from '../api/transactions'
+import type { Transaction } from '../types'
 import { formatDate, localInputToUtcIso } from '../utils/date'
 import { DataTable } from '../components/DataTable'
 import { StatusBadge } from '../components/StatusBadge'
+import TransactionEditModal from '../components/TransactionEditModal'
 
 export default function Transactions() {
   const [filters, setFilters] = useState<TransactionFilters>({ limit: 50 })
@@ -15,6 +17,8 @@ export default function Transactions() {
 
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE' })
+  const [editTx, setEditTx] = useState<Transaction | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const handleCreate = async () => {
     await createTx.mutateAsync({
@@ -130,6 +134,8 @@ export default function Transactions() {
           { label: 'Сумма', align: 'right' },
           { label: 'Тип' },
           { label: 'Статус' },
+          { label: 'Чек' },
+          { label: 'Документ' },
           { label: '' },
         ]}
         isEmpty={transactions.length === 0}
@@ -137,7 +143,7 @@ export default function Transactions() {
         isLoading={isLoading}
       >
         {transactions.map((tx) => (
-          <tr key={tx.id}>
+          <tr key={tx.id} className="hover:bg-gray-50">
             <td className="px-4 py-2 text-gray-600">{formatDate(tx.occurred_at)}</td>
             <td className="px-4 py-2 text-gray-800">{tx.counterparty_id ?? '—'}</td>
             <td className={`px-4 py-2 text-right tabular-nums font-medium ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-green-600'}`}>
@@ -147,17 +153,56 @@ export default function Transactions() {
             <td className="px-4 py-2">
               <StatusBadge status={tx.reconciled_status} />
             </td>
+            <td className="px-4 py-2 text-center">
+              {tx.receipt_id
+                ? <span className="text-green-600 font-medium">✓</span>
+                : <span className="text-gray-300">—</span>}
+            </td>
+            <td className="px-4 py-2 text-center">
+              {tx.document_id
+                ? <span className="text-green-600 font-medium">✓</span>
+                : <span className="text-gray-300">—</span>}
+            </td>
             <td className="px-4 py-2">
-              <button
-                onClick={() => deleteTx.mutate(tx.id)}
-                className="text-xs text-red-500 hover:underline"
-              >
-                Удалить
-              </button>
+              {confirmDeleteId === tx.id ? (
+                <span className="inline-flex items-center gap-2 text-xs">
+                  <span className="text-gray-600">Удалить?</span>
+                  <button
+                    onClick={() => { deleteTx.mutate(tx.id); setConfirmDeleteId(null) }}
+                    disabled={deleteTx.isPending}
+                    className="text-red-500 hover:underline"
+                  >
+                    Да
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="text-gray-500 hover:underline"
+                  >
+                    Нет
+                  </button>
+                </span>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditTx(tx)}
+                    className="text-xs text-indigo-600 hover:underline"
+                  >
+                    Изменить
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteId(tx.id)}
+                    className="text-xs text-red-500 hover:underline"
+                  >
+                    Удалить
+                  </button>
+                </div>
+              )}
             </td>
           </tr>
         ))}
       </DataTable>
+
+      <TransactionEditModal transaction={editTx} onClose={() => setEditTx(null)} />
     </div>
   )
 }

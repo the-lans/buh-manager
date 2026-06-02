@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
@@ -121,6 +121,7 @@ def create_receipt_endpoint(
 )
 def list_receipts(
     pagination: PaginationParams = Depends(),
+    document_id: UUID | None = Query(default=None),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[ReceiptListItem]:
@@ -129,6 +130,7 @@ def list_receipts(
         user_id=current_user.id,
         skip=pagination.skip,
         limit=pagination.limit,
+        document_id=document_id,
     )
     return [ReceiptListItem.model_validate(r) for r in receipts]
 

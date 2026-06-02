@@ -1,14 +1,22 @@
-import { useTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
+import { useBalances } from '../hooks/useBalances'
+import { useTransactions } from '../hooks/useTransactions'
 import { useReconciliationReport } from '../hooks/useReconciliation'
 import { currentYearMonth, formatDate } from '../utils/date'
 import { DataTable } from '../components/DataTable'
-import { StatusBadge } from '../components/StatusBadge'
+import type { Balance } from '../types'
+
+const SOURCE_LABELS: Record<string, string> = {
+  OPENING: 'Входящий',
+  CLOSING: 'Исходящий',
+  MANUAL: 'Ручной',
+}
 
 export default function Dashboard() {
   const { data: transactions = [] } = useTransactions({ limit: 100 })
   const { data: accounts = [] } = useAccounts()
   const { data: report } = useReconciliationReport()
+  const { data: balances = [] } = useBalances({ limit: 200 })
 
   const unmatched = transactions.filter((t) => t.reconciled_status === 'UNMATCHED').length
   const conflicts = report?.summary.collisions_count ?? 0
@@ -17,6 +25,17 @@ export default function Dashboard() {
   const monthlyExpenses = transactions
     .filter((t) => t.type === 'EXPENSE' && t.occurred_at.startsWith(currentMonth))
     .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0)
+
+  // Latest balance per account (balances are sorted by recorded_at DESC from API)
+  const latestByAccount = new Map<string, Balance>()
+  for (const b of balances) {
+    if (!latestByAccount.has(b.account_id)) {
+      latestByAccount.set(b.account_id, b)
+    }
+  }
+  const latestBalances = Array.from(latestByAccount.values())
+
+  const accountMap = new Map(accounts.map((a) => [a.id, a]))
 
   return (
     <div className="space-y-6">
@@ -28,29 +47,33 @@ export default function Dashboard() {
         <KpiCard label="Конфликты" value={String(conflicts)} warning={conflicts > 0} />
       </div>
       <section>
-        <h2 className="text-base font-medium text-gray-700 mb-3">Последние транзакции</h2>
+        <h2 className="text-base font-medium text-gray-700 mb-3">Остатки на счетах</h2>
         <DataTable
           columns={[
+            { label: 'Счёт' },
             { label: 'Дата' },
-            { label: 'Контрагент' },
             { label: 'Сумма', align: 'right' },
-            { label: 'Статус' },
+            { label: 'Тип' },
           ]}
-          isEmpty={transactions.length === 0}
-          emptyMessage="Нет транзакций"
+          isEmpty={latestBalances.length === 0}
+          emptyMessage="Нет данных об остатках"
         >
-          {transactions.slice(0, 10).map((tx) => (
-            <tr key={tx.id}>
-              <td className="px-4 py-2 text-gray-600">{formatDate(tx.occurred_at)}</td>
-              <td className="px-4 py-2 text-gray-800">{tx.counterparty_id ?? '—'}</td>
-              <td className={`px-4 py-2 text-right tabular-nums font-medium ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
-              </td>
-              <td className="px-4 py-2">
-                <StatusBadge status={tx.reconciled_status} />
-              </td>
-            </tr>
-          ))}
+          {latestBalances.map((b) => {
+            const acc = accountMap.get(b.account_id)
+            const accLabel = acc ? `${acc.bank} ···${acc.account_number.slice(-4)}` : b.account_id
+            return (
+              <tr key={b.id}>
+                <td className="px-4 py-2 text-gray-800">{accLabel}</td>
+                <td className="px-4 py-2 text-gray-600">{formatDate(b.recorded_at)}</td>
+                <td className="px-4 py-2 text-right tabular-nums font-medium text-gray-900">
+                  {Number(b.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+                </td>
+                <td className="px-4 py-2 text-gray-600 text-sm">
+                  {SOURCE_LABELS[b.source] ?? b.source}
+                </td>
+              </tr>
+            )
+          })}
         </DataTable>
       </section>
     </div>

@@ -2,7 +2,7 @@ import { apiClient } from './client'
 import type { Receipt, ReceiptListItem } from '../types'
 
 export const receiptsApi = {
-  list: (params?: { skip?: number; limit?: number }) =>
+  list: (params?: { skip?: number; limit?: number; document_id?: string }) =>
     apiClient.get<ReceiptListItem[]>('/receipts', { params }).then((r) => r.data),
   get: (id: string) => apiClient.get<Receipt>(`/receipts/${id}`).then((r) => r.data),
   create: (data: object) => apiClient.post<Receipt>('/receipts', data).then((r) => r.data),

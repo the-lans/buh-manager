@@ -25,6 +25,7 @@ class CounterpartyCreate(BaseModel):
     type: CounterpartyType = CounterpartyType.STORE
     inn: str | None = None
     kpp: str | None = None
+    payload: dict | None = None
 
     @field_validator("inn")
     @classmethod
@@ -42,6 +43,7 @@ class CounterpartyUpdate(BaseModel):
     type: CounterpartyType | None = None
     inn: str | None = None
     kpp: str | None = None
+    payload: dict | None = None
 
     @field_validator("name")
     @classmethod
@@ -74,5 +76,6 @@ class CounterpartyRead(BaseModel):
     type: str
     inn: str | None
     kpp: str | None
+    payload: dict | None = None
 
     model_config = {"from_attributes": True}

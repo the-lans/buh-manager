@@ -25,16 +25,10 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Uuid(), nullable=True),
     )
     op.create_index("ix_receipts_user_id", "receipts", ["user_id"])
-    op.create_foreign_key(
-        "fk_receipts_user_id",
-        "receipts",
-        "users",
-        ["user_id"],
-        ["id"],
-    )
+    # Note: SQLite does not support ALTER TABLE ADD CONSTRAINT via alembic,
+    # so we skip the foreign key constraint here; it is defined at model level.
 
 
 def downgrade() -> None:
-    op.drop_constraint("fk_receipts_user_id", "receipts", type_="foreignkey")
     op.drop_index("ix_receipts_user_id", table_name="receipts")
     op.drop_column("receipts", "user_id")

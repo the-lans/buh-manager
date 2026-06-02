@@ -33,6 +33,18 @@ export function currentYearMonth(): string {
 }
 
 /**
+ * Convert a UTC ISO string to a datetime-local input value (wall-clock in APP_TIMEZONE).
+ * Returns the format "YYYY-MM-DDTHH:MM" expected by <input type="datetime-local">.
+ */
+export function utcIsoToLocalInput(iso: string | null | undefined): string {
+  if (!iso) return ''
+  return new Date(iso)
+    .toLocaleString('sv-SE', { timeZone: APP_TIMEZONE })
+    .slice(0, 16)
+    .replace(' ', 'T')
+}
+
+/**
  * Convert a datetime-local input value (wall-clock in APP_TIMEZONE) to a UTC ISO string.
  *
  * The datetime-local HTML input returns "YYYY-MM-DDTHH:MM" with no timezone.

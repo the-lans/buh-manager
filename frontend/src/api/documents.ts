@@ -53,4 +53,6 @@ export const documentsApi = {
       .then((r) => r.data),
   reset: (documentId: string): Promise<Document> =>
     apiClient.post<Document>(`/documents/${documentId}/reset`).then((r) => r.data),
+  update: (id: string, data: { payload?: Record<string, unknown> | null }): Promise<Document> =>
+    apiClient.put<Document>(`/documents/${id}`, data).then((r) => r.data),
 }

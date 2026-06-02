@@ -250,6 +250,9 @@ def create_counterparty_endpoint(
         inn=data.inn,
         kpp=data.kpp,
     )
+    if data.payload is not None:
+        cp.payload = data.payload
+        session.add(cp)
     session.commit()
     return CounterpartyRead.model_validate(cp)
 

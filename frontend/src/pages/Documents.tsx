@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 
 import { documentsApi } from '../api/documents'
 import { DataTable } from '../components/DataTable'
+import DocumentDetailModal from '../components/DocumentDetailModal'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAccountsLazy } from '../hooks/useAccounts'
 import {
@@ -46,6 +47,7 @@ export default function Documents() {
     limit: PAGE_SIZE,
   })
 
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [uploadDocType, setUploadDocType] = useState('BANK_STATEMENT')
   const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -198,7 +200,11 @@ export default function Documents() {
         isLoading={isLoading}
       >
         {documents.map((doc) => (
-          <tr key={doc.id} className="hover:bg-gray-50">
+          <tr
+            key={doc.id}
+            className="cursor-pointer hover:bg-gray-50"
+            onClick={() => setSelectedDocId(doc.id)}
+          >
             <td className="px-4 py-2 text-gray-800 max-w-xs truncate">{doc.name}</td>
             <td className="px-4 py-2 text-gray-600 text-sm">
               {DOC_TYPE_LABELS[doc.type] ?? doc.type}
@@ -207,7 +213,7 @@ export default function Documents() {
               <StatusBadge status={doc.status} />
             </td>
             <td className="px-4 py-2 text-gray-600 text-sm">{formatDate(doc.uploaded_at)}</td>
-            <td className="px-4 py-2">
+            <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
               <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={() => handleOpen(doc.id)}
@@ -259,6 +265,11 @@ export default function Documents() {
           Вперёд →
         </button>
       </div>
+
+      <DocumentDetailModal
+        documentId={selectedDocId}
+        onClose={() => setSelectedDocId(null)}
+      />
 
       {/* Upload modal */}
       {uploadOpen && (
