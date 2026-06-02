@@ -3,9 +3,10 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import Query
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_serializer, field_validator
 
 from app.utils.dt import normalize_to_utc
+from app.utils.ids import unscope_user_id
 
 
 class TransactionCreate(BaseModel):
@@ -20,6 +21,8 @@ class TransactionCreate(BaseModel):
     expense_type_id: str | None = None
     description: str | None = None
     balance_after: Decimal | None = None
+
+    model_config = {"extra": "forbid"}
 
     @field_validator("occurred_at", mode="after")
     @classmethod
@@ -39,7 +42,8 @@ class TransactionUpdate(BaseModel):
     bank_category: str | None = None
     expense_type_id: str | None = None
     description: str | None = None
-    reconciled_status: str | None = None
+
+    model_config = {"extra": "forbid"}
 
     @field_validator("occurred_at", mode="after")
     @classmethod
@@ -69,6 +73,10 @@ class TransactionRead(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_serializer("counterparty_id", "expense_type_id")
+    def serialize_reference_ids(self, value: str | None) -> str | None:
+        return unscope_user_id(value)
+
 
 class TransactionListItem(BaseModel):
     id: UUID
@@ -82,6 +90,10 @@ class TransactionListItem(BaseModel):
     balance_mismatch: bool
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("counterparty_id")
+    def serialize_counterparty_id(self, value: str | None) -> str | None:
+        return unscope_user_id(value)
 
 
 class TransactionFilters:

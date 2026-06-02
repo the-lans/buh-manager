@@ -1,20 +1,32 @@
+from uuid import UUID
+
 from sqlmodel import Session, select
 
 from app.models.expense_type import ExpenseType
 from app.schemas.expense_type import ExpenseTypeCreate, ExpenseTypeUpdate
+from app.utils.ids import scope_user_id
 
 
-def list_expense_types(*, session: Session) -> list[ExpenseType]:
-    return list(session.exec(select(ExpenseType)).all())
+def list_expense_types(*, session: Session, user_id: UUID) -> list[ExpenseType]:
+    return list(session.exec(select(ExpenseType).where(ExpenseType.user_id == user_id)).all())
 
 
-def get_expense_type_by_id(*, session: Session, expense_type_id: str) -> ExpenseType | None:
-    return session.get(ExpenseType, expense_type_id)
+def get_expense_type_by_id(
+    *,
+    session: Session,
+    expense_type_id: str,
+    user_id: UUID,
+) -> ExpenseType | None:
+    scoped_id = scope_user_id(user_id=user_id, public_id=expense_type_id)
+    return session.exec(
+        select(ExpenseType).where(ExpenseType.id == scoped_id).where(ExpenseType.user_id == user_id)
+    ).first()
 
 
-def create_expense_type(*, session: Session, data: ExpenseTypeCreate) -> ExpenseType:
+def create_expense_type(*, session: Session, user_id: UUID, data: ExpenseTypeCreate) -> ExpenseType:
     expense_type = ExpenseType(
-        id=data.id,
+        id=scope_user_id(user_id=user_id, public_id=data.id),
+        user_id=user_id,
         name=data.name,
         receipt_required=data.receipt_required,
         description=data.description,

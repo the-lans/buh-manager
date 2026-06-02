@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from app.constants import (
@@ -106,7 +107,14 @@ def manual_match(
         changed_by=ChangedBy.USER,
         user_id=current_user.id,
     )
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Receipt is already matched to another transaction.",
+        ) from exc
     return {"status": "matched"}
 
 
@@ -142,7 +150,10 @@ def ignore_transaction(
         entity_id=tx.id,
         changed_by=ChangedBy.USER,
         user_id=current_user.id,
-        before={"reconciled_status": before_status, "receipt_id": str(before_receipt_id) if before_receipt_id else None},
+        before={
+            "reconciled_status": before_status,
+            "receipt_id": str(before_receipt_id) if before_receipt_id else None,
+        },
         after={"reconciled_status": ReconciledStatus.IGNORED_BY_USER, "receipt_id": None},
     )
     session.commit()

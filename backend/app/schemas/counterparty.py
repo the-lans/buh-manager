@@ -1,8 +1,9 @@
 import re
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_serializer, field_validator
 
 from app.constants import CounterpartyType
+from app.utils.ids import unscope_user_id
 
 _INN_RE = re.compile(r"^\d{10}(\d{2})?$")
 _KPP_RE = re.compile(r"^\d{9}$")
@@ -76,3 +77,7 @@ class CounterpartyRead(BaseModel):
     kpp: str | None
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("id")
+    def serialize_id(self, value: str) -> str:
+        return unscope_user_id(value) or value

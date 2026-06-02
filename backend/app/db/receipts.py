@@ -16,9 +16,9 @@ from app.schemas.receipt import ReceiptCreate, ReceiptItemCreate, ReceiptUpdate
 
 def _receipt_belongs_to_user(*, user_id: UUID) -> ColumnElement[bool]:
     return or_(
-        cast(ColumnElement[bool], Receipt.user_id == user_id),
+        cast("ColumnElement[bool]", Receipt.user_id == user_id),
         cast(
-            ColumnElement[bool],
+            "ColumnElement[bool]",
             col(Receipt.user_id).is_(None) & (Document.user_id == user_id),
         ),
     )

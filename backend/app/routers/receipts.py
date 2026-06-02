@@ -64,7 +64,11 @@ def create_receipt_endpoint(
                 detail={"message": "Receipt already exists.", "receipt_id": str(existing.id)},
             )
 
-    resolved_counterparty_id = _resolve_counterparty(session=session, data=data)
+    resolved_counterparty_id = _resolve_counterparty(
+        session=session,
+        data=data,
+        user_id=current_user.id,
+    )
 
     if data.document_id is not None:
         doc = get_document_by_id(
@@ -171,6 +175,7 @@ def update_receipt_endpoint(
         and get_counterparty_by_id(
             session=session,
             counterparty_id=data.counterparty_id,
+            user_id=current_user.id,
         )
         is None
     ):
@@ -329,7 +334,7 @@ def _claim_receipt_document_pending(document: Document, *, session: Session) -> 
         )
 
 
-def _resolve_counterparty(*, session: Session, data: ReceiptCreate) -> str | None:
+def _resolve_counterparty(*, session: Session, data: ReceiptCreate, user_id: UUID) -> str | None:
     """Return the counterparty id to use for the receipt.
 
     Priority:
@@ -338,16 +343,22 @@ def _resolve_counterparty(*, session: Session, data: ReceiptCreate) -> str | Non
     3. Neither → None.
     """
     if data.counterparty_id is not None:
-        if get_counterparty_by_id(session=session, counterparty_id=data.counterparty_id) is None:
+        counterparty = get_counterparty_by_id(
+            session=session,
+            counterparty_id=data.counterparty_id,
+            user_id=user_id,
+        )
+        if counterparty is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Counterparty not found.",
             )
-        return data.counterparty_id
+        return counterparty.id
 
     if data.counterparty_inn and data.counterparty_name:
         cp = get_or_create_counterparty(
             session=session,
+            user_id=user_id,
             name=data.counterparty_name,
             inn=data.counterparty_inn,
         )

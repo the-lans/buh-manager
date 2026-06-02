@@ -98,6 +98,21 @@ def test_account(session: Session, test_user: User) -> Account:
     return account
 
 
+@pytest.fixture()
+def second_test_account(session: Session, second_test_user: User) -> Account:
+    account = Account(
+        id=uuid4(),
+        user_id=second_test_user.id,
+        bank="SecondTestBank",
+        account_number="40817810000000000002",
+        currency="RUB",
+    )
+    session.add(account)
+    session.commit()
+    session.refresh(account)
+    return account
+
+
 # ── JWT helper ───────────────────────────────────────────────────────────────
 
 

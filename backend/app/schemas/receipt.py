@@ -4,9 +4,10 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_serializer, field_validator
 
 from app.utils.dt import normalize_to_utc
+from app.utils.ids import unscope_user_id
 
 _INN_RE = re.compile(r"^\d{10}(\d{2})?$")
 
@@ -103,6 +104,10 @@ class ReceiptRead(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_serializer("counterparty_id")
+    def serialize_counterparty_id(self, value: str | None) -> str | None:
+        return unscope_user_id(value)
+
 
 class ReceiptListItem(BaseModel):
     id: UUID
@@ -112,3 +117,7 @@ class ReceiptListItem(BaseModel):
     document_id: UUID | None
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("counterparty_id")
+    def serialize_counterparty_id(self, value: str | None) -> str | None:
+        return unscope_user_id(value)
