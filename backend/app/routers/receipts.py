@@ -1,4 +1,3 @@
-import json
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -358,26 +357,6 @@ def _resolve_counterparty(*, session: Session, data: ReceiptCreate) -> str | Non
 
 
 def _build_receipt_read(receipt: Receipt, items: list[ReceiptItem]) -> ReceiptRead:
-    item_reads = []
-    for item in items:
-        tags = None
-        if item.tags:
-            try:
-                tags = json.loads(item.tags)
-            except ValueError:
-                tags = None
-        item_reads.append(
-            ReceiptItemRead(
-                id=item.id,
-                code=item.code,
-                name=item.name,
-                unit=item.unit,
-                quantity=item.quantity,
-                price=item.price,
-                amount=item.amount,
-                tags=tags,
-            )
-        )
     return ReceiptRead(
         id=receipt.id,
         document_id=receipt.document_id,
@@ -387,5 +366,5 @@ def _build_receipt_read(receipt: Receipt, items: list[ReceiptItem]) -> ReceiptRe
         fn=receipt.fn,
         fd=receipt.fd,
         fpd=receipt.fpd,
-        items=item_reads,
+        items=[ReceiptItemRead.model_validate(item) for item in items],
     )

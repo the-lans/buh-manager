@@ -3,7 +3,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import desc
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.constants import TX_DEDUP_WINDOW_SECONDS, ImportStatus, ReconciledStatus
 from app.models.account import Account
@@ -83,6 +83,8 @@ def create_transaction(
         document_id=document_id,
     )
     session.add(transaction)
+    session.flush()
+    session.refresh(transaction)
     return transaction
 
 
@@ -158,11 +160,11 @@ def get_unmatched_transactions_requiring_receipt(
             .join(Account, Transaction.account_id == Account.id)  # type: ignore[arg-type]
             .join(ExpenseType, Transaction.expense_type_id == ExpenseType.id, isouter=True)  # type: ignore[arg-type]
             .where(Account.user_id == user_id)
-            .where(Transaction.receipt_id == None)  # noqa: E711
+            .where(col(Transaction.receipt_id).is_(None))
             .where(Transaction.reconciled_status == ReconciledStatus.UNMATCHED)
             .where(
-                (ExpenseType.receipt_required == True)  # noqa: E712
-                | (Transaction.expense_type_id == None)  # noqa: E711
+                col(ExpenseType.receipt_required).is_(True)
+                | col(Transaction.expense_type_id).is_(None)
             )
         ).all()
     )
@@ -208,7 +210,7 @@ def link_transactions_to_document(
             .where(Transaction.account_id == account_id)
             .where(Transaction.occurred_at >= date_start)
             .where(Transaction.occurred_at <= date_end)
-            .where(Transaction.document_id == None)  # noqa: E711
+            .where(col(Transaction.document_id).is_(None))
         ).all()
     )
     for tx in rows:

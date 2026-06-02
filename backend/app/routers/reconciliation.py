@@ -125,6 +125,13 @@ def ignore_transaction(
     )
     tx = get_or_404(tx, "Transaction not found.")
 
+    if tx.reconciled_status == ReconciledStatus.MATCHED or tx.receipt_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot ignore a transaction that is already matched to a receipt.",
+        )
+
+    before_receipt_id = tx.receipt_id
     before_status = tx.reconciled_status
     tx.reconciled_status = ReconciledStatus.IGNORED_BY_USER
     tx.receipt_id = None
@@ -135,8 +142,8 @@ def ignore_transaction(
         entity_id=tx.id,
         changed_by=ChangedBy.USER,
         user_id=current_user.id,
-        before={"reconciled_status": before_status},
-        after={"reconciled_status": ReconciledStatus.IGNORED_BY_USER},
+        before={"reconciled_status": before_status, "receipt_id": str(before_receipt_id) if before_receipt_id else None},
+        after={"reconciled_status": ReconciledStatus.IGNORED_BY_USER, "receipt_id": None},
     )
     session.commit()
     return {"status": "ignored"}

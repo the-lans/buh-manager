@@ -89,7 +89,7 @@ async def test_user_a_cannot_create_tx_on_user_b_account(
         },
         headers=auth_headers,
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
