@@ -18,7 +18,7 @@ def save_report(
         report_json=json.dumps(report_data, default=str),
     )
     session.add(record)
-    session.commit()
+    session.flush()
     session.refresh(record)
     return record
 

@@ -69,7 +69,7 @@ def create_transaction_endpoint(
         user_id=current_user.id,
     )
     if account is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
 
     counterparty_id: str | None = None
     if data.counterparty_name:
@@ -98,7 +98,6 @@ def create_transaction_endpoint(
         description=data.description,
         balance_after=data.balance_after,
     )
-    session.flush()
     audit_create(
         session=session,
         entity_type=AuditEntityType.TRANSACTION,

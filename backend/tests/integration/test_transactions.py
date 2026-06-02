@@ -1,5 +1,5 @@
-from typing import Literal
-from uuid import uuid4
+from typing import Callable, Literal
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
@@ -133,14 +133,54 @@ async def test_delete_transaction(
     assert del_resp.status_code == 204
 
 
+@pytest.mark.parametrize(
+    "method, path_fn, body_fn, expected_status",
+    [
+        pytest.param(
+            "put",
+            lambda _: f"/api/v1/transactions/{uuid4()}",
+            lambda _: {"amount": -999.0, "occurred_at": "2024-01-10T10:00:00"},
+            404,
+            id="update_nonexistent_tx",
+        ),
+        pytest.param(
+            "post",
+            lambda _: "/api/v1/transactions",
+            lambda _: _tx_payload(str(uuid4())),
+            404,
+            id="create_unknown_account",
+        ),
+    ],
+)
 @pytest.mark.asyncio
-async def test_get_other_user_transaction_returns_404(
+async def test_transaction_not_found_cases(
     client: AsyncClient,
     auth_headers: dict[str, str],
+    test_account: Account,
+    method: str,
+    path_fn: Callable,
+    body_fn: Callable,
+    expected_status: int,
 ) -> None:
-    update_resp = await client.put(
-        f"/api/v1/transactions/{uuid4()}",
-        json={"amount": -999.0, "occurred_at": "2024-01-10T10:00:00"},
+    resp = await getattr(client, method)(
+        path_fn(test_account),
+        json=body_fn(test_account),
         headers=auth_headers,
     )
-    assert update_resp.status_code == 404
+    assert resp.status_code == expected_status
+
+
+@pytest.mark.asyncio
+async def test_create_transaction_returns_valid_id(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    """create_transaction flushes internally so the response always contains a valid UUID id."""
+    resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id)),
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    UUID(resp.json()["id"])

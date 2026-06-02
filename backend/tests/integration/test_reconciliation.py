@@ -221,6 +221,7 @@ async def test_ignore_transaction(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    session: Session,
 ) -> None:
     tx_id = await _create_transaction(client, auth_headers, str(test_account.id))
     resp = await client.post(
@@ -230,37 +231,51 @@ async def test_ignore_transaction(
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "ignored"
+    tx = session.get(Transaction, UUID(tx_id))
+    session.refresh(tx)
+    assert tx.reconciled_status == ReconciledStatus.IGNORED_BY_USER
+    assert tx.receipt_id is None
 
 
+@pytest.mark.parametrize(
+    "has_match",
+    [
+        pytest.param(True, id="matched_via_api"),
+        pytest.param(False, id="receipt_id_set_manually"),
+    ],
+)
 @pytest.mark.asyncio
-async def test_ignore_clears_receipt_id(
+async def test_ignore_transaction_with_receipt_is_rejected(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
     session: Session,
+    has_match: bool,
 ) -> None:
+    """Ignoring a transaction that already has a receipt linked must return 409."""
     tx_id = await _create_transaction(client, auth_headers, str(test_account.id))
-    receipt_id = await _create_receipt(client, auth_headers, fn="ignore-clear-r1")
+    receipt_id = await _create_receipt(client, auth_headers, fn=f"ignore-guard-{has_match}")
 
-    match_resp = await client.post(
-        "/api/v1/reconciliation/match",
-        json={"transaction_id": tx_id, "receipt_id": receipt_id},
-        headers=auth_headers,
-    )
-    assert match_resp.status_code == 200
+    if has_match:
+        match_resp = await client.post(
+            "/api/v1/reconciliation/match",
+            json={"transaction_id": tx_id, "receipt_id": receipt_id},
+            headers=auth_headers,
+        )
+        assert match_resp.status_code == 200
+    else:
+        tx = session.get(Transaction, UUID(tx_id))
+        tx.receipt_id = UUID(receipt_id)
+        tx.reconciled_status = ReconciledStatus.UNMATCHED
+        session.add(tx)
+        session.commit()
 
-    ignore_resp = await client.post(
+    resp = await client.post(
         "/api/v1/reconciliation/ignore",
         json={"transaction_id": tx_id},
         headers=auth_headers,
     )
-    assert ignore_resp.status_code == 200
-
-    tx = session.get(Transaction, UUID(tx_id))
-    assert tx is not None
-    session.refresh(tx)
-    assert tx.receipt_id is None
-    assert tx.reconciled_status == ReconciledStatus.IGNORED_BY_USER
+    assert resp.status_code == 409
 
 
 @pytest.mark.asyncio
@@ -510,3 +525,5 @@ async def test_reconciliation_outside_time_window(
     assert data["summary"]["auto_matched_count"] == 0
     assert data["summary"]["missing_receipts_count"] == 1
     assert data["summary"]["unmatched_receipts_count"] == 1
+
+

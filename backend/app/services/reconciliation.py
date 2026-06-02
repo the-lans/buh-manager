@@ -274,5 +274,6 @@ def run_reconciliation(
         user_id=current_user.id,
         report_data=report.model_dump(),
     )
+    session.commit()
 
     return report
