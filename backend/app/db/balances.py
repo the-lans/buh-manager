@@ -2,7 +2,6 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import desc
 from sqlmodel import Session, col, func, select
 
 from app.models.account import Account
@@ -55,7 +54,7 @@ def upsert_balance(
 def get_balances_for_account(*, session: Session, account_id: UUID) -> list[Balance]:
     return list(
         session.exec(
-            select(Balance).where(Balance.account_id == account_id).order_by(Balance.recorded_at)  # type: ignore[arg-type]
+            select(Balance).where(Balance.account_id == account_id).order_by(col(Balance.recorded_at).asc())
         ).all()
     )
 
@@ -95,10 +94,10 @@ def get_balances_for_user(
     """Return balances for all accounts owned by user, newest first."""
     query = (
         select(Balance)
-        .join(Account, Balance.account_id == Account.id)  # type: ignore[arg-type]
+        .join(Account)
         .where(Account.user_id == user_id)
     )
     if account_id is not None:
         query = query.where(Balance.account_id == account_id)
-    query = query.order_by(desc(Balance.recorded_at)).offset(skip).limit(limit)  # type: ignore[arg-type]
+    query = query.order_by(col(Balance.recorded_at).desc()).offset(skip).limit(limit)
     return list(session.exec(query).all())

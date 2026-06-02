@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, model_validator
@@ -16,13 +17,13 @@ class DocumentRead(BaseModel):
     email_source: str | None
     file_hash: str
     uploaded_at: datetime
-    payload: dict | None = None
+    payload: dict[str, Any] | None = None
 
     model_config = {"from_attributes": True}
 
 
 class DocumentUpdate(BaseModel):
-    payload: dict | None = None
+    payload: dict[str, Any] | None = None
 
 
 class DocumentListItem(BaseModel):

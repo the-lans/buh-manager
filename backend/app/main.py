@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -32,14 +34,14 @@ app.add_middleware(
 if settings.is_local:
     app.mount("/media", StaticFiles(directory=MEDIA_PATH), name="media")
 
-_protected: dict[str, object] = {"dependencies": [Depends(get_current_user)]}
+_protected: dict[str, Any] = {"dependencies": [Depends(get_current_user)]}
 
 app.include_router(auth.router, prefix="/api/v1")
-app.include_router(api_keys.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
-app.include_router(documents.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
-app.include_router(receipts.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
-app.include_router(bank_statements.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
-app.include_router(transactions.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
-app.include_router(reconciliation.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
-app.include_router(references.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
-app.include_router(audit_log.router, prefix="/api/v1", **_protected)  # type: ignore[arg-type]
+app.include_router(api_keys.router, prefix="/api/v1", **_protected)
+app.include_router(documents.router, prefix="/api/v1", **_protected)
+app.include_router(receipts.router, prefix="/api/v1", **_protected)
+app.include_router(bank_statements.router, prefix="/api/v1", **_protected)
+app.include_router(transactions.router, prefix="/api/v1", **_protected)
+app.include_router(reconciliation.router, prefix="/api/v1", **_protected)
+app.include_router(references.router, prefix="/api/v1", **_protected)
+app.include_router(audit_log.router, prefix="/api/v1", **_protected)

@@ -1,3 +1,5 @@
+from typing import cast
+
 from pydantic import computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -30,7 +32,7 @@ class Settings(BaseSettings):
     def parse_allowed_emails(cls, v: object) -> list[str]:
         if isinstance(v, str):
             return [e.strip() for e in v.split(",") if e.strip()]
-        return v  # type: ignore[return-value]
+        return cast(list[str], v)
 
     yandex_s3_bucket: str = ""
     yandex_access_key: str = ""

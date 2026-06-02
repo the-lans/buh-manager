@@ -2,8 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import asc
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.models.transaction import Transaction
 from app.schemas.bank_statement import BalanceCheck
@@ -24,7 +23,7 @@ def verify_balance_chain(
             .where(Transaction.account_id == account_id)
             .where(Transaction.occurred_at >= period_start)
             .where(Transaction.occurred_at <= period_end)
-            .order_by(asc(Transaction.occurred_at), asc(Transaction.id))  # type: ignore[arg-type]
+            .order_by(col(Transaction.occurred_at).asc(), col(Transaction.id).asc())
         ).all()
     )
 

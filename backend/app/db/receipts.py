@@ -2,7 +2,7 @@ import json
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import desc, or_
+from sqlalchemy import or_
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import Session, col, select
 
@@ -34,7 +34,7 @@ def get_receipt_by_fiscal(
 ) -> Receipt | None:
     return session.exec(
         select(Receipt)
-        .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
+        .join(Document, isouter=True)
         .where(Receipt.fn == fn)
         .where(Receipt.fd == fd)
         .where(Receipt.fpd == fpd)
@@ -69,26 +69,26 @@ def get_receipts_for_user(
 ) -> list[Receipt]:
     query = (
         select(Receipt)
-        .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
+        .join(Document, isouter=True)
         .where(_receipt_belongs_to_user(user_id=user_id))
     )
     if document_id is not None:
         query = query.where(Receipt.document_id == document_id)
-    query = query.order_by(desc(Receipt.paid_at)).offset(skip).limit(limit)  # type: ignore[arg-type]
+    query = query.order_by(col(Receipt.paid_at).desc()).offset(skip).limit(limit)
     return list(session.exec(query).all())
 
 
 def get_unmatched_receipts(*, session: Session, user_id: UUID) -> list[Receipt]:
     matched_receipts = (
         select(Transaction.receipt_id)
-        .join(Account, Transaction.account_id == Account.id)  # type: ignore[arg-type]
+        .join(Account)
         .where(Account.user_id == user_id)
         .where(col(Transaction.receipt_id).is_not(None))
     )
     return list(
         session.exec(
             select(Receipt)
-            .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
+            .join(Document, isouter=True)
             .where(_receipt_belongs_to_user(user_id=user_id))
             .where(col(Receipt.id).not_in(matched_receipts))
         ).all()
@@ -104,7 +104,7 @@ def get_receipt_by_document_id(
 ) -> Receipt | None:
     query = (
         select(Receipt)
-        .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
+        .join(Document, isouter=True)
         .where(Receipt.document_id == document_id)
         .where(Document.user_id == user_id)
     )
@@ -121,7 +121,7 @@ def get_receipt_linked_transaction(
 ) -> Transaction | None:
     return session.exec(
         select(Transaction)
-        .join(Account, Transaction.account_id == Account.id)  # type: ignore[arg-type]
+        .join(Account)
         .where(Transaction.receipt_id == receipt_id)
         .where(Account.user_id == user_id)
     ).first()

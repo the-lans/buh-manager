@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import JSON, Column, UniqueConstraint
@@ -21,4 +22,4 @@ class Document(SQLModel, table=True):
     file_hash: str
     raw_parsed_data: str | None = None
     uploaded_at: datetime = Field(default_factory=utcnow, index=True)
-    payload: dict | None = Field(default=None, sa_column=Column(JSON))
+    payload: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
