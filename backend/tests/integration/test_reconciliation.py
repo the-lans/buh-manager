@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from app.constants import ImportStatus, ReconciledStatus
@@ -134,6 +135,33 @@ async def test_manual_match(
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "matched"
+
+
+@pytest.mark.asyncio
+async def test_manual_match_returns_409_on_commit_race(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tx_id = await _create_transaction(client, auth_headers, str(test_account.id))
+    receipt_id = await _create_receipt(client, auth_headers)
+
+    original_commit = Session.commit
+
+    def failing_commit(_self: Session) -> None:
+        monkeypatch.setattr(Session, "commit", original_commit)
+        raise IntegrityError("match race", params=None, orig=None)
+
+    monkeypatch.setattr(Session, "commit", failing_commit)
+
+    resp = await client.post(
+        "/api/v1/reconciliation/match",
+        json={"transaction_id": tx_id, "receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 409
+    assert "already matched" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -525,5 +553,3 @@ async def test_reconciliation_outside_time_window(
     assert data["summary"]["auto_matched_count"] == 0
     assert data["summary"]["missing_receipts_count"] == 1
     assert data["summary"]["unmatched_receipts_count"] == 1
-
-

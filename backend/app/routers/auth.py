@@ -60,7 +60,6 @@ async def auth_via_google_callback(
         google_id=userinfo.get("sub"),
         avatar_url=userinfo.get("picture"),
     )
-
     access_token = _create_access_token(user)
     return RedirectResponse(url=f"{settings.frontend_url}/auth/callback?token={access_token}")
 

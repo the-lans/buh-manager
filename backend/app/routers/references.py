@@ -165,9 +165,12 @@ def initialize_balance_endpoint(
 )
 def list_expense_types_endpoint(
     session: Session = Depends(get_session),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> list[ExpenseTypeRead]:
-    return [ExpenseTypeRead.model_validate(et) for et in list_expense_types(session=session)]
+    return [
+        ExpenseTypeRead.model_validate(et)
+        for et in list_expense_types(session=session, user_id=current_user.id)
+    ]
 
 
 @router.post(
@@ -179,9 +182,9 @@ def list_expense_types_endpoint(
 def create_expense_type_endpoint(
     data: ExpenseTypeCreate,
     session: Session = Depends(get_session),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> ExpenseTypeRead:
-    et = create_expense_type(session=session, data=data)
+    et = create_expense_type(session=session, user_id=current_user.id, data=data)
     return ExpenseTypeRead.model_validate(et)
 
 
@@ -194,9 +197,13 @@ def update_expense_type_endpoint(
     expense_type_id: str,
     data: ExpenseTypeUpdate,
     session: Session = Depends(get_session),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> ExpenseTypeRead:
-    et = get_expense_type_by_id(session=session, expense_type_id=expense_type_id)
+    et = get_expense_type_by_id(
+        session=session,
+        expense_type_id=expense_type_id,
+        user_id=current_user.id,
+    )
     et = get_or_404(et, "Expense type not found.")
     et = update_expense_type(session=session, expense_type=et, data=data)
     return ExpenseTypeRead.model_validate(et)
@@ -210,9 +217,13 @@ def update_expense_type_endpoint(
 def delete_expense_type_endpoint(
     expense_type_id: str,
     session: Session = Depends(get_session),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> None:
-    et = get_expense_type_by_id(session=session, expense_type_id=expense_type_id)
+    et = get_expense_type_by_id(
+        session=session,
+        expense_type_id=expense_type_id,
+        user_id=current_user.id,
+    )
     et = get_or_404(et, "Expense type not found.")
     delete_expense_type(session=session, expense_type=et)
 
@@ -227,9 +238,12 @@ def delete_expense_type_endpoint(
 )
 def list_counterparties_endpoint(
     session: Session = Depends(get_session),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> list[CounterpartyRead]:
-    return [CounterpartyRead.model_validate(c) for c in list_counterparties(session=session)]
+    return [
+        CounterpartyRead.model_validate(c)
+        for c in list_counterparties(session=session, user_id=current_user.id)
+    ]
 
 
 @router.post(
@@ -241,10 +255,11 @@ def list_counterparties_endpoint(
 def create_counterparty_endpoint(
     data: CounterpartyCreate,
     session: Session = Depends(get_session),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> CounterpartyRead:
     cp = get_or_create_counterparty(
         session=session,
+        user_id=current_user.id,
         name=data.name,
         type=data.type,
         inn=data.inn,
@@ -266,9 +281,13 @@ def update_counterparty_endpoint(
     counterparty_id: str,
     data: CounterpartyUpdate,
     session: Session = Depends(get_session),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> CounterpartyRead:
-    cp = get_counterparty_by_id(session=session, counterparty_id=counterparty_id)
+    cp = get_counterparty_by_id(
+        session=session,
+        counterparty_id=counterparty_id,
+        user_id=current_user.id,
+    )
     cp = get_or_404(cp, "Counterparty not found.")
     cp = update_counterparty(
         session=session,
@@ -287,20 +306,22 @@ def update_counterparty_endpoint(
 def delete_counterparty_endpoint(
     counterparty_id: str,
     session: Session = Depends(get_session),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> None:
-    cp = get_counterparty_by_id(session=session, counterparty_id=counterparty_id)
+    cp = get_counterparty_by_id(
+        session=session,
+        counterparty_id=counterparty_id,
+        user_id=current_user.id,
+    )
     cp = get_or_404(cp, "Counterparty not found.")
 
-    if session.exec(
-        select(Receipt).where(Receipt.counterparty_id == counterparty_id).limit(1)
-    ).first():
+    if session.exec(select(Receipt).where(Receipt.counterparty_id == cp.id).limit(1)).first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Контрагент используется в чеках и не может быть удалён.",
         )
     if session.exec(
-        select(Transaction).where(Transaction.counterparty_id == counterparty_id).limit(1)
+        select(Transaction).where(Transaction.counterparty_id == cp.id).limit(1)
     ).first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -354,9 +375,9 @@ def list_balances_endpoint(
 def create_exchange_rate_endpoint(
     data: ExchangeRateCreate,
     session: Session = Depends(get_session),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> ExchangeRateRead:
-    rate = create_exchange_rate(session=session, data=data)
+    rate = create_exchange_rate(session=session, user_id=current_user.id, data=data)
     return ExchangeRateRead.model_validate(rate)
 
 
@@ -367,6 +388,9 @@ def create_exchange_rate_endpoint(
 )
 def get_latest_rates_endpoint(
     session: Session = Depends(get_session),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> list[ExchangeRateRead]:
-    return [ExchangeRateRead.model_validate(r) for r in get_latest_rates(session=session)]
+    return [
+        ExchangeRateRead.model_validate(r)
+        for r in get_latest_rates(session=session, user_id=current_user.id)
+    ]

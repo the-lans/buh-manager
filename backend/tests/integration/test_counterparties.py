@@ -2,9 +2,11 @@ from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.models.counterparty import Counterparty
+from app.models.user import User
+from app.utils.ids import scope_user_id
 
 
 def _cp_payload(
@@ -154,6 +156,7 @@ async def test_delete_counterparty(
     client: AsyncClient,
     auth_headers: dict[str, str],
     session: Session,
+    test_user: User,
 ) -> None:
     create = await client.post(
         "/api/v1/counterparties",
@@ -166,7 +169,12 @@ async def test_delete_counterparty(
     resp = await client.delete(f"/api/v1/counterparties/{cp_id}", headers=auth_headers)
     assert resp.status_code == 204
 
-    assert session.get(Counterparty, cp_id) is None
+    stored = session.exec(
+        select(Counterparty).where(
+            Counterparty.id == scope_user_id(user_id=test_user.id, public_id=cp_id)
+        )
+    ).first()
+    assert stored is None
 
 
 @pytest.mark.asyncio

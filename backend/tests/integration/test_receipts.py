@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.constants import DocumentStatus, DocumentType
 from app.models.account import Account
@@ -14,6 +14,7 @@ from app.models.document import Document
 from app.models.user import User
 from app.routers import receipts as receipts_router
 from app.utils.dt import utcnow
+from app.utils.ids import scope_user_id
 from tests.conftest import make_jwt
 
 
@@ -314,8 +315,14 @@ async def test_create_receipt_with_existing_counterparty_id(
     client: AsyncClient,
     auth_headers: dict[str, str],
     session: Session,
+    test_user: User,
 ) -> None:
-    cp = Counterparty(id="test-cp", name="Тест", type="STORE")
+    cp = Counterparty(
+        id=scope_user_id(user_id=test_user.id, public_id="test-cp"),
+        user_id=test_user.id,
+        name="Тест",
+        type="STORE",
+    )
     session.add(cp)
     session.commit()
 
@@ -333,6 +340,7 @@ async def test_create_receipt_autocreates_counterparty_by_inn(
     client: AsyncClient,
     auth_headers: dict[str, str],
     session: Session,
+    test_user: User,
 ) -> None:
     payload = _receipt_payload(fn=None, fd=None, fpd=None)
     payload["counterparty_name"] = "Авто Магазин"
@@ -342,7 +350,11 @@ async def test_create_receipt_autocreates_counterparty_by_inn(
     assert resp.status_code == 201
     cp_id = resp.json()["counterparty_id"]
     assert cp_id is not None
-    cp = session.get(Counterparty, cp_id)
+    cp = session.exec(
+        select(Counterparty).where(
+            Counterparty.id == scope_user_id(user_id=test_user.id, public_id=cp_id)
+        )
+    ).first()
     assert cp is not None and cp.inn == "1234567890"
 
 

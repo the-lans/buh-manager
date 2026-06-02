@@ -1,4 +1,4 @@
-from uuid import UUID  # noqa: TCH003
+from uuid import UUID  # noqa: TC003
 
 from fastapi import HTTPException, status
 from sqlmodel import Session
@@ -71,7 +71,11 @@ def import_bank_statement(
     for tx_in in statement.transactions:
         counterparty_id: str | None = None
         if tx_in.counterparty_name:
-            cp = get_or_create_counterparty(session=session, name=tx_in.counterparty_name)
+            cp = get_or_create_counterparty(
+                session=session,
+                user_id=current_user.id,
+                name=tx_in.counterparty_name,
+            )
             counterparty_id = cp.id
 
         existing, used_fallback = find_transaction_by_dedup_key(

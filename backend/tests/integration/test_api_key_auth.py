@@ -9,9 +9,12 @@ from httpx import AsyncClient
 from sqlmodel import Session, select
 
 from app.constants import ApiKeyScope
+from app.models.account import Account
 from app.models.api_key import ApiKey
+from app.models.counterparty import Counterparty
 from app.models.user import User
 from app.utils.dt import utcnow
+from app.utils.ids import scope_user_id
 
 
 @pytest.mark.asyncio
@@ -152,3 +155,49 @@ async def test_api_key_isolates_data_per_user(
     assert resp_b.status_code == 200
     assert resp_a.json() == []
     assert resp_b.json() == []
+
+
+@pytest.mark.asyncio
+async def test_api_key_cannot_create_transaction_on_other_users_account(
+    client: AsyncClient,
+    test_user: User,
+    second_test_account: Account,
+    make_api_key_in_db: Callable[..., str],
+) -> None:
+    key = make_api_key_in_db(test_user.id, [ApiKeyScope.WRITE_TRANSACTIONS])
+    resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(second_test_account.id),
+            "occurred_at": "2024-01-10T10:00:00",
+            "amount": -100.0,
+            "type": "DEBIT",
+        },
+        headers={"Authorization": f"Bearer {key}"},
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_api_key_cannot_delete_other_users_counterparty(
+    client: AsyncClient,
+    session: Session,
+    test_user: User,
+    second_test_user: User,
+    make_api_key_in_db: Callable[..., str],
+) -> None:
+    counterparty = Counterparty(
+        id=scope_user_id(user_id=second_test_user.id, public_id="shared-shop"),
+        user_id=second_test_user.id,
+        name="Shared Shop",
+        type="STORE",
+    )
+    session.add(counterparty)
+    session.commit()
+
+    key = make_api_key_in_db(test_user.id, [ApiKeyScope.WRITE_COUNTERPARTIES])
+    resp = await client.delete(
+        "/api/v1/counterparties/shared-shop",
+        headers={"Authorization": f"Bearer {key}"},
+    )
+    assert resp.status_code == 404

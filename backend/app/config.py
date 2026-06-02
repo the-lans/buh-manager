@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     app_timezone: str = "Europe/Moscow"
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def is_local(self) -> bool:
         return self.environment == "local"

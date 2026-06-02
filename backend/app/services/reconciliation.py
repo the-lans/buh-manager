@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import timedelta
-from decimal import Decimal  # noqa: TCH003
+from decimal import Decimal  # noqa: TC003
 from uuid import uuid4
 
 from rapidfuzz import fuzz
@@ -16,8 +16,11 @@ from app.constants import (
     SCORE_SINGLE_PAIR_BONUS,
     SCORE_THRESHOLD_AUTO,
     SCORE_TIME_UNDER_1H,
+    SCORE_TIME_UNDER_1H_MAX_SECONDS,
     SCORE_TIME_UNDER_3D,
+    SCORE_TIME_UNDER_3D_MAX_SECONDS,
     SCORE_TIME_UNDER_12H,
+    SCORE_TIME_UNDER_12H_MAX_SECONDS,
     ChangedBy,
     ReconciledStatus,
 )
@@ -51,15 +54,12 @@ def _score_pair(
 ) -> int:
     score = 0
     time_diff = abs((tx.occurred_at - receipt.paid_at).total_seconds())
-    one_hour = 3600
-    twelve_hours = 43200
-    three_days = 259200
 
-    if time_diff < one_hour:
+    if time_diff < SCORE_TIME_UNDER_1H_MAX_SECONDS:
         score += SCORE_TIME_UNDER_1H
-    elif time_diff < twelve_hours:
+    elif time_diff < SCORE_TIME_UNDER_12H_MAX_SECONDS:
         score += SCORE_TIME_UNDER_12H
-    elif time_diff < three_days:
+    elif time_diff < SCORE_TIME_UNDER_3D_MAX_SECONDS:
         score += SCORE_TIME_UNDER_3D
 
     tx_name = tx.counterparty_id or ""
