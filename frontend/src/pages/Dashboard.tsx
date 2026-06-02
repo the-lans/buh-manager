@@ -69,7 +69,6 @@ export default function Dashboard() {
       }))
       .sort((a, b) => b.total - a.total)
   }, [transactions, expenseTypeMap])
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

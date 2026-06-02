@@ -6,6 +6,7 @@ from sqlmodel import Session, col, select
 
 from app.constants import DocumentStatus, DocumentType
 from app.models.document import Document
+from app.schemas.document import DocumentUpdate
 
 
 def get_document_by_hash(*, session: Session, file_hash: str, user_id: UUID) -> Document | None:
@@ -97,6 +98,20 @@ def update_document_status(
     status: DocumentStatus,
 ) -> Document:
     document.status = status
+    session.add(document)
+    session.flush()
+    session.refresh(document)
+    return document
+
+
+def update_document(
+    *,
+    session: Session,
+    document: Document,
+    data: DocumentUpdate,
+) -> Document:
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(document, field, value)
     session.add(document)
     session.flush()
     session.refresh(document)

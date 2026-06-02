@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 
 import { documentsApi } from '../api/documents'
 import { useCounterpartyMap } from '../hooks/useCounterparties'
@@ -11,12 +11,25 @@ interface Props {
   onClose: () => void
 }
 
+const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000
+
 export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
   const { data: receipt, isLoading, isError } = useReceipt(receiptId)
   const counterpartyMap = useCounterpartyMap()
   const { data: linkedDocument } = useDocument(receipt?.document_id ?? null)
-  const { data: receiptDocuments = [] } = useDocuments({ type: 'RECEIPT', limit: 100 })
+  const { data: pendingDocs = [] } = useDocuments({ type: 'RECEIPT', status: 'PENDING', limit: 100 })
   const updateReceipt = useUpdateReceipt()
+
+  const sixtyDaysAgo = useMemo(() => new Date(Date.now() - SIXTY_DAYS_MS).toISOString(), [])
+
+  // Recent unlinked docs + always include the currently linked doc
+  const docsForSelect = useMemo(() => {
+    const recent = pendingDocs.filter((d) => d.uploaded_at >= sixtyDaysAgo)
+    if (linkedDocument && !recent.find((d) => d.id === linkedDocument.id)) {
+      return [linkedDocument, ...recent]
+    }
+    return recent
+  }, [pendingDocs, sixtyDaysAgo, linkedDocument])
 
   const handleOpenDocument = useCallback(async (id: string) => {
     const url = await documentsApi.getOpenUrl(id)
@@ -110,6 +123,7 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
                   <tr className="border-b border-gray-200 text-left text-xs text-gray-500">
                     <th className="pb-2 font-medium">Наименование</th>
                     <th className="pb-2 font-medium text-right">Кол-во</th>
+                    <th className="pb-2 font-medium">Ед. изм.</th>
                     <th className="pb-2 font-medium text-right">Цена</th>
                     <th className="pb-2 font-medium text-right">Сумма</th>
                   </tr>
@@ -120,8 +134,8 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
                       <td className="py-2 text-gray-800">{item.name}</td>
                       <td className="py-2 text-right tabular-nums text-gray-600">
                         {Number(item.quantity).toLocaleString('ru')}
-                        {item.unit ? ` ${item.unit}` : ''}
                       </td>
+                      <td className="py-2 text-gray-500 text-xs">{item.unit ?? '—'}</td>
                       <td className="py-2 text-right tabular-nums text-gray-600">
                         {Number(item.price).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
                       </td>
@@ -133,7 +147,7 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-gray-300">
-                    <td colSpan={3} className="pt-2 font-semibold text-gray-900">Итого</td>
+                    <td colSpan={4} className="pt-2 font-semibold text-gray-900">Итого</td>
                     <td className="pt-2 text-right tabular-nums font-semibold text-gray-900">
                       {Number(receipt.total_amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
                     </td>
@@ -151,7 +165,7 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
                 className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
               >
                 <option value="">Не привязан</option>
-                {receiptDocuments.map((doc) => (
+                {docsForSelect.map((doc) => (
                   <option key={doc.id} value={doc.id}>
                     {doc.name}
                   </option>

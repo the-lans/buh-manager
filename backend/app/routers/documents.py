@@ -29,6 +29,7 @@ from app.db.documents import (
     create_document,
     get_document_by_id,
     get_documents_for_user,
+    update_document,
 )
 from app.db.receipts import get_receipt_by_id
 from app.db.transactions import link_transactions_to_document
@@ -38,6 +39,7 @@ from app.schemas.common import PaginationParams
 from app.schemas.document import (
     DocumentListItem,
     DocumentRead,
+    DocumentUpdate,
     LinkReceiptRequest,
     LinkResult,
     LinkStatementRequest,
@@ -185,6 +187,24 @@ def get_document(
 ) -> DocumentRead:
     doc = get_document_by_id(session=session, document_id=document_id, user_id=current_user.id)
     doc = get_or_404(doc, "Document not found.")
+    return DocumentRead.model_validate(doc)
+
+
+@router.put(
+    "/{document_id}",
+    response_model=DocumentRead,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_DOCUMENTS))],
+)
+def update_document_endpoint(
+    document_id: UUID,
+    data: DocumentUpdate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> DocumentRead:
+    doc = get_document_by_id(session=session, document_id=document_id, user_id=current_user.id)
+    doc = get_or_404(doc, "Document not found.")
+    doc = update_document(session=session, document=doc, data=data)
+    session.commit()
     return DocumentRead.model_validate(doc)
 
 

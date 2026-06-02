@@ -14,9 +14,10 @@ interface FormState {
   type: string
   inn: string
   kpp: string
+  payloadText: string
 }
 
-const EMPTY_FORM: FormState = { name: '', type: 'STORE', inn: '', kpp: '' }
+const EMPTY_FORM: FormState = { name: '', type: 'STORE', inn: '', kpp: '', payloadText: '' }
 
 const TYPES = [
   { value: 'STORE', label: 'Магазин' },
@@ -33,11 +34,13 @@ export default function Counterparties() {
   const [modal, setModal] = useState<{ mode: 'create' | 'edit'; cp?: Counterparty } | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [error, setError] = useState<string | null>(null)
+  const [payloadError, setPayloadError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   function openCreate() {
     setForm(EMPTY_FORM)
     setError(null)
+    setPayloadError(null)
     setModal({ mode: 'create' })
   }
 
@@ -47,29 +50,45 @@ export default function Counterparties() {
       type: cp.type,
       inn: cp.inn ?? '',
       kpp: cp.kpp ?? '',
+      payloadText: cp.payload ? JSON.stringify(cp.payload, null, 2) : '',
     })
     setError(null)
+    setPayloadError(null)
     setModal({ mode: 'edit', cp })
   }
 
   function closeModal() {
     setModal(null)
     setError(null)
+    setPayloadError(null)
   }
 
   async function handleSubmit() {
     setError(null)
-    const payload = {
+    setPayloadError(null)
+
+    let parsedPayload: Record<string, unknown> | null = null
+    if (form.payloadText.trim()) {
+      try {
+        parsedPayload = JSON.parse(form.payloadText) as Record<string, unknown>
+      } catch {
+        setPayloadError('Некорректный JSON в поле "Дополнительные сведения"')
+        return
+      }
+    }
+
+    const data = {
       name: form.name.trim(),
       type: form.type,
       inn: form.inn.trim() || null,
       kpp: form.kpp.trim() || null,
+      payload: parsedPayload,
     }
     try {
       if (modal?.mode === 'create') {
-        await create.mutateAsync(payload)
+        await create.mutateAsync(data)
       } else if (modal?.mode === 'edit' && modal.cp) {
-        await update.mutateAsync({ id: modal.cp.id, data: payload })
+        await update.mutateAsync({ id: modal.cp.id, data })
       }
       closeModal()
     } catch (e: unknown) {
@@ -190,8 +209,19 @@ export default function Counterparties() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </Field>
+
+              <Field label="Дополнительные сведения (JSON)">
+                <textarea
+                  rows={4}
+                  value={form.payloadText}
+                  onChange={(e) => setForm((f) => ({ ...f, payloadText: e.target.value }))}
+                  placeholder='{"адрес": "...", "сайт": "..."}'
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
+                />
+              </Field>
             </div>
 
+            {payloadError && <p className="text-sm text-red-500">{payloadError}</p>}
             {error && <p className="text-sm text-red-500">{error}</p>}
 
             <div className="flex justify-end gap-3">

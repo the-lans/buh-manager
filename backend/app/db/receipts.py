@@ -65,17 +65,17 @@ def get_receipts_for_user(
     user_id: UUID,
     skip: int = 0,
     limit: int = 100,
+    document_id: UUID | None = None,
 ) -> list[Receipt]:
-    return list(
-        session.exec(
-            select(Receipt)
-            .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
-            .where(_receipt_belongs_to_user(user_id=user_id))
-            .order_by(desc(Receipt.paid_at))  # type: ignore[arg-type]
-            .offset(skip)
-            .limit(limit)
-        ).all()
+    query = (
+        select(Receipt)
+        .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
+        .where(_receipt_belongs_to_user(user_id=user_id))
     )
+    if document_id is not None:
+        query = query.where(Receipt.document_id == document_id)
+    query = query.order_by(desc(Receipt.paid_at)).offset(skip).limit(limit)  # type: ignore[arg-type]
+    return list(session.exec(query).all())
 
 
 def get_unmatched_receipts(*, session: Session, user_id: UUID) -> list[Receipt]:

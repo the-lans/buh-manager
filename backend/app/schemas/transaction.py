@@ -88,6 +88,8 @@ class TransactionListItem(BaseModel):
     reconciled_status: str
     import_status: str
     balance_mismatch: bool
+    receipt_id: UUID | None
+    document_id: UUID | None
 
     model_config = {"from_attributes": True}
 

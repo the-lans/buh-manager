@@ -67,6 +67,7 @@ export const handlers = [
         receipt_id: null,
         reconciled_status: 'UNMATCHED',
         import_status: 'IMPORTED',
+        document_id: null,
       },
     ]),
   ),
@@ -107,6 +108,60 @@ export const handlers = [
     }),
   ),
 
+  http.get('/api/v1/documents/:id', ({ params }) =>
+    HttpResponse.json<Document>({
+      id: String(params.id),
+      user_id: 'user-1',
+      type: 'RECEIPT',
+      url: '/media/fake/doc-1',
+      name: 'receipt.pdf',
+      status: 'PROCESSED',
+      email_source: null,
+      file_hash: 'hash1',
+      uploaded_at: '2026-04-01T10:00:00',
+      payload: null,
+    }),
+  ),
+
+  http.put('/api/v1/documents/:id', async ({ request }) => {
+    const body = (await request.json()) as Partial<Document>
+    return HttpResponse.json<Document>({
+      id: 'doc-1',
+      user_id: 'user-1',
+      type: 'RECEIPT',
+      url: '/media/fake/doc-1',
+      name: 'receipt.pdf',
+      status: 'PROCESSED',
+      email_source: null,
+      file_hash: 'hash1',
+      uploaded_at: '2026-04-01T10:00:00',
+      payload: body.payload ?? null,
+    })
+  }),
+
+  http.put('/api/v1/transactions/:id', async ({ request }) => {
+    const body = (await request.json()) as Partial<Transaction>
+    return HttpResponse.json<Transaction>({
+      id: 'tx-1',
+      account_id: 'acc-1',
+      occurred_at: body.occurred_at ?? '2026-04-01T10:00:00',
+      processed_at: null,
+      amount: body.amount ?? '-1500.00',
+      type: (body.type as Transaction['type']) ?? 'EXPENSE',
+      bank_category: body.bank_category ?? null,
+      counterparty_id: 'cp-1',
+      expense_type_id: body.expense_type_id ?? null,
+      description: body.description ?? null,
+      balance_after: '50000.00',
+      calculated_balance_after: null,
+      balance_mismatch: false,
+      receipt_id: null,
+      reconciled_status: (body.reconciled_status as Transaction['reconciled_status']) ?? 'UNMATCHED',
+      import_status: 'IMPORTED',
+      document_id: null,
+    })
+  }),
+
   http.get('/api/v1/documents', () =>
     HttpResponse.json<Document[]>([
       {
@@ -116,6 +171,8 @@ export const handlers = [
         url: '/media/fake/doc-1',
         name: 'receipt.pdf',
         status: 'PENDING',
+        email_source: null,
+        file_hash: 'hash1',
         uploaded_at: '2026-04-01T10:00:00',
       },
       {
@@ -125,6 +182,8 @@ export const handlers = [
         url: '/media/fake/doc-2',
         name: 'statement.pdf',
         status: 'PROCESSED',
+        email_source: null,
+        file_hash: 'hash2',
         uploaded_at: '2026-03-01T10:00:00',
       },
     ]),
@@ -139,6 +198,8 @@ export const handlers = [
         url: '/media/fake/doc-new',
         name: 'upload.pdf',
         status: 'PENDING',
+        email_source: null,
+        file_hash: 'hashnew',
         uploaded_at: '2026-04-10T10:00:00',
       },
       { status: 201 },
