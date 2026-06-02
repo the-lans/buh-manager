@@ -15,6 +15,7 @@ export function useRunReconciliation() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reconciliationReport'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['receipts'] })
     },
   })
 }
@@ -24,7 +25,10 @@ export function useManualMatch() {
   return useMutation({
     mutationFn: ({ transactionId, receiptId }: { transactionId: string; receiptId: string }) =>
       reconciliationApi.match(transactionId, receiptId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['receipts'] })
+    },
   })
 }
 
@@ -32,6 +36,9 @@ export function useIgnoreTransaction() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (transactionId: string) => reconciliationApi.ignore(transactionId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliationReport'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+    },
   })
 }

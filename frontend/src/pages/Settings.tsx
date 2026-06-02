@@ -62,6 +62,10 @@ function AccountsTab() {
   const qc = useQueryClient()
   const [form, setForm] = useState({ bank: '', account_number: '', currency: 'RUB' })
   const [initForm, setInitForm] = useState<{ id: string; amount: string; recorded_at: string; source: 'OPENING' | 'CLOSING' } | null>(null)
+  const [initError, setInitError] = useState<string | null>(null)
+  const [initPending, setInitPending] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const handleCreate = async () => {
     await createAccount.mutateAsync(form)
@@ -70,9 +74,34 @@ function AccountsTab() {
 
   const handleInitBalance = async () => {
     if (!initForm) return
-    await accountsApi.initBalance(initForm.id, Number(initForm.amount), localInputToUtcIso(initForm.recorded_at), initForm.source)
-    await qc.invalidateQueries({ queryKey: ['accounts'] })
-    setInitForm(null)
+    setInitError(null)
+    setInitPending(true)
+    try {
+      await accountsApi.initBalance(
+        initForm.id,
+        Number(initForm.amount),
+        localInputToUtcIso(initForm.recorded_at),
+        initForm.source,
+      )
+      await qc.invalidateQueries({ queryKey: ['accounts'] })
+      setInitForm(null)
+    } catch {
+      setInitError('Не удалось сохранить баланс. Проверьте введённые данные.')
+    } finally {
+      setInitPending(false)
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!confirmDeleteId) return
+    setDeleteError(null)
+    try {
+      await deleteAccount.mutateAsync(confirmDeleteId)
+    } catch {
+      setDeleteError('Не удалось удалить счёт. Возможно, он используется в транзакциях.')
+    } finally {
+      setConfirmDeleteId(null)
+    }
   }
 
   return (
@@ -116,22 +145,32 @@ function AccountsTab() {
             <div className="flex items-center gap-3">
               {!acc.has_balances && (
                 <button
-                  onClick={() => setInitForm({ id: acc.id, amount: '', recorded_at: '', source: 'OPENING' })}
+                  onClick={() => { setInitForm({ id: acc.id, amount: '', recorded_at: '', source: 'OPENING' }); setInitError(null) }}
                   className="text-xs text-yellow-600 border border-yellow-300 rounded px-2 py-1 hover:bg-yellow-50"
                 >
                   ⚠ Задать баланс
                 </button>
               )}
-              <button
-                onClick={() => deleteAccount.mutate(acc.id)}
-                className="text-xs text-red-500 hover:underline"
-              >
-                Удалить
-              </button>
+              {confirmDeleteId === acc.id ? (
+                <span className="inline-flex items-center gap-2 text-xs">
+                  <span className="text-gray-600">Удалить?</span>
+                  <button onClick={handleDeleteConfirm} className="text-red-500 hover:underline">Да</button>
+                  <button onClick={() => setConfirmDeleteId(null)} className="text-gray-500 hover:underline">Нет</button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => { setDeleteError(null); setConfirmDeleteId(acc.id) }}
+                  className="text-xs text-red-500 hover:underline"
+                >
+                  Удалить
+                </button>
+              )}
             </div>
           </div>
         ))}
       </div>
+
+      {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
 
       {initForm && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
@@ -158,8 +197,15 @@ function AccountsTab() {
               <option value="OPENING">Входящий</option>
               <option value="CLOSING">Исходящий</option>
             </select>
+            {initError && <p className="text-sm text-red-500">{initError}</p>}
             <div className="flex gap-2">
-              <button onClick={handleInitBalance} className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg">Сохранить</button>
+              <button
+                onClick={handleInitBalance}
+                disabled={initPending || !initForm.amount || !initForm.recorded_at}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg disabled:opacity-50"
+              >
+                {initPending ? 'Сохранение...' : 'Сохранить'}
+              </button>
               <button onClick={() => setInitForm(null)} className="px-4 py-2 border border-gray-300 text-sm rounded-lg">Отмена</button>
             </div>
           </div>
