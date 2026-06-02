@@ -1,8 +1,8 @@
 import json
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
-from sqlmodel import Session, desc, select
+from sqlmodel import Session, col, select
 
 from app.models.reconciliation_report import ReconciliationReportRecord
 
@@ -31,8 +31,8 @@ def get_last_report(
     record = session.exec(
         select(ReconciliationReportRecord)
         .where(ReconciliationReportRecord.user_id == user_id)
-        .order_by(desc(ReconciliationReportRecord.generated_at))
+        .order_by(col(ReconciliationReportRecord.generated_at).desc())
     ).first()
     if record is None:
         return None
-    return json.loads(record.report_json)  # type: ignore[no-any-return]
+    return cast(dict[str, Any], json.loads(record.report_json))

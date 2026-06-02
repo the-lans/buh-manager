@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import JSON, Column, UniqueConstraint
@@ -14,4 +15,4 @@ class Counterparty(SQLModel, table=True):
     type: str
     inn: str | None = Field(default=None, max_length=12)
     kpp: str | None = Field(default=None, max_length=9)
-    payload: dict | None = Field(default=None, sa_column=Column(JSON))
+    payload: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))

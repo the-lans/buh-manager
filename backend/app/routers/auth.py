@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import cast
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, Request
@@ -39,7 +40,7 @@ def _create_access_token(user: User) -> str:
 @router.get("/google")
 async def login_via_google(request: Request) -> RedirectResponse:
     redirect_uri = request.url_for("auth_via_google_callback")
-    return await oauth.google.authorize_redirect(request, redirect_uri)  # type: ignore[no-any-return]
+    return cast(RedirectResponse, await oauth.google.authorize_redirect(request, redirect_uri))
 
 
 @router.get("/google/callback", name="auth_via_google_callback")

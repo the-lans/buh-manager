@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 from uuid import UUID
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.models.api_key import ApiKey
 from app.schemas.api_key import ApiKeyUpdate
@@ -38,7 +38,7 @@ def get_api_key_by_hash(*, session: Session, key_hash: str) -> ApiKey | None:
 def get_api_keys_for_user(*, session: Session, user_id: UUID) -> list[ApiKey]:
     return list(
         session.exec(
-            select(ApiKey).where(ApiKey.user_id == user_id).order_by(ApiKey.created_at.desc())  # type: ignore[attr-defined]
+            select(ApiKey).where(ApiKey.user_id == user_id).order_by(col(ApiKey.created_at).desc())
         ).all()
     )
 

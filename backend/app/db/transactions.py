@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import desc
 from sqlmodel import Session, col, select
 
 from app.constants import TX_DEDUP_WINDOW_SECONDS, ImportStatus, ReconciledStatus
@@ -96,7 +95,7 @@ def get_transaction_by_id(
 ) -> Transaction | None:
     return session.exec(
         select(Transaction)
-        .join(Account, Transaction.account_id == Account.id)  # type: ignore[arg-type]
+        .join(Account)
         .where(Transaction.id == transaction_id)
         .where(Account.user_id == user_id)
     ).first()
@@ -112,7 +111,7 @@ def get_transactions_for_user(
 ) -> list[Transaction]:
     query = (
         select(Transaction)
-        .join(Account, Transaction.account_id == Account.id)  # type: ignore[arg-type]
+        .join(Account)
         .where(Account.user_id == user_id)
     )
     if filters.account_id is not None:
@@ -127,7 +126,7 @@ def get_transactions_for_user(
         query = query.where(Transaction.reconciled_status == filters.reconciled_status)
     if filters.import_status is not None:
         query = query.where(Transaction.import_status == filters.import_status)
-    query = query.order_by(desc(Transaction.occurred_at)).offset(skip).limit(limit)  # type: ignore[arg-type]
+    query = query.order_by(col(Transaction.occurred_at).desc()).offset(skip).limit(limit)
     return list(session.exec(query).all())
 
 
@@ -157,8 +156,8 @@ def get_unmatched_transactions_requiring_receipt(
     return list(
         session.exec(
             select(Transaction)
-            .join(Account, Transaction.account_id == Account.id)  # type: ignore[arg-type]
-            .join(ExpenseType, Transaction.expense_type_id == ExpenseType.id, isouter=True)  # type: ignore[arg-type]
+            .join(Account)
+            .join(ExpenseType, isouter=True)
             .where(Account.user_id == user_id)
             .where(col(Transaction.receipt_id).is_(None))
             .where(Transaction.reconciled_status == ReconciledStatus.UNMATCHED)
@@ -205,7 +204,7 @@ def link_transactions_to_document(
     rows = list(
         session.exec(
             select(Transaction)
-            .join(Account, Transaction.account_id == Account.id)  # type: ignore[arg-type]
+            .join(Account)
             .where(Account.user_id == user_id)
             .where(Transaction.account_id == account_id)
             .where(Transaction.occurred_at >= date_start)
