@@ -7,7 +7,7 @@ import { renderWithProviders } from '../../test/utils'
 import { server } from '../../test/server'
 import type { Transaction } from '../../types'
 
-// The ru-locale formats -1500 as "-1 500,00" (non-breaking space, hyphen-minus).
+// The ru-locale formats -1500 as "-1 500,00" (non-breaking space, hyphen-minus).
 // Use a regex to avoid locale/environment differences.
 const TX_AMOUNT = /1\s*500,00\s*₽/
 

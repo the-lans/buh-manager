@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { documentsApi } from '../api/documents'
 import { useCounterpartyMap } from '../hooks/useCounterparties'
@@ -20,7 +20,7 @@ export default function ReceiptDetailModal({ receiptId, onClose }: Props) {
   const { data: pendingDocs = [] } = useDocuments({ type: 'RECEIPT', status: 'PENDING', limit: 100 })
   const updateReceipt = useUpdateReceipt()
 
-  const sixtyDaysAgo = useMemo(() => new Date(Date.now() - SIXTY_DAYS_MS).toISOString(), [])
+  const [sixtyDaysAgo] = useState(() => new Date(Date.now() - SIXTY_DAYS_MS).toISOString())
 
   // Recent unlinked docs + always include the currently linked doc
   const docsForSelect = useMemo(() => {
