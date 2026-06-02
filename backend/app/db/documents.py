@@ -59,6 +59,7 @@ def claim_document_for_processing(
     cursor_result = result if isinstance(result, CursorResult) else None
     if cursor_result is None or cursor_result.rowcount != 1:
         return False
+    session.flush()
     session.refresh(document)
     return True
 

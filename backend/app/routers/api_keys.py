@@ -83,11 +83,18 @@ def delete_api_key_endpoint(
 
 
 def _to_read(api_key: ApiKey) -> ApiKeyRead:
+    try:
+        scope_list = json.loads(api_key.scopes)
+        if not isinstance(scope_list, list):
+            raise ValueError("Scopes must be a JSON array")
+    except (json.JSONDecodeError, ValueError):
+        scope_list = []
+
     return ApiKeyRead(
         id=api_key.id,
         name=api_key.name,
         key_prefix=api_key.key_prefix,
-        scopes=json.loads(api_key.scopes),
+        scopes=scope_list,
         is_active=api_key.is_active,
         created_at=api_key.created_at,
         last_used_at=api_key.last_used_at,

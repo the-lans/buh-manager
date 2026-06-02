@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import datetime
 from decimal import Decimal
@@ -71,6 +72,22 @@ class ReceiptItemRead(BaseModel):
     tags: list[str] | None
 
     model_config = {"from_attributes": True}
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def parse_tags(cls, v: str | list[str] | None) -> list[str] | None:
+        if v is None:
+            return None
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list) and all(isinstance(item, str) for item in parsed):
+                    return parsed
+            except (json.JSONDecodeError, ValueError):
+                pass
+        return None
 
 
 class ReceiptRead(BaseModel):
