@@ -1,7 +1,7 @@
 """scope reference data per user
 
 Revision ID: l3m4n5o6p7q8
-Revises: k2l3m4n5o6p7
+Revises: j1k2l3m4n5o6
 Create Date: 2026-06-02 14:30:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "l3m4n5o6p7q8"
-down_revision: str | None = "k2l3m4n5o6p7"
+down_revision: str | None = "j1k2l3m4n5o6"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
