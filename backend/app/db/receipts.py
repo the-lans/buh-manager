@@ -1,7 +1,9 @@
 import json
+from typing import cast
 from uuid import UUID
 
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
+from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import Session, col, select
 
 from app.models.account import Account
@@ -10,6 +12,16 @@ from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
 from app.models.transaction import Transaction
 from app.schemas.receipt import ReceiptCreate, ReceiptItemCreate, ReceiptUpdate
+
+
+def _receipt_belongs_to_user(*, user_id: UUID) -> ColumnElement[bool]:
+    return or_(
+        cast(ColumnElement[bool], Receipt.user_id == user_id),
+        cast(
+            ColumnElement[bool],
+            col(Receipt.user_id).is_(None) & (Document.user_id == user_id),
+        ),
+    )
 
 
 def get_receipt_by_fiscal(
@@ -26,10 +38,7 @@ def get_receipt_by_fiscal(
         .where(Receipt.fn == fn)
         .where(Receipt.fd == fd)
         .where(Receipt.fpd == fpd)
-        .where(
-            (Receipt.user_id == user_id)
-            | (col(Receipt.user_id).is_(None) & (Document.user_id == user_id))
-        )
+        .where(_receipt_belongs_to_user(user_id=user_id))
     ).first()
 
 
@@ -61,10 +70,7 @@ def get_receipts_for_user(
         session.exec(
             select(Receipt)
             .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
-            .where(
-                (Receipt.user_id == user_id)
-                | (col(Receipt.user_id).is_(None) & (Document.user_id == user_id))
-            )
+            .where(_receipt_belongs_to_user(user_id=user_id))
             .order_by(desc(Receipt.paid_at))  # type: ignore[arg-type]
             .offset(skip)
             .limit(limit)
@@ -83,10 +89,7 @@ def get_unmatched_receipts(*, session: Session, user_id: UUID) -> list[Receipt]:
         session.exec(
             select(Receipt)
             .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
-            .where(
-                (Receipt.user_id == user_id)
-                | (col(Receipt.user_id).is_(None) & (Document.user_id == user_id))
-            )
+            .where(_receipt_belongs_to_user(user_id=user_id))
             .where(col(Receipt.id).not_in(matched_receipts))
         ).all()
     )
