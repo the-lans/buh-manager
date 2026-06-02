@@ -114,7 +114,9 @@ def upgrade() -> None:
                 continue
             new_id = f"{row.user_id}:{old_id}"
             bind.execute(
-                sa.text("UPDATE receipts SET counterparty_id = :new_id WHERE counterparty_id = :old_id"),
+                sa.text(
+                    "UPDATE receipts SET counterparty_id = :new_id WHERE counterparty_id = :old_id"
+                ),
                 {"new_id": new_id, "old_id": old_id},
             )
             bind.execute(
