@@ -47,28 +47,28 @@ describe('formatMonthYear', () => {
 })
 
 describe('monthDateRange', () => {
-  it('returns date_from as first day of month', () => {
-    const { date_from } = monthDateRange('2026-06')
-    expect(date_from).toBe('2026-06-01T00:00:00')
+  it('returns start_date as first day of month', () => {
+    const { start_date } = monthDateRange('2026-06')
+    expect(start_date).toBe('2026-06-01T00:00:00')
   })
 
-  it('returns date_to as last day of June', () => {
-    const { date_to } = monthDateRange('2026-06')
-    expect(date_to).toBe('2026-06-30T23:59:59')
+  it('returns end_date as last day of June', () => {
+    const { end_date } = monthDateRange('2026-06')
+    expect(end_date).toBe('2026-06-30T23:59:59')
   })
 
   it('returns correct last day for February in non-leap year', () => {
-    const { date_to } = monthDateRange('2025-02')
-    expect(date_to).toBe('2025-02-28T23:59:59')
+    const { end_date } = monthDateRange('2025-02')
+    expect(end_date).toBe('2025-02-28T23:59:59')
   })
 
   it('returns correct last day for February in leap year', () => {
-    const { date_to } = monthDateRange('2024-02')
-    expect(date_to).toBe('2024-02-29T23:59:59')
+    const { end_date } = monthDateRange('2024-02')
+    expect(end_date).toBe('2024-02-29T23:59:59')
   })
 
   it('returns correct last day for January (31 days)', () => {
-    const { date_to } = monthDateRange('2026-01')
-    expect(date_to).toBe('2026-01-31T23:59:59')
+    const { end_date } = monthDateRange('2026-01')
+    expect(end_date).toBe('2026-01-31T23:59:59')
   })
 })

@@ -42,6 +42,7 @@ class TransactionUpdate(BaseModel):
     bank_category: str | None = None
     expense_type_id: str | None = None
     description: str | None = None
+    reconciled_status: str | None = None
 
     model_config = {"extra": "forbid"}
 
@@ -85,6 +86,7 @@ class TransactionListItem(BaseModel):
     amount: Decimal
     type: str
     counterparty_id: str | None
+    expense_type_id: str | None
     reconciled_status: str
     import_status: str
     balance_mismatch: bool
@@ -93,8 +95,8 @@ class TransactionListItem(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_serializer("counterparty_id")
-    def serialize_counterparty_id(self, value: str | None) -> str | None:
+    @field_serializer("counterparty_id", "expense_type_id")
+    def serialize_reference_ids(self, value: str | None) -> str | None:
         return unscope_user_id(value)
 
 

@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlmodel import Session, desc, select
 
 from app.models.exchange_rate import ExchangeRate
@@ -18,24 +19,31 @@ def create_exchange_rate(
         recorded_at=data.recorded_at or utcnow(),
     )
     session.add(rate)
-    session.commit()
+    session.flush()
     session.refresh(rate)
     return rate
 
 
 def get_latest_rates(*, session: Session, user_id: UUID) -> list[ExchangeRate]:
-    all_rates = session.exec(
-        select(ExchangeRate)
+    """Return the single most recent exchange rate record for each currency pair."""
+    latest_per_pair = (
+        select(
+            ExchangeRate.base_currency,
+            ExchangeRate.quote_currency,
+            func.max(ExchangeRate.recorded_at).label("max_at"),
+        )
         .where(ExchangeRate.user_id == user_id)
-        .order_by(desc(ExchangeRate.recorded_at))
-    ).all()
-
-    # Keep only the latest record per currency pair
-    seen: set[tuple[str, str]] = set()
-    result: list[ExchangeRate] = []
-    for rate in all_rates:
-        key = (rate.base_currency, rate.quote_currency)
-        if key not in seen:
-            seen.add(key)
-            result.append(rate)
-    return result
+        .group_by(ExchangeRate.base_currency, ExchangeRate.quote_currency)
+        .subquery()
+    )
+    return list(
+        session.exec(
+            select(ExchangeRate).join(  # type: ignore[arg-type]
+                latest_per_pair,
+                (ExchangeRate.base_currency == latest_per_pair.c.base_currency)
+                & (ExchangeRate.quote_currency == latest_per_pair.c.quote_currency)
+                & (ExchangeRate.recorded_at == latest_per_pair.c.max_at),
+            )
+            .where(ExchangeRate.user_id == user_id)
+        ).all()
+    )

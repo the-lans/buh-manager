@@ -118,7 +118,7 @@ async def test_update_transaction(
 
 
 @pytest.mark.asyncio
-async def test_update_transaction_rejects_reconciled_status_mutation(
+async def test_update_transaction_reconciled_status(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
@@ -132,10 +132,11 @@ async def test_update_transaction_rejects_reconciled_status_mutation(
 
     update_resp = await client.put(
         f"/api/v1/transactions/{tx_id}",
-        json={"reconciled_status": "MATCHED"},
+        json={"reconciled_status": "IGNORED_BY_USER"},
         headers=auth_headers,
     )
-    assert update_resp.status_code == 422
+    assert update_resp.status_code == 200
+    assert update_resp.json()["reconciled_status"] == "IGNORED_BY_USER"
 
 
 @pytest.mark.asyncio

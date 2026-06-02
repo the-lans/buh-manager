@@ -25,12 +25,13 @@ export default function Transactions() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const handleCreate = async () => {
+    const counterpartyName = counterparties.find((c) => c.id === form.counterparty_id)?.name ?? null
     await createTx.mutateAsync({
       account_id: form.account_id,
       occurred_at: localInputToUtcIso(form.occurred_at),
-      amount: form.amount as unknown as string,
-      type: form.type as 'INCOME' | 'EXPENSE',
-      counterparty_id: form.counterparty_id || null,
+      amount: form.amount,
+      type: form.type,
+      counterparty_name: counterpartyName,
       expense_type_id: form.expense_type_id || null,
     })
     setShowForm(false)

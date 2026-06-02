@@ -137,7 +137,7 @@ def update_transaction(
     transaction: Transaction,
     data: TransactionUpdate,
 ) -> Transaction:
-    for field, value in data.model_dump(exclude_none=True).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(transaction, field, value)
     session.add(transaction)
     session.flush()

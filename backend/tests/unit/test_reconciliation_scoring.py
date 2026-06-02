@@ -64,15 +64,15 @@ def _receipt(paid_at: datetime, total: Decimal = Decimal("100")) -> Receipt:
 def test_time_score_brackets(delta_seconds: int, expected_time_score: int) -> None:
     tx = _tx(BASE)
     receipt = _receipt(BASE + timedelta(seconds=delta_seconds))
-    score = _score_pair(tx=tx, receipt=receipt, is_single_pair=False)
+    score = _score_pair(tx=tx, receipt=receipt, is_single_pair=False, counterparty_names={})
     assert score == expected_time_score
 
 
 def test_single_pair_bonus_added() -> None:
     tx = _tx(BASE)
     receipt = _receipt(BASE + timedelta(minutes=5))
-    score_single = _score_pair(tx=tx, receipt=receipt, is_single_pair=True)
-    score_multi = _score_pair(tx=tx, receipt=receipt, is_single_pair=False)
+    score_single = _score_pair(tx=tx, receipt=receipt, is_single_pair=True, counterparty_names={})
+    score_multi = _score_pair(tx=tx, receipt=receipt, is_single_pair=False, counterparty_names={})
     assert score_single - score_multi == SCORE_SINGLE_PAIR_BONUS
 
 
@@ -80,7 +80,7 @@ def test_auto_match_threshold_reached() -> None:
     # <1h (40) + single pair bonus (20) + no counterparty = 60 — not enough
     tx = _tx(BASE)
     receipt = _receipt(BASE + timedelta(minutes=5))
-    score = _score_pair(tx=tx, receipt=receipt, is_single_pair=True)
+    score = _score_pair(tx=tx, receipt=receipt, is_single_pair=True, counterparty_names={})
     # 40 + 20 = 60 < 75 — not auto-matched without counterparty
     assert score < SCORE_THRESHOLD_AUTO
 
@@ -90,9 +90,10 @@ def test_fuzzy_low_score() -> None:
     tx.counterparty_id = "alpha-corp"
     receipt = _receipt(BASE + timedelta(minutes=30))
     receipt.counterparty_id = "beta-corp"
+    names = {"alpha-corp": "Alpha Corporation", "beta-corp": "Beta Corporation"}
     # Patch ratio to a value in (FUZZY_LOW_THRESHOLD, FUZZY_HIGH_THRESHOLD]
     with patch("app.services.reconciliation.fuzz.token_set_ratio", return_value=60):
-        score = _score_pair(tx=tx, receipt=receipt, is_single_pair=False)
+        score = _score_pair(tx=tx, receipt=receipt, is_single_pair=False, counterparty_names=names)
     assert score == SCORE_TIME_UNDER_1H + SCORE_FUZZY_LOW
 
 
@@ -101,7 +102,8 @@ def test_auto_match_with_matching_counterparty() -> None:
     tx.counterparty_id = "sberbank"
     receipt = _receipt(BASE + timedelta(minutes=5))
     receipt.counterparty_id = "sberbank"
-    score = _score_pair(tx=tx, receipt=receipt, is_single_pair=True)
+    names = {"sberbank": "Сбербанк"}
+    score = _score_pair(tx=tx, receipt=receipt, is_single_pair=True, counterparty_names=names)
     # 40 (time) + 40 (fuzzy high, identical) + 20 (single pair) = 100
     assert score >= SCORE_THRESHOLD_AUTO
 
