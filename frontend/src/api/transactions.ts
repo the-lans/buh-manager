@@ -6,8 +6,8 @@ export interface TransactionFilters {
   type?: string
   reconciled_status?: string
   import_status?: string
-  date_from?: string
-  date_to?: string
+  start_date?: string
+  end_date?: string
   skip?: number
   limit?: number
 }

@@ -19,18 +19,28 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.add_column("audit_log", sa.Column("user_id", sa.Uuid(), nullable=True))
-    op.create_index("ix_audit_log_user_id", "audit_log", ["user_id"])
-    op.create_foreign_key(
-        "fk_audit_log_user_id",
-        "audit_log",
-        "users",
-        ["user_id"],
-        ["id"],
-    )
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_cols = {col["name"] for col in inspector.get_columns("audit_log")}
+    if "user_id" not in existing_cols:
+        op.add_column("audit_log", sa.Column("user_id", sa.Uuid(), nullable=True))
+    existing_indexes = {idx["name"] for idx in inspector.get_indexes("audit_log")}
+    if "ix_audit_log_user_id" not in existing_indexes:
+        op.create_index("ix_audit_log_user_id", "audit_log", ["user_id"])
+    # SQLite does not support ALTER TABLE ADD CONSTRAINT; skip for SQLite.
+    if bind.dialect.name != "sqlite":
+        op.create_foreign_key(
+            "fk_audit_log_user_id",
+            "audit_log",
+            "users",
+            ["user_id"],
+            ["id"],
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint("fk_audit_log_user_id", "audit_log", type_="foreignkey")
+    bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        op.drop_constraint("fk_audit_log_user_id", "audit_log", type_="foreignkey")
     op.drop_index("ix_audit_log_user_id", table_name="audit_log")
     op.drop_column("audit_log", "user_id")

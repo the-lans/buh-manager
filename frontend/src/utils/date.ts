@@ -32,6 +32,44 @@ export function currentYearMonth(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: APP_TIMEZONE }).slice(0, 7)
 }
 
+/** Return "YYYY-MM" for the previous month. */
+export function prevMonth(ym: string): string {
+  const [year, month] = ym.split('-').map(Number)
+  const d = new Date(Date.UTC(year, month - 2, 1))
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+/** Return "YYYY-MM" for the next month. */
+export function nextMonth(ym: string): string {
+  const [year, month] = ym.split('-').map(Number)
+  const d = new Date(Date.UTC(year, month, 1))
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+/**
+ * Return UTC ISO start/end bounds for a calendar month.
+ * start_date = first moment of the month (UTC midnight on day 1)
+ * end_date   = first moment of the next month (exclusive upper bound)
+ */
+export function monthBoundsUtc(ym: string): { start_date: string; end_date: string } {
+  const [year, month] = ym.split('-').map(Number)
+  return {
+    start_date: new Date(Date.UTC(year, month - 1, 1)).toISOString(),
+    end_date: new Date(Date.UTC(year, month, 1)).toISOString(),
+  }
+}
+
+const MONTH_NAMES_RU = [
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+]
+
+/** "YYYY-MM" → "Май 2026" */
+export function formatMonthLabel(ym: string): string {
+  const [year, month] = ym.split('-').map(Number)
+  return `${MONTH_NAMES_RU[month - 1]} ${year}`
+}
+
 /**
  * Convert a datetime-local input value (wall-clock in APP_TIMEZONE) to a UTC ISO string.
  *

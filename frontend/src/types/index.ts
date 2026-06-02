@@ -93,6 +93,7 @@ export interface ExpenseType {
   id: string
   name: string
   receipt_required: boolean
+  description?: string | null
 }
 
 export interface Counterparty {

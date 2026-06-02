@@ -17,6 +17,7 @@ def create_expense_type(*, session: Session, data: ExpenseTypeCreate) -> Expense
         id=data.id,
         name=data.name,
         receipt_required=data.receipt_required,
+        description=data.description,
     )
     session.add(expense_type)
     session.commit()

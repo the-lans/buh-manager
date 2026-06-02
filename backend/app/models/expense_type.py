@@ -7,3 +7,4 @@ class ExpenseType(SQLModel, table=True):
     id: str = Field(primary_key=True)
     name: str
     receipt_required: bool = Field(default=True)
+    description: str | None = None

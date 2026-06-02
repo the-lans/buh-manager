@@ -111,6 +111,72 @@ async def test_crud_expense_types(
     assert del_resp.status_code == 204
 
 
+@pytest.mark.asyncio
+async def test_create_expense_type_with_description(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    description = "Продукты питания, бакалея, овощи. Траты в супермаркетах и на рынке."
+    resp = await client.post(
+        "/api/v1/expense-types",
+        json={"id": "food", "name": "Еда", "description": description},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["description"] == description
+
+
+@pytest.mark.asyncio
+async def test_create_expense_type_without_description_returns_null(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    resp = await client.post(
+        "/api/v1/expense-types",
+        json={"id": "other", "name": "Прочее"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["description"] is None
+
+
+@pytest.mark.asyncio
+async def test_update_expense_type_description(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    await client.post(
+        "/api/v1/expense-types",
+        json={"id": "transport", "name": "Транспорт"},
+        headers=auth_headers,
+    )
+    new_desc = "Такси, метро, автобус, бензин для личного авто."
+    update_resp = await client.put(
+        "/api/v1/expense-types/transport",
+        json={"name": "Транспорт", "description": new_desc},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["description"] == new_desc
+
+
+@pytest.mark.asyncio
+async def test_list_expense_types_includes_description(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    desc = "Кафе, рестораны, доставка еды."
+    await client.post(
+        "/api/v1/expense-types",
+        json={"id": "dining", "name": "Кафе", "description": desc},
+        headers=auth_headers,
+    )
+    resp = await client.get("/api/v1/expense-types", headers=auth_headers)
+    assert resp.status_code == 200
+    item = next(e for e in resp.json() if e["id"] == "dining")
+    assert item["description"] == desc
+
+
 # ── Counterparties ────────────────────────────────────────────────────────────
 
 
