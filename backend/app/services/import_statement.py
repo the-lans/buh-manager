@@ -1,7 +1,8 @@
-from uuid import UUID  # noqa: TC003
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, status
-from sqlmodel import Session
 
 from app.constants import BalanceSource, DocumentStatus, DocumentType, ImportStatus
 from app.db.accounts import get_account_by_id
@@ -9,7 +10,6 @@ from app.db.balances import has_any_balance, upsert_balance
 from app.db.counterparties import get_or_create_counterparty
 from app.db.documents import claim_document_for_processing, get_document_by_id
 from app.db.transactions import create_transaction, find_transaction_by_dedup_key
-from app.models.user import User
 from app.schemas.bank_statement import (
     BankStatementCreate,
     ConflictItem,
@@ -18,6 +18,13 @@ from app.schemas.bank_statement import (
 )
 from app.services.audit import audit_conflict
 from app.services.balance_chain import verify_balance_chain
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlmodel import Session
+
+    from app.models.user import User
 
 
 def import_bank_statement(
