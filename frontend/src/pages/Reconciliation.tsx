@@ -6,6 +6,7 @@ import {
   useRunReconciliation,
 } from '../hooks/useReconciliation'
 import { formatDate } from '../utils/date'
+import { extractApiError } from '../utils/errors'
 import { DataTable } from '../components/DataTable'
 
 export default function Reconciliation() {
@@ -55,12 +56,11 @@ export default function Reconciliation() {
                     <td className="px-4 py-2">
                       <button
                         onClick={() =>
-                          ignoreTx.mutateAsync(item.transaction_id).catch((e: unknown) => {
-                            const detail =
-                              (e as { response?: { data?: { detail?: string } } })?.response?.data
-                                ?.detail
-                            setIgnoreError(detail ?? 'Не удалось игнорировать транзакцию.')
-                          })
+                          ignoreTx
+                            .mutateAsync(item.transaction_id)
+                            .catch((e: unknown) =>
+                              setIgnoreError(extractApiError(e, 'Не удалось игнорировать транзакцию.')),
+                            )
                         }
                         disabled={ignoreTx.isPending}
                         className="text-xs text-gray-500 hover:underline disabled:opacity-50"

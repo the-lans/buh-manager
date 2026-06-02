@@ -14,6 +14,7 @@ import {
 } from '../hooks/useDocuments'
 import { useReceipts } from '../hooks/useReceipts'
 import { formatDate, localInputToUtcIso } from '../utils/date'
+import { extractApiError } from '../utils/errors'
 import type { Document } from '../types'
 
 const PAGE_SIZE = 20
@@ -21,18 +22,6 @@ const PAGE_SIZE = 20
 const DOC_TYPE_LABELS: Record<string, string> = {
   RECEIPT: 'Чек',
   BANK_STATEMENT: 'Выписка',
-}
-
-function extractErrorMessage(e: unknown): string {
-  if (e && typeof e === 'object' && 'response' in e) {
-    const resp = (e as { response?: { data?: { detail?: unknown } } }).response
-    const detail = resp?.data?.detail
-    if (detail && typeof detail === 'object' && 'message' in detail) {
-      return String((detail as { message: string }).message)
-    }
-    if (typeof detail === 'string') return detail
-  }
-  return 'Произошла ошибка'
 }
 
 export default function Documents() {
@@ -109,7 +98,7 @@ export default function Documents() {
       ) {
         setUploadError('Такой документ уже существует в системе.')
       } else {
-        setUploadError(extractErrorMessage(e))
+        setUploadError(extractApiError(e))
       }
     }
   }
@@ -150,7 +139,7 @@ export default function Documents() {
       }
       setProcessDoc(null)
     } catch (e: unknown) {
-      setLinkError(extractErrorMessage(e))
+      setLinkError(extractApiError(e))
     }
   }
 

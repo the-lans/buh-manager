@@ -7,6 +7,7 @@ import {
   useDeleteCounterparty,
   useUpdateCounterparty,
 } from '../hooks/useCounterparties'
+import { extractApiError } from '../utils/errors'
 import type { Counterparty } from '../types'
 
 interface FormState {
@@ -92,7 +93,7 @@ export default function Counterparties() {
       }
       closeModal()
     } catch (e: unknown) {
-      const msg = extractErrorMessage(e)
+      const msg = extractApiError(e)
       setError(msg)
     }
   }
@@ -140,7 +141,7 @@ export default function Counterparties() {
                   try {
                     await remove.mutateAsync(cp.id)
                   } catch (e: unknown) {
-                    setDeleteError(extractErrorMessage(e))
+                    setDeleteError(extractApiError(e))
                   }
                 }}
                 className="text-xs text-red-500 hover:underline"
@@ -258,16 +259,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function typeLabel(type: string): string {
   const map: Record<string, string> = { STORE: 'Магазин', COMPANY: 'Компания', PERSON: 'Физлицо' }
   return map[type] ?? type
-}
-
-function extractErrorMessage(e: unknown): string {
-  if (e && typeof e === 'object' && 'response' in e) {
-    const resp = (e as { response?: { data?: { detail?: unknown } } }).response
-    const detail = resp?.data?.detail
-    if (Array.isArray(detail)) {
-      return detail.map((d: { msg?: string }) => d.msg ?? String(d)).join('; ')
-    }
-    if (typeof detail === 'string') return detail
-  }
-  return 'Произошла ошибка'
 }
