@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from app.utils.dt import utcnow
@@ -21,3 +21,4 @@ class Document(SQLModel, table=True):
     file_hash: str
     raw_parsed_data: str | None = None
     uploaded_at: datetime = Field(default_factory=utcnow, index=True)
+    payload: dict | None = Field(default=None, sa_column=Column(JSON))

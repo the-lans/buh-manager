@@ -36,7 +36,10 @@ export interface Document {
   url: string
   name: string
   status: 'PENDING' | 'PROCESSED' | 'ERROR'
+  email_source: string | null
+  file_hash: string
   uploaded_at: string
+  payload?: Record<string, unknown> | null
 }
 
 export interface ReceiptItem {
@@ -87,6 +90,7 @@ export interface Transaction {
   receipt_id: string | null
   reconciled_status: 'UNMATCHED' | 'MATCHED' | 'NOT_REQUIRED' | 'IGNORED_BY_USER'
   import_status: 'IMPORTED' | 'DUPLICATE_SKIPPED' | 'CONFLICT'
+  document_id: string | null
 }
 
 export interface ExpenseType {
@@ -101,6 +105,7 @@ export interface Counterparty {
   type: string
   inn: string | null
   kpp: string | null
+  payload?: Record<string, unknown> | null
 }
 
 export interface CounterpartyCreate {
@@ -108,6 +113,7 @@ export interface CounterpartyCreate {
   type?: string
   inn?: string | null
   kpp?: string | null
+  payload?: Record<string, unknown> | null
 }
 
 export interface CounterpartyUpdate {
@@ -115,6 +121,7 @@ export interface CounterpartyUpdate {
   type?: string
   inn?: string | null
   kpp?: string | null
+  payload?: Record<string, unknown> | null
 }
 
 export interface AuditLogEntry {

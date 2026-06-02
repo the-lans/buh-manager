@@ -16,8 +16,13 @@ class DocumentRead(BaseModel):
     email_source: str | None
     file_hash: str
     uploaded_at: datetime
+    payload: dict | None = None
 
     model_config = {"from_attributes": True}
+
+
+class DocumentUpdate(BaseModel):
+    payload: dict | None = None
 
 
 class DocumentListItem(BaseModel):

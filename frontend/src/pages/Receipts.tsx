@@ -14,6 +14,19 @@ export default function Receipts() {
   const counterpartyMap = useCounterpartyMap()
   const deleteReceipt = useDeleteReceipt()
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  function handleDeleteClick(id: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    setConfirmDeleteId(id)
+  }
+
+  function handleDeleteConfirm() {
+    if (confirmDeleteId) {
+      deleteReceipt.mutate(confirmDeleteId)
+      setConfirmDeleteId(null)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -23,6 +36,7 @@ export default function Receipts() {
           { label: 'Дата' },
           { label: 'Контрагент' },
           { label: 'Сумма', align: 'right' },
+          { label: 'Документ' },
           { label: '' },
         ]}
         isEmpty={receipts.length === 0}
@@ -42,13 +56,37 @@ export default function Receipts() {
             <td className="px-4 py-2 text-right tabular-nums font-medium text-gray-900">
               {Number(r.total_amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
             </td>
+            <td className="px-4 py-2 text-center">
+              {r.document_id
+                ? <span className="text-green-600 font-medium">✓</span>
+                : <span className="text-gray-300">—</span>}
+            </td>
             <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => deleteReceipt.mutate(r.id)}
-                className="text-xs text-red-500 hover:underline"
-              >
-                Удалить
-              </button>
+              {confirmDeleteId === r.id ? (
+                <span className="inline-flex items-center gap-2 text-xs">
+                  <span className="text-gray-600">Удалить?</span>
+                  <button
+                    onClick={handleDeleteConfirm}
+                    disabled={deleteReceipt.isPending}
+                    className="text-red-500 hover:underline"
+                  >
+                    Да
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="text-gray-500 hover:underline"
+                  >
+                    Нет
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={(e) => handleDeleteClick(r.id, e)}
+                  className="text-xs text-red-500 hover:underline"
+                >
+                  Удалить
+                </button>
+              )}
             </td>
           </tr>
         ))}
