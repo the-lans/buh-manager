@@ -33,7 +33,7 @@
 - 🔄 **Автоматическая сверка** — алгоритм сопоставляет транзакции из выписки с чеками по времени, сумме и контрагенту (RapidFuzz)
 - ⚖️ **Проверка балансовой цепочки** — контроль корректности остатков в выписке
 - 🔐 **Авторизация через Google** — без паролей, JWT на 7 дней
-- 📊 **Дашборд** с KPI, графиками расходов по категориям и балансом во времени
+- 📊 **Дашборд** с KPI-карточками, таблицей остатков на счетах и разбивкой расходов по типам за выбранный месяц
 
 ---
 
@@ -57,12 +57,11 @@
 |-----------|-----------|
 | UI-фреймворк | React 19 + Vite |
 | Язык | TypeScript |
-| Стили | Tailwind CSS v4 |
+| Стили | Tailwind CSS v4 (кастомные компоненты) |
 | Маршрутизация | React Router v7 |
 | Серверное состояние | TanStack Query |
 | HTTP-клиент | Axios |
-| Компоненты | shadcn/ui |
-| Графики | Recharts |
+| Формы | React Hook Form + Zod |
 
 ---
 
@@ -77,7 +76,7 @@ buh-manager/
 │   │   ├── config.py             # Настройки через pydantic-settings
 │   │   ├── constants.py          # Enum-классы и числовые константы
 │   │   ├── database.py           # SQLite/PostgreSQL engine + get_session
-│   │   ├── models/               # SQLModel table-models (11 таблиц)
+│   │   ├── models/               # SQLModel table-models (13 таблиц)
 │   │   ├── schemas/              # Pydantic request/response схемы
 │   │   ├── db/                   # Слой доступа к данным
 │   │   ├── services/             # Бизнес-логика (импорт, сверка, баланс)
@@ -347,7 +346,8 @@ sudo systemctl stop buh-manager
 | `POST` | `/documents` | Загрузить документ (PDF/изображение); дедупликация по SHA-256; `?doc_type=RECEIPT\|BANK_STATEMENT` |
 | `GET` | `/documents` | Список документов; фильтры по типу/статусу, пагинация; новые сверху |
 | `GET` | `/documents/{id}` | Получить документ по ID |
-| `GET` | `/documents/{id}/download` | Скачать / открыть документ (presigned URL или локальный файл) |
+| `PUT` | `/documents/{id}` | Обновить поля документа (например, `payload`) |
+| `GET` | `/documents/{id}/download` | Скачать / открыть документ (`?inline=true` для просмотра в браузере, возвращает presigned URL или локальный файл) |
 | `POST` | `/documents/{id}/link-receipt` | Привязать PENDING-документ типа `RECEIPT` к существующему чеку; статус → `PROCESSED` |
 | `POST` | `/documents/{id}/link-statement` | Привязать PENDING-документ типа `BANK_STATEMENT` к транзакциям/остаткам по счёту в диапазоне дат; статус → `PROCESSED` или `ERROR` |
 | `POST` | `/documents/{id}/reset` | Сбросить документ из статуса `ERROR` обратно в `PENDING` для повторной обработки |
