@@ -192,8 +192,12 @@ async def test_update_document_payload_clears_to_null(
     auth_headers: dict[str, str],
 ) -> None:
     doc_id = await _upload_doc(client, auth_headers)
-    await client.put(f"/api/v1/documents/{doc_id}", json={"payload": {"x": 1}}, headers=auth_headers)
-    resp = await client.put(f"/api/v1/documents/{doc_id}", json={"payload": None}, headers=auth_headers)
+    await client.put(
+        f"/api/v1/documents/{doc_id}", json={"payload": {"x": 1}}, headers=auth_headers
+    )
+    resp = await client.put(
+        f"/api/v1/documents/{doc_id}", json={"payload": None}, headers=auth_headers
+    )
     assert resp.status_code == 200
     assert resp.json()["payload"] is None
 
