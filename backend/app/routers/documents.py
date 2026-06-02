@@ -47,6 +47,23 @@ from storage.base import StorageProvider
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
+_CHUNK_SIZE = 64 * 1024  # 64 KB
+
+
+async def _read_with_size_limit(file: UploadFile, max_size: int) -> bytes:
+    buf = bytearray()
+    while True:
+        chunk = await file.read(_CHUNK_SIZE)
+        if not chunk:
+            break
+        buf.extend(chunk)
+        if len(buf) > max_size:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File size exceeds maximum allowed size of {max_size // (1024 * 1024)} MB.",
+            )
+    return bytes(buf)
+
 
 @router.post(
     "",
@@ -61,13 +78,7 @@ async def upload_document(
     current_user: User = Depends(get_current_user),
     storage: StorageProvider = Depends(get_storage_provider),
 ) -> DocumentRead:
-    content = await file.read()
-
-    if len(content) > MAX_UPLOAD_FILE_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File size exceeds maximum allowed size of {MAX_UPLOAD_FILE_SIZE / (1024 * 1024):.0f} MB.",
-        )
+    content = await _read_with_size_limit(file, MAX_UPLOAD_FILE_SIZE)
 
     file_hash = compute_file_hash(content)
 
