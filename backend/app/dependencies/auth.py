@@ -87,7 +87,14 @@ def _auth_via_api_key(token: str, session: Session) -> AuthContext:
     touch_last_used(session=session, api_key=api_key)
     session.commit()
 
-    scopes = frozenset(json.loads(api_key.scopes))
+    try:
+        scope_list = json.loads(api_key.scopes)
+        if not isinstance(scope_list, list):
+            raise ValueError("Scopes must be a JSON array")
+        scopes = frozenset(scope_list)
+    except (json.JSONDecodeError, ValueError) as err:
+        raise _auth_error() from err
+
     return AuthContext(user=user, scopes=scopes)
 
 
@@ -104,13 +111,14 @@ def get_current_user_jwt_only(ctx: AuthContext = Depends(get_auth_context)) -> U
     return ctx.user
 
 
-def require_scope(scope: str) -> Callable[..., None]:
-    def _check(ctx: AuthContext = Depends(get_auth_context)) -> None:
+def require_scope(scope: str) -> Callable[[AuthContext], AuthContext]:
+    def _check(ctx: AuthContext = Depends(get_auth_context)) -> AuthContext:
         if ctx.scopes is not None and scope not in ctx.scopes:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Missing required scope: {scope}",
             )
+        return ctx
 
     return _check
 

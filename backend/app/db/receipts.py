@@ -22,11 +22,10 @@ def get_receipt_by_fiscal(
 ) -> Receipt | None:
     return session.exec(
         select(Receipt)
-        .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
         .where(Receipt.fn == fn)
         .where(Receipt.fd == fd)
         .where(Receipt.fpd == fpd)
-        .where((Receipt.user_id == user_id) | (Document.user_id == user_id))
+        .where(Receipt.user_id == user_id)
     ).first()
 
 
@@ -57,8 +56,7 @@ def get_receipts_for_user(
     return list(
         session.exec(
             select(Receipt)
-            .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
-            .where((Receipt.user_id == user_id) | (Document.user_id == user_id))
+            .where(Receipt.user_id == user_id)
             .order_by(desc(Receipt.paid_at))  # type: ignore[arg-type]
             .offset(skip)
             .limit(limit)
@@ -76,8 +74,7 @@ def get_unmatched_receipts(*, session: Session, user_id: UUID) -> list[Receipt]:
     return list(
         session.exec(
             select(Receipt)
-            .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
-            .where((Receipt.user_id == user_id) | (Document.user_id == user_id))
+            .where(Receipt.user_id == user_id)
             .where(col(Receipt.id).not_in(matched_receipts))
         ).all()
     )
@@ -94,7 +91,7 @@ def get_receipt_by_document_id(
         select(Receipt)
         .join(Document, Receipt.document_id == Document.id, isouter=True)  # type: ignore[arg-type]
         .where(Receipt.document_id == document_id)
-        .where((Receipt.user_id == user_id) | (Document.user_id == user_id))
+        .where(Document.user_id == user_id)
     )
     if exclude_receipt_id is not None:
         query = query.where(Receipt.id != exclude_receipt_id)

@@ -194,6 +194,7 @@ def link_transactions_to_document(
     *,
     session: Session,
     account_id: UUID,
+    user_id: UUID,
     date_start: datetime,
     date_end: datetime,
     document_id: UUID,
@@ -202,6 +203,8 @@ def link_transactions_to_document(
     rows = list(
         session.exec(
             select(Transaction)
+            .join(Account, Transaction.account_id == Account.id)  # type: ignore[arg-type]
+            .where(Account.user_id == user_id)
             .where(Transaction.account_id == account_id)
             .where(Transaction.occurred_at >= date_start)
             .where(Transaction.occurred_at <= date_end)

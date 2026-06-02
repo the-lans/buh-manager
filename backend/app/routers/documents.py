@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from app.constants import (
+    MAX_UPLOAD_FILE_SIZE,
     MEDIA_PATH,
     ApiKeyScope,
     AuditEntityType,
@@ -61,6 +62,13 @@ async def upload_document(
     storage: StorageProvider = Depends(get_storage_provider),
 ) -> DocumentRead:
     content = await file.read()
+
+    if len(content) > MAX_UPLOAD_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File size exceeds maximum allowed size of {MAX_UPLOAD_FILE_SIZE / (1024 * 1024):.0f} MB.",
+        )
+
     file_hash = compute_file_hash(content)
 
     duplicate = check_document_duplicate(
@@ -73,41 +81,45 @@ async def upload_document(
         )
 
     file_id = str(uuid4())
+    file_bytes = io.BytesIO(content)
     new_file = UploadFile(
         filename=file.filename,
-        file=io.BytesIO(content),
+        file=file_bytes,
         headers=file.headers,
     )
-    url = await storage.upload_file(file=new_file, file_id=file_id)
-
     try:
-        document = create_document(
-            session=session,
-            user_id=current_user.id,
-            type=doc_type,
-            url=url,
-            name=file.filename or file_id,
-            status=DocumentStatus.PENDING,
-            file_hash=file_hash,
-        )
-        session.commit()
-        session.refresh(document)
-    except IntegrityError as exc:
-        session.rollback()
-        with suppress(Exception):
-            await storage.delete_file(doc_url=url)
-        duplicate = check_document_duplicate(
-            session=session,
-            file_hash=file_hash,
-            user_id=current_user.id,
-        )
-        detail: dict[str, str] = {"message": "Document already exists."}
-        if duplicate is not None:
-            detail["document_id"] = str(duplicate.id)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=detail,
-        ) from exc
+        url = await storage.upload_file(file=new_file, file_id=file_id)
+
+        try:
+            document = create_document(
+                session=session,
+                user_id=current_user.id,
+                type=doc_type,
+                url=url,
+                name=file.filename or file_id,
+                status=DocumentStatus.PENDING,
+                file_hash=file_hash,
+            )
+            session.commit()
+            session.refresh(document)
+        except IntegrityError as exc:
+            session.rollback()
+            with suppress(Exception):
+                await storage.delete_file(doc_url=url)
+            duplicate = check_document_duplicate(
+                session=session,
+                file_hash=file_hash,
+                user_id=current_user.id,
+            )
+            detail: dict[str, str] = {"message": "Document already exists."}
+            if duplicate is not None:
+                detail["document_id"] = str(duplicate.id)
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=detail,
+            ) from exc
+    finally:
+        file_bytes.close()
     return DocumentRead.model_validate(document)
 
 
@@ -231,6 +243,7 @@ def link_document_to_receipt(
         )
     receipt.document_id = document_id
     session.add(receipt)
+    session.flush()
     audit_update(
         session=session,
         entity_type=AuditEntityType.RECEIPT,
@@ -294,6 +307,7 @@ def link_document_to_statement(
     tx_count = link_transactions_to_document(
         session=session,
         account_id=account.id,
+        user_id=current_user.id,
         date_start=data.statement_start,
         date_end=data.statement_end,
         document_id=document_id,
@@ -316,6 +330,7 @@ def link_document_to_statement(
 
     doc.status = new_status
     session.add(doc)
+    session.flush()
     audit_update(
         session=session,
         entity_type=AuditEntityType.IMPORT,
@@ -361,6 +376,7 @@ def reset_document(
 
     doc.status = DocumentStatus.PENDING
     session.add(doc)
+    session.flush()
     audit_update(
         session=session,
         entity_type=AuditEntityType.IMPORT,
