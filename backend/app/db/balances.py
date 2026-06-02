@@ -54,7 +54,9 @@ def upsert_balance(
 def get_balances_for_account(*, session: Session, account_id: UUID) -> list[Balance]:
     return list(
         session.exec(
-            select(Balance).where(Balance.account_id == account_id).order_by(col(Balance.recorded_at).asc())
+            select(Balance)
+            .where(Balance.account_id == account_id)
+            .order_by(col(Balance.recorded_at).asc())
         ).all()
     )
 
@@ -92,11 +94,7 @@ def get_balances_for_user(
     limit: int = 100,
 ) -> list[Balance]:
     """Return balances for all accounts owned by user, newest first."""
-    query = (
-        select(Balance)
-        .join(Account)
-        .where(Account.user_id == user_id)
-    )
+    query = select(Balance).join(Account).where(Account.user_id == user_id)
     if account_id is not None:
         query = query.where(Balance.account_id == account_id)
     query = query.order_by(col(Balance.recorded_at).desc()).offset(skip).limit(limit)

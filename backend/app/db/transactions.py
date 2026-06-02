@@ -109,11 +109,7 @@ def get_transactions_for_user(
     skip: int = 0,
     limit: int = 100,
 ) -> list[Transaction]:
-    query = (
-        select(Transaction)
-        .join(Account)
-        .where(Account.user_id == user_id)
-    )
+    query = select(Transaction).join(Account).where(Account.user_id == user_id)
     if filters.account_id is not None:
         query = query.where(Transaction.account_id == filters.account_id)
     if filters.start_date is not None:
