@@ -1,7 +1,7 @@
 from uuid import UUID
 
-from sqlalchemy import func
-from sqlmodel import Session, desc, select
+from sqlalchemy import and_, func
+from sqlmodel import Session, select
 
 from app.models.exchange_rate import ExchangeRate
 from app.schemas.exchange_rate import ExchangeRateCreate
@@ -38,11 +38,14 @@ def get_latest_rates(*, session: Session, user_id: UUID) -> list[ExchangeRate]:
     )
     return list(
         session.exec(
-            select(ExchangeRate).join(  # type: ignore[arg-type]
+            select(ExchangeRate)
+            .join(
                 latest_per_pair,
-                (ExchangeRate.base_currency == latest_per_pair.c.base_currency)
-                & (ExchangeRate.quote_currency == latest_per_pair.c.quote_currency)
-                & (ExchangeRate.recorded_at == latest_per_pair.c.max_at),
+                and_(
+                    ExchangeRate.base_currency == latest_per_pair.c.base_currency,  # type: ignore[arg-type]
+                    ExchangeRate.quote_currency == latest_per_pair.c.quote_currency,  # type: ignore[arg-type]
+                    ExchangeRate.recorded_at == latest_per_pair.c.max_at,  # type: ignore[arg-type]
+                ),
             )
             .where(ExchangeRate.user_id == user_id)
         ).all()
