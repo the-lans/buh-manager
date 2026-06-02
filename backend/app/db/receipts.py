@@ -185,6 +185,7 @@ def update_receipt(
     receipt: Receipt,
     data: ReceiptUpdate,
     counterparty_id: str | None = None,
+    update_counterparty: bool = False,
 ) -> Receipt:
     if "document_id" in data.model_fields_set:
         receipt.document_id = data.document_id
@@ -198,7 +199,7 @@ def update_receipt(
         receipt.fd = data.fd
     if data.fpd is not None:
         receipt.fpd = data.fpd
-    if counterparty_id is not None:
+    if update_counterparty:
         receipt.counterparty_id = counterparty_id
     session.add(receipt)
     session.flush()

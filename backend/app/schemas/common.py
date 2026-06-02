@@ -1,12 +1,4 @@
 from fastapi import Query
-from pydantic import BaseModel
-
-
-class PaginatedResponse[T](BaseModel):
-    items: list[T]
-    total: int
-    skip: int
-    limit: int
 
 
 class PaginationParams:
@@ -17,7 +9,3 @@ class PaginationParams:
     ) -> None:
         self.skip = skip
         self.limit = limit
-
-
-class ErrorDetail(BaseModel):
-    detail: str
