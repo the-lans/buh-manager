@@ -196,6 +196,133 @@ class TestUserIdValidationInTransactions:
         assert tx.document_id is None
 
 
+class TestLegacyReceiptsCompatibility:
+    """Tests for legacy receipts with user_id IS NULL."""
+
+    def test_legacy_receipt_appears_in_list(
+        self, session: Session, test_user: User
+    ) -> None:
+        """Legacy receipt (user_id NULL) linked via document appears in user's list."""
+        from app.db.documents import create_document
+        from app.models.receipt import Receipt
+
+        doc = create_document(
+            session=session,
+            user_id=test_user.id,
+            type=DocumentType.RECEIPT,
+            url="legacy.pdf",
+            name="legacy.pdf",
+            status=DocumentStatus.PENDING,
+            file_hash="legacy_hash",
+        )
+        session.flush()
+
+        legacy = Receipt(user_id=None, document_id=doc.id, paid_at="2020-01-01", total_amount=Decimal("50.00"))
+        session.add(legacy)
+        session.commit()
+
+        receipts = get_receipts_for_user(session=session, user_id=test_user.id)
+        assert any(r.id == legacy.id for r in receipts)
+
+    def test_legacy_receipt_not_visible_to_other_user(
+        self, session: Session, test_user: User, second_test_user: User
+    ) -> None:
+        """Legacy receipt owned via document is not visible to a different user."""
+        from app.db.documents import create_document
+        from app.models.receipt import Receipt
+
+        doc = create_document(
+            session=session,
+            user_id=test_user.id,
+            type=DocumentType.RECEIPT,
+            url="legacy2.pdf",
+            name="legacy2.pdf",
+            status=DocumentStatus.PENDING,
+            file_hash="legacy_hash2",
+        )
+        session.flush()
+
+        legacy = Receipt(user_id=None, document_id=doc.id, paid_at="2020-01-01", total_amount=Decimal("50.00"))
+        session.add(legacy)
+        session.commit()
+
+        receipts = get_receipts_for_user(session=session, user_id=second_test_user.id)
+        assert not any(r.id == legacy.id for r in receipts)
+
+    def test_legacy_receipt_fiscal_dedup_works(
+        self, session: Session, test_user: User
+    ) -> None:
+        """Fiscal deduplication finds legacy receipt (user_id NULL) via document owner."""
+        from app.db.documents import create_document
+        from app.db.receipts import get_receipt_by_fiscal
+        from app.models.receipt import Receipt
+
+        doc = create_document(
+            session=session,
+            user_id=test_user.id,
+            type=DocumentType.RECEIPT,
+            url="fiscal.pdf",
+            name="fiscal.pdf",
+            status=DocumentStatus.PENDING,
+            file_hash="fiscal_hash",
+        )
+        session.flush()
+
+        legacy = Receipt(
+            user_id=None,
+            document_id=doc.id,
+            paid_at="2020-01-01",
+            total_amount=Decimal("50.00"),
+            fn="1234567890",
+            fd="123456",
+            fpd="1234567890",
+        )
+        session.add(legacy)
+        session.commit()
+
+        found = get_receipt_by_fiscal(
+            session=session, fn="1234567890", fd="123456", fpd="1234567890", user_id=test_user.id
+        )
+        assert found is not None
+        assert found.id == legacy.id
+
+    def test_legacy_receipt_not_found_by_other_user_fiscal(
+        self, session: Session, test_user: User, second_test_user: User
+    ) -> None:
+        """Fiscal dedup does not find legacy receipt owned by a different user."""
+        from app.db.documents import create_document
+        from app.db.receipts import get_receipt_by_fiscal
+        from app.models.receipt import Receipt
+
+        doc = create_document(
+            session=session,
+            user_id=test_user.id,
+            type=DocumentType.RECEIPT,
+            url="fiscal2.pdf",
+            name="fiscal2.pdf",
+            status=DocumentStatus.PENDING,
+            file_hash="fiscal_hash2",
+        )
+        session.flush()
+
+        legacy = Receipt(
+            user_id=None,
+            document_id=doc.id,
+            paid_at="2020-01-01",
+            total_amount=Decimal("50.00"),
+            fn="9999999999",
+            fd="999999",
+            fpd="9999999999",
+        )
+        session.add(legacy)
+        session.commit()
+
+        found = get_receipt_by_fiscal(
+            session=session, fn="9999999999", fd="999999", fpd="9999999999", user_id=second_test_user.id
+        )
+        assert found is None
+
+
 class TestFileSizeValidation:
     """Tests for file size validation in upload_document."""
 
@@ -203,6 +330,35 @@ class TestFileSizeValidation:
         """Test that MAX_UPLOAD_FILE_SIZE constant is defined."""
         assert MAX_UPLOAD_FILE_SIZE > 0
         assert MAX_UPLOAD_FILE_SIZE == 100 * 1024 * 1024  # 100 MB
+
+    def test_read_with_size_limit_raises_on_excess(self) -> None:
+        """Test that _read_with_size_limit raises 413 before reading everything."""
+        import asyncio
+        from fastapi import UploadFile
+        from app.routers.documents import _read_with_size_limit
+
+        oversized = io.BytesIO(b"x" * 200)
+        upload = UploadFile(filename="big.bin", file=oversized)
+
+        with pytest.raises(Exception) as exc_info:
+            asyncio.get_event_loop().run_until_complete(
+                _read_with_size_limit(upload, max_size=100)
+            )
+        assert exc_info.value.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+
+    def test_read_with_size_limit_allows_within_limit(self) -> None:
+        """Test that _read_with_size_limit returns content when within limit."""
+        import asyncio
+        from fastapi import UploadFile
+        from app.routers.documents import _read_with_size_limit
+
+        content = b"hello world"
+        upload = UploadFile(filename="small.bin", file=io.BytesIO(content))
+
+        result = asyncio.get_event_loop().run_until_complete(
+            _read_with_size_limit(upload, max_size=1000)
+        )
+        assert result == content
 
 
 class TestReceiptItemTagsDeserialization:
