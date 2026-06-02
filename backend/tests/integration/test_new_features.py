@@ -6,14 +6,14 @@
 """
 
 import io
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
 from sqlmodel import Session
 
 from app.models.account import Account
-
+from app.models.transaction import Transaction
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ async def test_create_counterparty_with_payload(
     payload = {"адрес": "ул. Ленина 1", "сайт": "example.com"}
     resp = await client.post(
         "/api/v1/counterparties",
-        json=_cp(name="ООО Тест", payload=payload),
+        json=_cp(name="Counterparty Payload", payload=payload),
         headers=auth_headers,
     )
     assert resp.status_code == 201
@@ -74,7 +74,7 @@ async def test_counterparty_payload_null_by_default(
 ) -> None:
     resp = await client.post(
         "/api/v1/counterparties",
-        json=_cp(name="БезPayload"),
+        json=_cp(name="NoPayload"),
         headers=auth_headers,
     )
     assert resp.status_code == 201
@@ -111,14 +111,14 @@ async def test_update_counterparty_clears_payload(
 ) -> None:
     create_resp = await client.post(
         "/api/v1/counterparties",
-        json=_cp(name="СPayload", payload={"key": "value"}),
+        json=_cp(name="WithPayload", payload={"key": "value"}),
         headers=auth_headers,
     )
     cp_id = create_resp.json()["id"]
 
     update_resp = await client.put(
         f"/api/v1/counterparties/{cp_id}",
-        json={"name": "СPayload", "type": "STORE", "payload": None},
+        json={"name": "WithPayload", "type": "STORE", "payload": None},
         headers=auth_headers,
     )
     assert update_resp.status_code == 200
@@ -133,12 +133,12 @@ async def test_list_counterparties_includes_payload(
     payload = {"email": "info@test.ru"}
     await client.post(
         "/api/v1/counterparties",
-        json=_cp(name="СPayloadВСписке", payload=payload),
+        json=_cp(name="PayloadInList", payload=payload),
         headers=auth_headers,
     )
     resp = await client.get("/api/v1/counterparties", headers=auth_headers)
     assert resp.status_code == 200
-    item = next(c for c in resp.json() if c["name"] == "СPayloadВСписке")
+    item = next(c for c in resp.json() if c["name"] == "PayloadInList")
     assert item["payload"] == payload
 
 
@@ -300,7 +300,6 @@ async def test_transaction_list_includes_receipt_id_and_document_id(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
-    session: Session,
 ) -> None:
     tx_resp = await client.post(
         "/api/v1/transactions",
@@ -353,9 +352,6 @@ async def test_transaction_list_receipt_id_populated_after_linking(
     )
     receipt_id = receipt_resp.json()["id"]
 
-    # Link receipt to transaction directly via DB (reconciliation sets this)
-    from app.models.transaction import Transaction
-    from uuid import UUID
     tx = session.get(Transaction, UUID(tx_id))
     assert tx is not None
     tx.receipt_id = UUID(receipt_id)
