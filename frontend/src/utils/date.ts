@@ -18,12 +18,12 @@ export function formatMonthYear(ym: string): string {
   return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${y}`
 }
 
-export function monthDateRange(ym: string): { date_from: string; date_to: string } {
+export function monthDateRange(ym: string): { start_date: string; end_date: string } {
   const [y, m] = ym.split('-').map(Number)
   const lastDay = new Date(y, m, 0).getDate()
   return {
-    date_from: `${ym}-01T00:00:00`,
-    date_to: `${ym}-${String(lastDay).padStart(2, '0')}T23:59:59`,
+    start_date: `${ym}-01T00:00:00`,
+    end_date: `${ym}-${String(lastDay).padStart(2, '0')}T23:59:59`,
   }
 }
 

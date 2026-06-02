@@ -35,7 +35,7 @@ def create_account(*, session: Session, user_id: UUID, data: AccountCreate) -> A
         currency=data.currency,
     )
     session.add(account)
-    session.commit()
+    session.flush()
     session.refresh(account)
     return account
 
@@ -46,14 +46,14 @@ def update_account(
     account: Account,
     data: AccountUpdate,
 ) -> Account:
-    for field, value in data.model_dump(exclude_none=True).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(account, field, value)
     session.add(account)
-    session.commit()
+    session.flush()
     session.refresh(account)
     return account
 
 
 def delete_account(*, session: Session, account: Account) -> None:
     session.delete(account)
-    session.commit()
+    session.flush()

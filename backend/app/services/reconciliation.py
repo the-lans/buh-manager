@@ -25,6 +25,7 @@ from app.constants import (
     ChangedBy,
     ReconciledStatus,
 )
+from app.db.counterparties import list_counterparties
 from app.db.receipts import get_unmatched_receipts
 from app.db.reconciliation_reports import save_report
 from app.db.transactions import (
@@ -58,6 +59,7 @@ def _score_pair(
     tx: Transaction,
     receipt: Receipt,
     is_single_pair: bool,
+    counterparty_names: dict[str, str],
 ) -> int:
     score = 0
     time_diff = abs((tx.occurred_at - receipt.paid_at).total_seconds())
@@ -69,8 +71,10 @@ def _score_pair(
     elif time_diff < SCORE_TIME_UNDER_3D_MAX_SECONDS:
         score += SCORE_TIME_UNDER_3D
 
-    tx_name = tx.counterparty_id or ""
-    receipt_name = receipt.counterparty_id or ""
+    tx_name = counterparty_names.get(tx.counterparty_id or "", "") if tx.counterparty_id else ""
+    receipt_name = (
+        counterparty_names.get(receipt.counterparty_id or "", "") if receipt.counterparty_id else ""
+    )
     if tx_name and receipt_name:
         ratio = fuzz.token_set_ratio(tx_name, receipt_name)
         if ratio > FUZZY_HIGH_THRESHOLD:
@@ -101,6 +105,9 @@ def run_reconciliation(
         session=session, user_id=current_user.id
     )
     receipts = get_unmatched_receipts(session=session, user_id=current_user.id)
+
+    counterparties = list_counterparties(session=session, user_id=current_user.id)
+    counterparty_names: dict[str, str] = {cp.id: cp.name for cp in counterparties}
 
     # Partition by amount (absolute value for expenses)
     tx_buckets: dict[Decimal, list[Transaction]] = defaultdict(list)
@@ -226,7 +233,12 @@ def run_reconciliation(
         tx = txs_in_window[0]
         receipt = receipts_in_window[0]
 
-        score = _score_pair(tx=tx, receipt=receipt, is_single_pair=True)
+        score = _score_pair(
+            tx=tx,
+            receipt=receipt,
+            is_single_pair=True,
+            counterparty_names=counterparty_names,
+        )
         if score >= SCORE_THRESHOLD_AUTO:
             update_transaction_receipt_link(
                 session=session,

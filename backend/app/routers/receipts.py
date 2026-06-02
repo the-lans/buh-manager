@@ -1,3 +1,4 @@
+from typing import NoReturn
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -307,7 +308,7 @@ def _commit_receipt_document_change(*, session: Session) -> None:
         _raise_document_link_conflict(session=session, exc=exc)
 
 
-def _raise_document_link_conflict(*, session: Session, exc: IntegrityError) -> None:
+def _raise_document_link_conflict(*, session: Session, exc: IntegrityError) -> NoReturn:
     session.rollback()
     raise HTTPException(
         status_code=status.HTTP_409_CONFLICT,

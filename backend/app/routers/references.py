@@ -83,6 +83,7 @@ def create_account_endpoint(
     current_user: User = Depends(get_current_user),
 ) -> AccountRead:
     account = create_account(session=session, user_id=current_user.id, data=data)
+    session.commit()
     read = AccountRead.model_validate(account)
     read.has_balances = False
     return read
@@ -102,6 +103,7 @@ def update_account_endpoint(
     account = get_account_by_id(session=session, account_id=account_id, user_id=current_user.id)
     account = get_or_404(account, "Account not found.")
     account = update_account(session=session, account=account, data=data)
+    session.commit()
     read = AccountRead.model_validate(account)
     read.has_balances = has_balances_for_account(session=session, account_id=account.id)
     return read
@@ -120,6 +122,7 @@ def delete_account_endpoint(
     account = get_account_by_id(session=session, account_id=account_id, user_id=current_user.id)
     account = get_or_404(account, "Account not found.")
     delete_account(session=session, account=account)
+    session.commit()
 
 
 @router.post(
@@ -381,6 +384,7 @@ def create_exchange_rate_endpoint(
     current_user: User = Depends(get_current_user),
 ) -> ExchangeRateRead:
     rate = create_exchange_rate(session=session, user_id=current_user.id, data=data)
+    session.commit()
     return ExchangeRateRead.model_validate(rate)
 
 

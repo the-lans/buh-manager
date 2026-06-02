@@ -74,12 +74,14 @@ def get_or_create_counterparty(
         kpp=kpp,
     )
     try:
-        session.add(counterparty)
-        session.flush()
+        # Use SAVEPOINT so a conflict rolls back only this insert,
+        # leaving the outer transaction intact.
+        with session.begin_nested():
+            session.add(counterparty)
+            session.flush()
         session.refresh(counterparty)
         return counterparty
     except IntegrityError:
-        session.rollback()
         # Concurrent request won the race — look up the record it created.
         if inn is not None:
             existing = session.exec(

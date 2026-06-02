@@ -42,7 +42,7 @@ def update_expense_type(
     expense_type: ExpenseType,
     data: ExpenseTypeUpdate,
 ) -> ExpenseType:
-    for field, value in data.model_dump(exclude_none=True).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(expense_type, field, value)
     session.add(expense_type)
     session.flush()

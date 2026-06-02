@@ -6,16 +6,30 @@ export interface TransactionFilters {
   type?: string
   reconciled_status?: string
   import_status?: string
-  date_from?: string
-  date_to?: string
+  start_date?: string
+  end_date?: string
   skip?: number
   limit?: number
+}
+
+export interface TransactionCreatePayload {
+  account_id: string
+  occurred_at: string
+  amount: string
+  type: string
+  counterparty_name?: string | null
+  expense_type_id?: string | null
+  processed_at?: string | null
+  auth_code?: string | null
+  bank_category?: string | null
+  description?: string | null
+  balance_after?: string | null
 }
 
 export const transactionsApi = {
   list: (filters?: TransactionFilters) =>
     apiClient.get<Transaction[]>('/transactions', { params: filters }).then((r) => r.data),
-  create: (data: Partial<Transaction>) =>
+  create: (data: TransactionCreatePayload) =>
     apiClient.post<Transaction>('/transactions', data).then((r) => r.data),
   update: (id: string, data: Partial<Transaction>) =>
     apiClient.put<Transaction>(`/transactions/${id}`, data).then((r) => r.data),

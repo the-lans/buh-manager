@@ -24,9 +24,9 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export default function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState(currentYearMonth)
-  const { date_from, date_to } = monthDateRange(selectedMonth)
+  const { start_date, end_date } = monthDateRange(selectedMonth)
 
-  const { data: transactions = [] } = useTransactions({ date_from, date_to, limit: 500 })
+  const { data: transactions = [] } = useTransactions({ start_date, end_date, limit: 500 })
   const { data: accounts = [] } = useAccounts()
   const { data: report } = useReconciliationReport()
   const { data: balances = [] } = useBalances({ limit: 200 })
