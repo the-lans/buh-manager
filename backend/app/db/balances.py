@@ -3,7 +3,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import desc
-from sqlmodel import Session, func, select
+from sqlmodel import Session, col, func, select
 
 from app.models.account import Account
 from app.models.balance import Balance
@@ -75,7 +75,7 @@ def link_balances_to_document(
             .where(Balance.account_id == account_id)
             .where(Balance.recorded_at >= date_start)
             .where(Balance.recorded_at <= date_end)
-            .where(Balance.document_id == None)  # noqa: E711
+            .where(col(Balance.document_id).is_(None))
         ).all()
     )
     for bal in rows:

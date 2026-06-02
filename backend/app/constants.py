@@ -110,6 +110,7 @@ SCORE_SINGLE_PAIR_BONUS: int = 20
 MEDIA_PATH: str = "media"
 S3_ENDPOINT_URL: str = "https://storage.yandexcloud.net"
 MAX_UPLOAD_FILE_SIZE: int = 100 * 1024 * 1024
+UPLOAD_READ_CHUNK_SIZE: int = 1024 * 1024
 
 API_KEY_PREFIX: str = "bm_"
 API_KEY_RANDOM_BYTES: int = 32

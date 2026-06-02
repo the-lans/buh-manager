@@ -1,4 +1,5 @@
 from pathlib import Path
+from shutil import copyfileobj
 
 from fastapi import UploadFile
 
@@ -13,8 +14,9 @@ class LocalStorageProvider:
     async def upload_file(self, *, file: UploadFile, file_id: str) -> str:
         suffix = Path(file.filename or "file").suffix or ""
         dest = self._base_dir / f"{file_id}{suffix}"
-        content = await file.read()
-        dest.write_bytes(content)
+        await file.seek(0)
+        with dest.open("wb") as destination:
+            copyfileobj(file.file, destination)
         return f"/{MEDIA_PATH}/{file_id}{suffix}"
 
     async def delete_file(self, *, doc_url: str) -> None:

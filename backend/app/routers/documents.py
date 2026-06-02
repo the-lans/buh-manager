@@ -2,6 +2,7 @@ import io
 import mimetypes
 from contextlib import suppress
 from pathlib import Path
+from tempfile import SpooledTemporaryFile
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, status
@@ -12,6 +13,7 @@ from sqlmodel import Session
 from app.constants import (
     MAX_UPLOAD_FILE_SIZE,
     MEDIA_PATH,
+    UPLOAD_READ_CHUNK_SIZE,
     ApiKeyScope,
     AuditEntityType,
     ChangedBy,
@@ -47,22 +49,29 @@ from storage.base import StorageProvider
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-_CHUNK_SIZE = 64 * 1024  # 64 KB
 
-
-async def _read_with_size_limit(file: UploadFile, max_size: int) -> bytes:
-    buf = bytearray()
-    while True:
-        chunk = await file.read(_CHUNK_SIZE)
-        if not chunk:
-            break
-        buf.extend(chunk)
-        if len(buf) > max_size:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"File size exceeds maximum allowed size of {max_size // (1024 * 1024)} MB.",
-            )
-    return bytes(buf)
+async def _read_with_size_limit(*, file: UploadFile, max_size: int) -> bytes:
+    total_size = 0
+    buffer = SpooledTemporaryFile(max_size=max_size)
+    try:
+        while True:
+            chunk = await file.read(UPLOAD_READ_CHUNK_SIZE)
+            if not chunk:
+                break
+            total_size += len(chunk)
+            if total_size > max_size:
+                raise HTTPException(
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                    detail=(
+                        "File size exceeds maximum allowed size of "
+                        f"{max_size // (1024 * 1024)} MB."
+                    ),
+                )
+            buffer.write(chunk)
+        buffer.seek(0)
+        return buffer.read()
+    finally:
+        buffer.close()
 
 
 @router.post(
@@ -78,7 +87,7 @@ async def upload_document(
     current_user: User = Depends(get_current_user),
     storage: StorageProvider = Depends(get_storage_provider),
 ) -> DocumentRead:
-    content = await _read_with_size_limit(file, MAX_UPLOAD_FILE_SIZE)
+    content = await _read_with_size_limit(file=file, max_size=MAX_UPLOAD_FILE_SIZE)
 
     file_hash = compute_file_hash(content)
 
@@ -115,7 +124,7 @@ async def upload_document(
             session.refresh(document)
         except IntegrityError as exc:
             session.rollback()
-            with suppress(Exception):
+            with suppress(RuntimeError):
                 await storage.delete_file(doc_url=url)
             duplicate = check_document_duplicate(
                 session=session,

@@ -4,6 +4,7 @@ from typing import cast
 from urllib.parse import urlparse
 
 import boto3
+from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import UploadFile
 
 from app.config import settings
@@ -24,15 +25,15 @@ class YandexS3Provider:
     async def upload_file(self, *, file: UploadFile, file_id: str) -> str:
         suffix = Path(file.filename or "file").suffix or ""
         filename = f"{file_id}{suffix}"
-        content = await file.read()
+        await file.seek(0)
         try:
             self._client.put_object(
                 Bucket=self._bucket,
                 Key=filename,
-                Body=content,
+                Body=file.file,
                 ContentType=file.content_type or "application/octet-stream",
             )
-        except Exception as exc:
+        except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"S3 upload failed: {exc}") from exc
         return f"https://{self._bucket}.storage.yandexcloud.net/{filename}"
 
@@ -40,7 +41,7 @@ class YandexS3Provider:
         key = Path(urlparse(doc_url).path).name
         try:
             self._client.delete_object(Bucket=self._bucket, Key=key)
-        except Exception as exc:
+        except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"S3 delete failed: {exc}") from exc
 
     def get_download_url(
@@ -69,5 +70,5 @@ class YandexS3Provider:
                     ExpiresIn=expires_in,
                 ),
             )
-        except Exception as exc:
+        except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"S3 presign failed: {exc}") from exc
