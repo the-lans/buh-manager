@@ -173,8 +173,9 @@ def update_receipt_endpoint(
     before = {"total_amount": str(receipt.total_amount), "paid_at": str(receipt.paid_at)}
     old_doc_id = receipt.document_id
 
+    update_counterparty = "counterparty_id" in data.model_fields_set
     resolved_counterparty_id: str | None = None
-    if data.counterparty_id is not None:
+    if update_counterparty and data.counterparty_id is not None:
         cp = get_counterparty_by_id(
             session=session,
             counterparty_id=data.counterparty_id,
@@ -221,7 +222,11 @@ def update_receipt_endpoint(
 
     try:
         receipt = update_receipt(
-            session=session, receipt=receipt, data=data, counterparty_id=resolved_counterparty_id
+            session=session,
+            receipt=receipt,
+            data=data,
+            counterparty_id=resolved_counterparty_id,
+            update_counterparty=update_counterparty,
         )
     except IntegrityError as exc:
         _raise_document_link_conflict(session=session, exc=exc)

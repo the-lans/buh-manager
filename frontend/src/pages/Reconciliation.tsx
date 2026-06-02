@@ -1,7 +1,9 @@
+import { useState } from 'react'
+
 import {
+  useIgnoreTransaction,
   useReconciliationReport,
   useRunReconciliation,
-  useIgnoreTransaction,
 } from '../hooks/useReconciliation'
 import { formatDate } from '../utils/date'
 import { DataTable } from '../components/DataTable'
@@ -10,6 +12,7 @@ export default function Reconciliation() {
   const { data: report } = useReconciliationReport()
   const runRecon = useRunReconciliation()
   const ignoreTx = useIgnoreTransaction()
+  const [ignoreError, setIgnoreError] = useState<string | null>(null)
 
   return (
     <div className="space-y-6">
@@ -51,8 +54,16 @@ export default function Reconciliation() {
                     </td>
                     <td className="px-4 py-2">
                       <button
-                        onClick={() => ignoreTx.mutate(item.transaction_id)}
-                        className="text-xs text-gray-500 hover:underline"
+                        onClick={() =>
+                          ignoreTx.mutateAsync(item.transaction_id).catch((e: unknown) => {
+                            const detail =
+                              (e as { response?: { data?: { detail?: string } } })?.response?.data
+                                ?.detail
+                            setIgnoreError(detail ?? 'Не удалось игнорировать транзакцию.')
+                          })
+                        }
+                        disabled={ignoreTx.isPending}
+                        className="text-xs text-gray-500 hover:underline disabled:opacity-50"
                       >
                         Игнорировать
                       </button>
@@ -100,6 +111,13 @@ export default function Reconciliation() {
             </section>
           )}
         </>
+      )}
+
+      {ignoreError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 flex items-center justify-between text-sm text-red-700">
+          {ignoreError}
+          <button onClick={() => setIgnoreError(null)} className="ml-3 text-red-400 hover:text-red-600">✕</button>
+        </div>
       )}
 
       {!report && !runRecon.isPending && (
