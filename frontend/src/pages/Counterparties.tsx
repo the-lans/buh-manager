@@ -37,6 +37,7 @@ export default function Counterparties() {
   const [error, setError] = useState<string | null>(null)
   const [payloadError, setPayloadError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   function openCreate() {
     setForm(EMPTY_FORM)
@@ -135,19 +136,39 @@ export default function Counterparties() {
               >
                 Изменить
               </button>
-              <button
-                onClick={async () => {
-                  setDeleteError(null)
-                  try {
-                    await remove.mutateAsync(cp.id)
-                  } catch (e: unknown) {
-                    setDeleteError(extractApiError(e))
-                  }
-                }}
-                className="text-xs text-red-500 hover:underline"
-              >
-                Удалить
-              </button>
+              {confirmDeleteId === cp.id ? (
+                <span className="inline-flex items-center gap-2 text-xs">
+                  <span className="text-gray-600">Удалить?</span>
+                  <button
+                    onClick={async () => {
+                      setDeleteError(null)
+                      try {
+                        await remove.mutateAsync(cp.id)
+                      } catch (e: unknown) {
+                        setDeleteError(extractApiError(e))
+                      } finally {
+                        setConfirmDeleteId(null)
+                      }
+                    }}
+                    className="text-red-500 hover:underline"
+                  >
+                    Да
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="text-gray-500 hover:underline"
+                  >
+                    Нет
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => { setDeleteError(null); setConfirmDeleteId(cp.id) }}
+                  className="text-xs text-red-500 hover:underline"
+                >
+                  Удалить
+                </button>
+              )}
             </td>
           </tr>
         ))}

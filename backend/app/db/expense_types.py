@@ -28,6 +28,7 @@ def create_expense_type(*, session: Session, user_id: UUID, data: ExpenseTypeCre
         id=scope_user_id(user_id=user_id, public_id=data.id),
         user_id=user_id,
         name=data.name,
+        description=data.description,
         receipt_required=data.receipt_required,
     )
     session.add(expense_type)

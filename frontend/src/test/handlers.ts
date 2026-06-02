@@ -80,7 +80,7 @@ export const handlers = [
   http.delete('/api/v1/transactions/:id', () => new HttpResponse(null, { status: 204 })),
 
   http.get('/api/v1/expense-types', () =>
-    HttpResponse.json<ExpenseType[]>([{ id: 'food', name: 'Питание', receipt_required: true }]),
+    HttpResponse.json<ExpenseType[]>([{ id: 'food', name: 'Питание', description: null, receipt_required: true }]),
   ),
 
   http.get('/api/v1/reconciliation/report', () =>
