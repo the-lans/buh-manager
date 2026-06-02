@@ -69,17 +69,27 @@ export default function Documents() {
   const { data: receiptList = [] } = useReceipts({ limit: 500, enabled: processModalOpen && processDoc?.type === 'RECEIPT' })
   const { data: accounts = [] } = useAccountsLazy(processModalOpen && processDoc?.type === 'BANK_STATEMENT')
 
+  const [fileError, setFileError] = useState<string | null>(null)
+
   const handleOpen = useCallback(async (id: string) => {
-    const url = await documentsApi.getOpenUrl(id)
-    window.open(url, '_blank')
+    try {
+      const url = await documentsApi.getOpenUrl(id)
+      window.open(url, '_blank')
+    } catch {
+      setFileError('Не удалось открыть файл.')
+    }
   }, [])
 
   const handleDownload = useCallback(async (id: string, name: string) => {
-    const url = await documentsApi.getDownloadUrl(id)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = name
-    a.click()
+    try {
+      const url = await documentsApi.getDownloadUrl(id)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = name
+      a.click()
+    } catch {
+      setFileError('Не удалось скачать файл.')
+    }
   }, [])
 
   async function handleUpload() {
@@ -265,6 +275,12 @@ export default function Documents() {
           Вперёд →
         </button>
       </div>
+
+      {fileError && (
+        <p className="text-sm text-red-500">{fileError}
+          <button onClick={() => setFileError(null)} className="ml-2 underline text-xs">Закрыть</button>
+        </p>
+      )}
 
       <DocumentDetailModal
         documentId={selectedDocId}

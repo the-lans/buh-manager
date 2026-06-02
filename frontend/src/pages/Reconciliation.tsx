@@ -63,6 +63,27 @@ export default function Reconciliation() {
             </section>
           )}
 
+          {report.unmatched_receipts.length > 0 && (
+            <section>
+              <h2 className="text-base font-medium text-gray-700 mb-2">Чеки без транзакции</h2>
+              <DataTable
+                columns={[
+                  { label: 'Дата' },
+                  { label: 'Сумма', align: 'right' },
+                ]}
+              >
+                {report.unmatched_receipts.map((item) => (
+                  <tr key={item.receipt_id}>
+                    <td className="px-4 py-2 text-gray-600">{formatDate(item.paid_at)}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-gray-900 font-medium">
+                      {Number(item.total_amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+                    </td>
+                  </tr>
+                ))}
+              </DataTable>
+            </section>
+          )}
+
           {report.collisions.length > 0 && (
             <section>
               <h2 className="text-base font-medium text-gray-700 mb-2">Коллизии</h2>
