@@ -31,7 +31,7 @@ def create_expense_type(*, session: Session, user_id: UUID, data: ExpenseTypeCre
         receipt_required=data.receipt_required,
     )
     session.add(expense_type)
-    session.commit()
+    session.flush()
     session.refresh(expense_type)
     return expense_type
 
@@ -45,11 +45,11 @@ def update_expense_type(
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(expense_type, field, value)
     session.add(expense_type)
-    session.commit()
+    session.flush()
     session.refresh(expense_type)
     return expense_type
 
 
 def delete_expense_type(*, session: Session, expense_type: ExpenseType) -> None:
     session.delete(expense_type)
-    session.commit()
+    session.flush()

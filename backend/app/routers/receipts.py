@@ -172,19 +172,19 @@ def update_receipt_endpoint(
     before = {"total_amount": str(receipt.total_amount), "paid_at": str(receipt.paid_at)}
     old_doc_id = receipt.document_id
 
-    if (
-        data.counterparty_id is not None
-        and get_counterparty_by_id(
+    resolved_counterparty_id: str | None = None
+    if data.counterparty_id is not None:
+        cp = get_counterparty_by_id(
             session=session,
             counterparty_id=data.counterparty_id,
             user_id=current_user.id,
         )
-        is None
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Counterparty not found.",
-        )
+        if cp is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Counterparty not found.",
+            )
+        resolved_counterparty_id = cp.id
 
     new_doc = None
     if (
@@ -220,7 +220,7 @@ def update_receipt_endpoint(
 
     try:
         receipt = update_receipt(
-            session=session, receipt=receipt, data=data, counterparty_id=data.counterparty_id
+            session=session, receipt=receipt, data=data, counterparty_id=resolved_counterparty_id
         )
     except IntegrityError as exc:
         _raise_document_link_conflict(session=session, exc=exc)
