@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from datetime import timedelta
-from decimal import Decimal  # noqa: TC003
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from rapidfuzz import fuzz
-from sqlmodel import Session
 
 from app.constants import (
     FUZZY_HIGH_THRESHOLD,
@@ -30,9 +31,6 @@ from app.db.transactions import (
     get_unmatched_transactions_requiring_receipt,
     update_transaction_receipt_link,
 )
-from app.models.receipt import Receipt
-from app.models.transaction import Transaction
-from app.models.user import User
 from app.schemas.reconciliation import (
     CollisionGroup,
     CollisionReceiptItem,
@@ -44,6 +42,15 @@ from app.schemas.reconciliation import (
 )
 from app.services.audit import audit_match
 from app.utils.dt import utcnow
+
+if TYPE_CHECKING:
+    from decimal import Decimal
+
+    from sqlmodel import Session
+
+    from app.models.receipt import Receipt
+    from app.models.transaction import Transaction
+    from app.models.user import User
 
 
 def _score_pair(
