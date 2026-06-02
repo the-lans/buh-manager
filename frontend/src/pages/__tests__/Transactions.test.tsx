@@ -164,4 +164,35 @@ describe('Transactions page', () => {
     // The transaction has amount -1500.00 — it should be pre-filled
     expect(screen.getByDisplayValue('-1500.00')).toBeInTheDocument()
   })
+
+  it('sends counterparty_name (not counterparty_id) when creating a transaction', async () => {
+    let capturedBody: Record<string, unknown> | null = null
+    server.use(
+      http.post('/api/v1/transactions', async (info) => {
+        capturedBody = (await info.request.json()) as Record<string, unknown>
+        return HttpResponse.json({ id: 'tx-new', ...capturedBody }, { status: 201 })
+      }),
+    )
+
+    renderWithProviders(<Transactions />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: '+ Добавить' }))
+    await waitFor(() => expect(screen.getByText('Новая транзакция')).toBeInTheDocument())
+
+    // Wait for counterparty to be loaded and select it
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Магазин Тест' })).toBeInTheDocument())
+    const counterpartySelect = Array.from(
+      document.querySelectorAll<HTMLSelectElement>('select'),
+    ).find((s) => Array.from(s.options).some((o) => o.text === 'Магазин Тест'))!
+    await user.selectOptions(counterpartySelect, 'cp-1')
+
+    // Fill required amount field
+    await user.type(screen.getByPlaceholderText('Сумма'), '500')
+
+    await user.click(screen.getByRole('button', { name: 'Создать' }))
+    await waitFor(() => expect(capturedBody).not.toBeNull())
+    expect(capturedBody!.counterparty_name).toBe('Магазин Тест')
+    expect(capturedBody!.counterparty_id).toBeUndefined()
+  })
 })

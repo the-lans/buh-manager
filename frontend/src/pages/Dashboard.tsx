@@ -67,21 +67,21 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setSelectedMonth((m) => prevMonth(m))}
-          className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm leading-none"
+          className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm leading-none shrink-0"
           aria-label="Предыдущий месяц"
         >
           ←
         </button>
-        <h1 className="text-2xl font-semibold text-gray-900 min-w-44 text-center">
+        <h1 className="text-xl font-semibold text-gray-900 flex-1 text-center whitespace-nowrap">
           {formatMonthYear(selectedMonth)}
         </h1>
         <button
           onClick={() => setSelectedMonth((m) => nextMonth(m))}
           disabled={!canGoNext}
-          className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm leading-none disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm leading-none disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
           aria-label="Следующий месяц"
         >
           →
