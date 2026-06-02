@@ -2,7 +2,8 @@
 - payload field on Counterparty
 - payload field on Document (PUT /documents/{id})
 - document_id filter on GET /receipts
-- receipt_id and document_id fields in TransactionListItem
+- receipt_id, document_id and expense_type_id fields in TransactionListItem
+- description field on ExpenseType
 """
 
 import io
@@ -18,11 +19,11 @@ from app.models.transaction import Transaction
 # ── helpers ────────────────────────────────────────────────────────────────────
 
 
-def _cp(name: str = "Тест Магазин", **kwargs: object) -> dict:
+def _cp(name: str = "Тест Магазин", **kwargs: object) -> dict[str, object]:
     return {"name": name, "type": "STORE", **kwargs}
 
 
-def _receipt_payload(total: float = 99.0) -> dict:
+def _receipt_payload(total: float = 99.0) -> dict[str, object]:
     return {
         "paid_at": "2024-05-01T10:00:00",
         "total_amount": total,
@@ -35,7 +36,7 @@ def _receipt_payload(total: float = 99.0) -> dict:
 
 async def _upload_doc(
     client: AsyncClient,
-    headers: dict,
+    headers: dict[str, str],
     doc_type: str = "RECEIPT",
 ) -> str:
     resp = await client.post(
@@ -323,8 +324,10 @@ async def test_transaction_list_includes_receipt_id_and_document_id(
     assert len(items) == 1
     assert "receipt_id" in items[0]
     assert "document_id" in items[0]
+    assert "expense_type_id" in items[0]
     assert items[0]["receipt_id"] is None
     assert items[0]["document_id"] is None
+    assert items[0]["expense_type_id"] is None
 
 
 @pytest.mark.asyncio
@@ -366,3 +369,90 @@ async def test_transaction_list_receipt_id_populated_after_linking(
     assert list_resp.status_code == 200
     item = next(t for t in list_resp.json() if t["id"] == tx_id)
     assert item["receipt_id"] == receipt_id
+
+
+# ── ExpenseType description field ─────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "description,expected",
+    [
+        ("Расходы на продукты питания", "Расходы на продукты питания"),
+        (None, None),
+    ],
+)
+async def test_create_expense_type_description(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    description: str | None,
+    expected: str | None,
+) -> None:
+    resp = await client.post(
+        "/api/v1/expense-types",
+        json={"id": f"et-desc-{uuid4().hex[:6]}", "name": "Тест", "description": description},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["description"] == expected
+
+
+@pytest.mark.asyncio
+async def test_update_expense_type_description(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/expense-types",
+        json={"id": f"et-upd-{uuid4().hex[:6]}", "name": "Без описания"},
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    et_id = create_resp.json()["id"]
+
+    update_resp = await client.put(
+        f"/api/v1/expense-types/{et_id}",
+        json={"description": "Новое описание"},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["description"] == "Новое описание"
+
+
+@pytest.mark.asyncio
+async def test_update_expense_type_description_clears_to_null(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/expense-types",
+        json={"id": f"et-clr-{uuid4().hex[:6]}", "name": "Тип для очистки", "description": "Было"},
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    et_id = create_resp.json()["id"]
+
+    update_resp = await client.put(
+        f"/api/v1/expense-types/{et_id}",
+        json={"description": None},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["description"] is None
+
+
+@pytest.mark.asyncio
+async def test_list_expense_types_includes_description(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    desc = "Описание для списка"
+    await client.post(
+        "/api/v1/expense-types",
+        json={"id": f"et-lst-{uuid4().hex[:6]}", "name": "Листинг", "description": desc},
+        headers=auth_headers,
+    )
+    resp = await client.get("/api/v1/expense-types", headers=auth_headers)
+    assert resp.status_code == 200
+    item = next(t for t in resp.json() if t["name"] == "Листинг")
+    assert item["description"] == desc

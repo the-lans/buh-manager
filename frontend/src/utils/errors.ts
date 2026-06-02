@@ -1,7 +1,3 @@
-/**
- * Extract a human-readable error message from an Axios-style error response.
- * Falls back to a generic message when the response shape is unrecognised.
- */
 export function extractApiError(e: unknown, fallback = 'Произошла ошибка'): string {
   if (e && typeof e === 'object' && 'response' in e) {
     const detail = (e as { response?: { data?: { detail?: unknown } } }).response?.data?.detail
