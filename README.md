@@ -357,7 +357,7 @@ sudo systemctl stop buh-manager
 | Метод | Путь | Описание |
 |-------|------|----------|
 | `POST` | `/receipts` | Создать чек с позициями; дедупликация по фискальным данным ФН+ФД+ФПД |
-| `GET` | `/receipts` | Список чеков текущего пользователя; сортировка по дате (новые сверху); пагинация |
+| `GET` | `/receipts` | Список чеков текущего пользователя; сортировка по дате (новые сверху); пагинация; фильтр `?document_id=` |
 | `GET` | `/receipts/{id}` | Получить чек по ID |
 | `PUT` | `/receipts/{id}` | Обновить чек и его позиции |
 | `DELETE` | `/receipts/{id}` | Удалить чек (нельзя удалить, если привязан к транзакции) |
@@ -372,9 +372,9 @@ sudo systemctl stop buh-manager
 
 | Метод | Путь | Описание |
 |-------|------|----------|
-| `GET` | `/transactions` | Список транзакций; фильтры по счёту, дате, типу, статусу сверки (`reconciled_status`), статусу импорта (`import_status`) |
+| `GET` | `/transactions` | Список транзакций; фильтры по счёту, дате, типу, статусу сверки (`reconciled_status`), статусу импорта (`import_status`); ответ включает `receipt_id`, `document_id`, `expense_type_id` |
 | `POST` | `/transactions` | Создать транзакцию вручную |
-| `PUT` | `/transactions/{id}` | Обновить транзакцию |
+| `PUT` | `/transactions/{id}` | Обновить транзакцию; поддерживает ручное изменение `reconciled_status` (например, `IGNORED_BY_USER`) |
 | `DELETE` | `/transactions/{id}` | Удалить транзакцию |
 
 ### 🔄 Сверка
@@ -410,10 +410,10 @@ sudo systemctl stop buh-manager
 | `PUT/DELETE` | `/accounts/{id}` | Обновить / удалить счёт |
 | `POST` | `/accounts/{id}/initialize-balance` | Установить начальный баланс вручную (для банков без остатков в выписке) |
 | `GET` | `/balances` | История подтверждённых остатков по счетам; фильтр по `?account_id=`; новые сверху |
-| `GET/POST` | `/expense-types` | Список / создать тип расходов |
-| `PUT/DELETE` | `/expense-types/{id}` | Обновить / удалить тип расходов |
-| `GET/POST` | `/counterparties` | Список / создать контрагента |
-| `PUT/DELETE` | `/counterparties/{id}` | Обновить / удалить контрагента (нельзя удалить, если привязан к чекам или транзакциям — 409) |
+| `GET/POST` | `/expense-types` | Список / создать тип расходов; поддерживает необязательное поле `description` |
+| `PUT/DELETE` | `/expense-types/{id}` | Обновить (в т.ч. `description`) / удалить тип расходов |
+| `GET/POST` | `/counterparties` | Список / создать контрагента; поддерживает произвольное поле `payload` (JSON) |
+| `PUT/DELETE` | `/counterparties/{id}` | Обновить (в т.ч. `payload`) / удалить контрагента (нельзя удалить, если привязан к чекам или транзакциям — 409) |
 | `POST` | `/exchange-rates` | Добавить курс валюты |
 | `GET` | `/exchange-rates/latest` | Последние курсы по каждой валютной паре |
 
