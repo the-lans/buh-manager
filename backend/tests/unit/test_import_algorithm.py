@@ -37,12 +37,14 @@ def _tx(
     occurred_at: datetime,
     amount: Decimal,
     balance_after: Decimal | None = None,
+    expense_type_id: str | None = None,
 ) -> BankStatementTransactionIn:
     return BankStatementTransactionIn(
         occurred_at=occurred_at,
         amount=amount,
         type="DEBIT",
         balance_after=balance_after,
+        expense_type_id=expense_type_id,
     )
 
 
@@ -66,11 +68,11 @@ def _create_document(session: Session, user_id: object) -> Document:
 # ── (a) All new → IMPORTED ───────────────────────────────────────────────────
 
 
-def test_import_all_new(session: Session, test_user: User, test_account: Account) -> None:
+def test_import_all_new(session: Session, test_user: User, test_account: Account, test_expense_type_id: str) -> None:
     doc = _create_document(session, test_user.id)
     txs = [
-        _tx(datetime(2024, 1, 5), Decimal("-100"), Decimal("900")),
-        _tx(datetime(2024, 1, 6), Decimal("-200"), Decimal("700")),
+        _tx(datetime(2024, 1, 5), Decimal("-100"), Decimal("900"), expense_type_id=test_expense_type_id),
+        _tx(datetime(2024, 1, 6), Decimal("-200"), Decimal("700"), expense_type_id=test_expense_type_id),
     ]
     stmt = _make_statement(test_account.id, doc.id, txs, Decimal("1000"), Decimal("700"))
     report = import_bank_statement(session=session, statement=stmt, current_user=test_user)
@@ -84,9 +86,9 @@ def test_import_all_new(session: Session, test_user: User, test_account: Account
 # ── (b) Exact duplicate → DUPLICATE_SKIPPED ──────────────────────────────────
 
 
-def test_import_duplicate_skipped(session: Session, test_user: User, test_account: Account) -> None:
+def test_import_duplicate_skipped(session: Session, test_user: User, test_account: Account, test_expense_type_id: str) -> None:
     doc = _create_document(session, test_user.id)
-    txs = [_tx(datetime(2024, 1, 5), Decimal("-100"), Decimal("900"))]
+    txs = [_tx(datetime(2024, 1, 5), Decimal("-100"), Decimal("900"), expense_type_id=test_expense_type_id)]
     stmt = _make_statement(test_account.id, doc.id, txs)
 
     import_bank_statement(session=session, statement=stmt, current_user=test_user)
@@ -101,18 +103,18 @@ def test_import_duplicate_skipped(session: Session, test_user: User, test_accoun
 # ── (c) Same key + different amount → CONFLICT ───────────────────────────────
 
 
-def test_import_conflict_detected(session: Session, test_user: User, test_account: Account) -> None:
+def test_import_conflict_detected(session: Session, test_user: User, test_account: Account, test_expense_type_id: str) -> None:
     doc = _create_document(session, test_user.id)
     occurred = datetime(2024, 1, 5)
 
     stmt1 = _make_statement(
-        test_account.id, doc.id, [_tx(occurred, Decimal("-100"), Decimal("900"))]
+        test_account.id, doc.id, [_tx(occurred, Decimal("-100"), Decimal("900"), expense_type_id=test_expense_type_id)]
     )
     import_bank_statement(session=session, statement=stmt1, current_user=test_user)
 
     doc2 = _create_document(session, test_user.id)
     stmt2 = _make_statement(
-        test_account.id, doc2.id, [_tx(occurred, Decimal("-150"), Decimal("900"))]
+        test_account.id, doc2.id, [_tx(occurred, Decimal("-150"), Decimal("900"), expense_type_id=test_expense_type_id)]
     )
     report = import_bank_statement(session=session, statement=stmt2, current_user=test_user)
 
@@ -124,7 +126,7 @@ def test_import_conflict_detected(session: Session, test_user: User, test_accoun
 # ── (d) Mixed batch ───────────────────────────────────────────────────────────
 
 
-def test_import_mixed_batch(session: Session, test_user: User, test_account: Account) -> None:
+def test_import_mixed_batch(session: Session, test_user: User, test_account: Account, test_expense_type_id: str) -> None:
     doc = _create_document(session, test_user.id)
     occurred_dup = datetime(2024, 1, 5)
     occurred_new = datetime(2024, 1, 10)
@@ -132,7 +134,7 @@ def test_import_mixed_batch(session: Session, test_user: User, test_account: Acc
     stmt1 = _make_statement(
         test_account.id,
         doc.id,
-        [_tx(occurred_dup, Decimal("-100"), Decimal("900"))],
+        [_tx(occurred_dup, Decimal("-100"), Decimal("900"), expense_type_id=test_expense_type_id)],
     )
     import_bank_statement(session=session, statement=stmt1, current_user=test_user)
 
@@ -141,8 +143,8 @@ def test_import_mixed_batch(session: Session, test_user: User, test_account: Acc
         test_account.id,
         doc2.id,
         [
-            _tx(occurred_dup, Decimal("-100"), Decimal("900")),  # duplicate
-            _tx(occurred_new, Decimal("-200"), Decimal("700")),  # new
+            _tx(occurred_dup, Decimal("-100"), Decimal("900"), expense_type_id=test_expense_type_id),  # duplicate
+            _tx(occurred_new, Decimal("-200"), Decimal("700"), expense_type_id=test_expense_type_id),  # new
         ],
     )
     report = import_bank_statement(session=session, statement=stmt2, current_user=test_user)

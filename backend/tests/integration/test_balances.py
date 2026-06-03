@@ -23,6 +23,7 @@ async def _import_statement(
     headers: dict,
     account_id: str,
     doc_id: str,
+    expense_type_id: str,
     *,
     opening: float = 1000.0,
     closing: float = 900.0,
@@ -34,7 +35,7 @@ async def _import_statement(
         "statement_end": "2024-04-30T23:59:59",
         "opening_balance": opening,
         "closing_balance": closing,
-        "transactions": [{"occurred_at": "2024-04-10T10:00:00", "amount": -100.0, "type": "DEBIT"}],
+        "transactions": [{"occurred_at": "2024-04-10T10:00:00", "amount": -100.0, "type": "DEBIT", "expense_type_id": expense_type_id}],
     }
     resp = await client.post("/api/v1/bank-statements", json=payload, headers=headers)
     assert resp.status_code == 200
@@ -55,9 +56,10 @@ async def test_list_balances_after_import(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     doc_id = await _create_stmt_doc(client, auth_headers)
-    await _import_statement(client, auth_headers, str(test_account.id), doc_id)
+    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
 
     resp = await client.get("/api/v1/balances", headers=auth_headers)
     assert resp.status_code == 200
@@ -72,9 +74,10 @@ async def test_list_balances_filter_by_account(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     doc_id = await _create_stmt_doc(client, auth_headers)
-    await _import_statement(client, auth_headers, str(test_account.id), doc_id)
+    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
 
     # Create second account with no balances
     acc2_resp = await client.post(
@@ -109,9 +112,10 @@ async def test_list_balances_other_user_empty(
     auth_headers: dict[str, str],
     second_auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     doc_id = await _create_stmt_doc(client, auth_headers)
-    await _import_statement(client, auth_headers, str(test_account.id), doc_id)
+    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
 
     resp = await client.get("/api/v1/balances", headers=second_auth_headers)
     assert resp.status_code == 200

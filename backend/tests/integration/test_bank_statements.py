@@ -29,10 +29,12 @@ def _stmt_payload(
     }
 
 
-def _tx(occurred: str, amount: float, balance_after: float | None = None) -> dict:
+def _tx(occurred: str, amount: float, balance_after: float | None = None, expense_type_id: str | None = None) -> dict:
     d: dict = {"occurred_at": occurred, "amount": amount, "type": "DEBIT"}
     if balance_after is not None:
         d["balance_after"] = balance_after
+    if expense_type_id is not None:
+        d["expense_type_id"] = expense_type_id
     return d
 
 
@@ -55,13 +57,14 @@ async def test_import_clean(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
     session: Session,
 ) -> None:
     doc_id = await _create_doc(client, auth_headers)
     payload = _stmt_payload(
         str(test_account.id),
         doc_id,
-        [_tx("2024-01-05T10:00:00", -100.0, 900.0)],
+        [_tx("2024-01-05T10:00:00", -100.0, 900.0, expense_type_id=test_expense_type_id)],
         opening=1000.0,
         closing=900.0,
     )
@@ -83,12 +86,13 @@ async def test_import_rejects_processed_document(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     doc_id = await _create_doc(client, auth_headers)
     payload = _stmt_payload(
         str(test_account.id),
         doc_id,
-        [_tx("2024-01-05T10:00:00", -100.0, 900.0)],
+        [_tx("2024-01-05T10:00:00", -100.0, 900.0, expense_type_id=test_expense_type_id)],
     )
     first = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
     assert first.status_code == 200
@@ -141,12 +145,13 @@ async def test_import_duplicates_skipped(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     doc_id = await _create_doc(client, auth_headers)
     payload = _stmt_payload(
         str(test_account.id),
         doc_id,
-        [_tx("2024-01-05T10:00:00", -100.0, 900.0)],
+        [_tx("2024-01-05T10:00:00", -100.0, 900.0, expense_type_id=test_expense_type_id)],
         opening=1000.0,
     )
     await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
@@ -164,6 +169,7 @@ async def test_import_conflict_detected(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     doc1 = await _create_doc(client, auth_headers)
     await client.post(
@@ -171,7 +177,7 @@ async def test_import_conflict_detected(
         json=_stmt_payload(
             str(test_account.id),
             doc1,
-            [_tx("2024-01-05T10:00:00", -100.0, 900.0)],
+            [_tx("2024-01-05T10:00:00", -100.0, 900.0, expense_type_id=test_expense_type_id)],
         ),
         headers=auth_headers,
     )
@@ -182,7 +188,7 @@ async def test_import_conflict_detected(
         json=_stmt_payload(
             str(test_account.id),
             doc2,
-            [_tx("2024-01-05T10:00:30", -150.0, 900.0)],  # same balance_after, different amount
+            [_tx("2024-01-05T10:00:30", -150.0, 900.0, expense_type_id=test_expense_type_id)],  # same balance_after, different amount
         ),
         headers=auth_headers,
     )
@@ -195,12 +201,13 @@ async def test_import_no_balance_after(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     doc_id = await _create_doc(client, auth_headers)
     payload = _stmt_payload(
         str(test_account.id),
         doc_id,
-        [_tx("2024-01-05T10:00:00", -100.0, None)],  # No balance_after (TBank style)
+        [_tx("2024-01-05T10:00:00", -100.0, None, expense_type_id=test_expense_type_id)],  # No balance_after (TBank style)
         opening=None,
     )
     resp = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)

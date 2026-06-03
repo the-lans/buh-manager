@@ -462,6 +462,7 @@ async def test_link_statement_to_document_success(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
     session: Session,
 ) -> None:
     # Import a bank statement to create transactions and balances
@@ -473,7 +474,7 @@ async def test_link_statement_to_document_success(
         "statement_end": "2024-02-28T23:59:59",
         "opening_balance": 1000.0,
         "closing_balance": 900.0,
-        "transactions": [{"occurred_at": "2024-02-10T12:00:00", "amount": -100.0, "type": "DEBIT"}],
+        "transactions": [{"occurred_at": "2024-02-10T12:00:00", "amount": -100.0, "type": "DEBIT", "expense_type_id": test_expense_type_id}],
     }
     import_resp = await client.post(
         "/api/v1/bank-statements", json=stmt_payload, headers=auth_headers
@@ -713,6 +714,7 @@ async def test_reset_after_error_allows_reprocessing(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
     session: Session,
 ) -> None:
     """After reset, link-statement should succeed if transactions exist now."""
@@ -725,7 +727,7 @@ async def test_reset_after_error_allows_reprocessing(
         "statement_end": "2024-06-30T23:59:59",
         "opening_balance": 1000.0,
         "closing_balance": 900.0,
-        "transactions": [{"occurred_at": "2024-06-10T10:00:00", "amount": -100.0, "type": "DEBIT"}],
+        "transactions": [{"occurred_at": "2024-06-10T10:00:00", "amount": -100.0, "type": "DEBIT", "expense_type_id": test_expense_type_id}],
     }
     await client.post("/api/v1/bank-statements", json=stmt_payload, headers=auth_headers)
 
