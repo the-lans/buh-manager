@@ -52,15 +52,14 @@ export default function Dashboard() {
 
   // Expense types table: group EXPENSE transactions by expense_type_id
   const expenseTypeMap = new Map(expenseTypes.map((et) => [et.id, et.name]))
-  const expenseByType = new Map<string | null, { count: number; total: number }>()
+  const expenseByType = new Map<string, { count: number; total: number }>()
   for (const t of transactions) {
     if (t.type !== 'EXPENSE') continue
-    const key = t.expense_type_id ?? null
-    const cur = expenseByType.get(key) ?? { count: 0, total: 0 }
-    expenseByType.set(key, { count: cur.count + 1, total: cur.total + Math.abs(Number(t.amount)) })
+    const cur = expenseByType.get(t.expense_type_id) ?? { count: 0, total: 0 }
+    expenseByType.set(t.expense_type_id, { count: cur.count + 1, total: cur.total + Math.abs(Number(t.amount)) })
   }
   const expenseTypeRows = Array.from(expenseByType.entries())
-    .map(([id, { count, total }]) => ({ id, name: id ? (expenseTypeMap.get(id) ?? id) : 'Не задан', count, total }))
+    .map(([id, { count, total }]) => ({ id, name: expenseTypeMap.get(id) ?? id, count, total }))
     .sort((a, b) => b.total - a.total)
 
   const canGoNext = selectedMonth < currentYearMonth()
@@ -138,7 +137,7 @@ export default function Dashboard() {
           emptyMessage="Нет расходов за период"
         >
           {expenseTypeRows.map((row) => (
-            <tr key={row.id ?? '__none__'}>
+            <tr key={row.id}>
               <td className="px-4 py-2 text-gray-800">{row.name}</td>
               <td className="px-4 py-2 text-right tabular-nums text-gray-600">{row.count}</td>
               <td className="px-4 py-2 text-right tabular-nums font-medium text-gray-900">
