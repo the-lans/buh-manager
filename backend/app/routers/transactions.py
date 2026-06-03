@@ -70,7 +70,7 @@ def create_transaction_endpoint(
     if account is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
 
-    get_or_404(
+    et = get_or_404(
         get_expense_type_by_id(
             session=session,
             expense_type_id=data.expense_type_id,
@@ -88,7 +88,7 @@ def create_transaction_endpoint(
         amount=data.amount,
         type=data.type,
         bank_category=data.bank_category,
-        expense_type_id=data.expense_type_id,
+        expense_type_id=et.id,
         description=data.description,
         balance_after=data.balance_after,
     )
@@ -121,7 +121,7 @@ def update_transaction_endpoint(
     )
     tx = get_or_404(tx, "Transaction not found.")
     if data.expense_type_id is not None:
-        get_or_404(
+        et = get_or_404(
             get_expense_type_by_id(
                 session=session,
                 expense_type_id=data.expense_type_id,
@@ -129,6 +129,7 @@ def update_transaction_endpoint(
             ),
             "Expense type not found.",
         )
+        data = data.model_copy(update={"expense_type_id": et.id})
 
     before = {"amount": str(tx.amount), "occurred_at": str(tx.occurred_at)}
     tx = update_transaction(session=session, transaction=tx, data=data)

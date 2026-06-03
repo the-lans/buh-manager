@@ -108,11 +108,17 @@ def test_expense_type_id(session: Session, test_user: User) -> str:
         id=scope_user_id(user_id=test_user.id, public_id=public_id),
         user_id=test_user.id,
         name="Тест расхода",
-        receipt_required=False,
+        receipt_required=True,
     )
     session.add(et)
     session.commit()
     return public_id
+
+
+@pytest.fixture()
+def test_expense_type_scoped_id(session: Session, test_user: User, test_expense_type_id: str) -> str:
+    """Returns the scoped (internal DB) ID of the test expense type. Use this for direct DB inserts."""
+    return scope_user_id(user_id=test_user.id, public_id=test_expense_type_id)
 
 
 @pytest.fixture()
@@ -123,7 +129,7 @@ def second_test_expense_type_id(session: Session, second_test_user: User) -> str
         id=scope_user_id(user_id=second_test_user.id, public_id=public_id),
         user_id=second_test_user.id,
         name="Тест расхода 2",
-        receipt_required=False,
+        receipt_required=True,
     )
     session.add(et)
     session.commit()

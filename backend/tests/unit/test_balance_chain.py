@@ -14,6 +14,7 @@ def _make_tx(
     account_id: object,
     occurred_at: datetime,
     amount: Decimal,
+    expense_type_scoped_id: str,
     balance_after: Decimal | None = None,
 ) -> Transaction:
     return Transaction(
@@ -22,6 +23,7 @@ def _make_tx(
         occurred_at=occurred_at,
         amount=amount,
         type=TransactionType.EXPENSE,
+        expense_type_id=expense_type_scoped_id,
         balance_after=balance_after,
         reconciled_status=ReconciledStatus.UNMATCHED,
         import_status=ImportStatus.IMPORTED,
@@ -55,6 +57,7 @@ END = datetime(2024, 1, 31, 23, 59)
 def test_balance_chain_consistency(
     session: Session,
     test_account: object,
+    test_expense_type_scoped_id: str,
     opening: Decimal,
     txs_amounts_balances: list[tuple[Decimal, Decimal]],
     expected_closing: Decimal,
@@ -62,7 +65,7 @@ def test_balance_chain_consistency(
 ) -> None:
     acc_id = test_account.id
     for i, (amt, bal) in enumerate(txs_amounts_balances):
-        tx = _make_tx(acc_id, BASE + timedelta(hours=i), amt, bal)
+        tx = _make_tx(acc_id, BASE + timedelta(hours=i), amt, test_expense_type_scoped_id, bal)
         session.add(tx)
     session.commit()
 
@@ -79,10 +82,10 @@ def test_balance_chain_consistency(
     assert result.is_consistent is expect_consistent
 
 
-def test_balance_chain_marks_mismatch(session: Session, test_account: object) -> None:
+def test_balance_chain_marks_mismatch(session: Session, test_account: object, test_expense_type_scoped_id: str) -> None:
     acc_id = test_account.id
     # Opening 1000, tx -100 → should be 900; put 999 as balance_after → mismatch
-    tx = _make_tx(acc_id, BASE, Decimal("-100"), Decimal("999"))
+    tx = _make_tx(acc_id, BASE, Decimal("-100"), test_expense_type_scoped_id, Decimal("999"))
     session.add(tx)
     session.commit()
 
@@ -115,10 +118,10 @@ def test_balance_chain_no_transactions(session: Session, test_account: object) -
 
 
 def test_balance_chain_unavailable_when_no_balance_after(
-    session: Session, test_account: object
+    session: Session, test_account: object, test_expense_type_scoped_id: str
 ) -> None:
     acc_id = test_account.id
-    tx = _make_tx(acc_id, BASE, Decimal("-50"), balance_after=None)
+    tx = _make_tx(acc_id, BASE, Decimal("-50"), test_expense_type_scoped_id, balance_after=None)
     session.add(tx)
     session.commit()
 
@@ -134,10 +137,10 @@ def test_balance_chain_unavailable_when_no_balance_after(
 
 
 def test_balance_chain_unavailable_when_opening_missing(
-    session: Session, test_account: object
+    session: Session, test_account: object, test_expense_type_scoped_id: str
 ) -> None:
     acc_id = test_account.id
-    tx = _make_tx(acc_id, BASE, Decimal("-50"), balance_after=Decimal("950"))
+    tx = _make_tx(acc_id, BASE, Decimal("-50"), test_expense_type_scoped_id, balance_after=Decimal("950"))
     session.add(tx)
     session.commit()
 
