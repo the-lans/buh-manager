@@ -75,12 +75,12 @@ def test_single_pair_bonus_added() -> None:
     assert score_single - score_multi == SCORE_SINGLE_PAIR_BONUS
 
 
-def test_auto_match_threshold_not_reached_without_counterparty() -> None:
-    # <1h (40) + single pair bonus (20) = 60 < 75 (threshold) → no auto-match without fuzzy scoring
+def test_auto_match_threshold_reached() -> None:
+    # <1h (40) + single pair bonus (20) = 60 ≥ 60 (threshold) → auto-matched
     tx = _tx(BASE)
     receipt = _receipt(BASE + timedelta(minutes=5))
     score = _score_pair(tx=tx, receipt=receipt, is_single_pair=True)
-    assert score < SCORE_THRESHOLD_AUTO
+    assert score >= SCORE_THRESHOLD_AUTO
 
 
 # ── Time window ───────────────────────────────────────────────────────────────
