@@ -108,6 +108,22 @@ describe('TransactionEditModal', () => {
     await waitFor(() => expect(screen.getByText('Питание')).toBeInTheDocument())
   })
 
+  it('shows read-only section with all non-editable fields', () => {
+    renderWithProviders(<TransactionEditModal transaction={BASE_TX} onClose={() => {}} />)
+    expect(screen.getByText('Только чтение')).toBeInTheDocument()
+    // import_status translated
+    expect(screen.getByText('Импортирован')).toBeInTheDocument()
+    // balance_mismatch = false
+    expect(screen.getByText('Нет')).toBeInTheDocument()
+    // balance_after formatted
+    expect(screen.getByText(/50\s*000/)).toBeInTheDocument()
+    // receipt_id and document_id are null → show —
+    const dashes = screen.getAllByText('—')
+    expect(dashes.length).toBeGreaterThanOrEqual(2)
+    // ID truncated
+    expect(screen.getByText(/tx-edit/)).toBeInTheDocument()
+  })
+
   it('includes reconciled_status in the save payload', async () => {
     const updateSpy = vi.fn((info) =>
       info.request.json().then((body: Record<string, unknown>) => {
