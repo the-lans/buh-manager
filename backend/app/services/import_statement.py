@@ -8,6 +8,7 @@ from app.constants import BalanceSource, DocumentStatus, DocumentType, ImportSta
 from app.db.accounts import get_account_by_id
 from app.db.balances import has_any_balance, upsert_balance
 from app.db.documents import claim_document_for_processing, get_document_by_id
+from app.db.expense_types import get_expense_type_by_id
 from app.db.transactions import create_transaction, find_transaction_by_dedup_key
 from app.schemas.bank_statement import (
     BankStatementCreate,
@@ -75,6 +76,20 @@ def import_bank_statement(
     conflicts: list[ConflictItem] = []
 
     for tx_in in statement.transactions:
+        scoped_expense_type_id: str | None = None
+        if tx_in.expense_type_id is not None:
+            et = get_expense_type_by_id(
+                session=session,
+                expense_type_id=tx_in.expense_type_id,
+                user_id=current_user.id,
+            )
+            if et is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Expense type '{tx_in.expense_type_id}' not found.",
+                )
+            scoped_expense_type_id = et.id
+
         existing, used_fallback = find_transaction_by_dedup_key(
             session=session,
             account_id=statement.account_id,
@@ -93,7 +108,7 @@ def import_bank_statement(
                 amount=tx_in.amount,
                 type=tx_in.type,
                 bank_category=tx_in.bank_category,
-                expense_type_id=tx_in.expense_type_id,
+                expense_type_id=scoped_expense_type_id,
                 description=tx_in.description,
                 balance_after=tx_in.balance_after,
                 import_status=ImportStatus.IMPORTED,
