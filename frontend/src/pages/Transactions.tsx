@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useTransactions, useCreateTransaction, useDeleteTransaction } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
-import { useCounterparties } from '../hooks/useCounterparties'
 import { useExpenseTypes } from '../hooks/useExpenseTypes'
 import type { TransactionFilters } from '../api/transactions'
 import type { Transaction } from '../types'
@@ -14,28 +13,25 @@ export default function Transactions() {
   const [filters, setFilters] = useState<TransactionFilters>({ limit: 50 })
   const { data: transactions = [], isLoading } = useTransactions(filters)
   const { data: accounts = [] } = useAccounts()
-  const { data: counterparties = [] } = useCounterparties()
   const { data: expenseTypes = [] } = useExpenseTypes()
   const createTx = useCreateTransaction()
   const deleteTx = useDeleteTransaction()
 
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', counterparty_id: '', expense_type_id: '' })
+  const [form, setForm] = useState({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '' })
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const handleCreate = async () => {
-    const counterpartyName = counterparties.find((c) => c.id === form.counterparty_id)?.name ?? null
     await createTx.mutateAsync({
       account_id: form.account_id,
       occurred_at: localInputToUtcIso(form.occurred_at),
       amount: form.amount,
       type: form.type,
-      counterparty_name: counterpartyName,
-      expense_type_id: form.expense_type_id || null,
+      expense_type_id: form.expense_type_id,
     })
     setShowForm(false)
-    setForm({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', counterparty_id: '', expense_type_id: '' })
+    setForm({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '' })
   }
 
   return (
@@ -118,16 +114,6 @@ export default function Transactions() {
           </select>
           <select
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            value={form.counterparty_id}
-            onChange={(e) => setForm((f) => ({ ...f, counterparty_id: e.target.value }))}
-          >
-            <option value="">Контрагент (необязательно)</option>
-            {counterparties.map((cp) => (
-              <option key={cp.id} value={cp.id}>{cp.name}</option>
-            ))}
-          </select>
-          <select
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             value={form.expense_type_id}
             onChange={(e) => setForm((f) => ({ ...f, expense_type_id: e.target.value }))}
           >
@@ -157,7 +143,7 @@ export default function Transactions() {
       <DataTable
         columns={[
           { label: 'Дата' },
-          { label: 'Контрагент' },
+          { label: 'Категория банка' },
           { label: 'Сумма', align: 'right' },
           { label: 'Тип' },
           { label: 'Статус' },
@@ -172,7 +158,7 @@ export default function Transactions() {
         {transactions.map((tx) => (
           <tr key={tx.id} className="hover:bg-gray-50">
             <td className="px-4 py-2 text-gray-600">{formatDate(tx.occurred_at)}</td>
-            <td className="px-4 py-2 text-gray-800">{tx.counterparty_id ?? '—'}</td>
+            <td className="px-4 py-2 text-gray-800">{tx.bank_category ?? '—'}</td>
             <td className={`px-4 py-2 text-right tabular-nums font-medium ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-green-600'}`}>
               {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
             </td>

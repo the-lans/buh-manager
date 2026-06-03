@@ -76,7 +76,6 @@ describe('Dashboard page', () => {
             amount: '-500.00',
             type: 'EXPENSE',
             bank_category: null,
-            counterparty_id: null,
             expense_type_id: 'food',
             description: null,
             balance_after: null,
@@ -94,49 +93,15 @@ describe('Dashboard page', () => {
     await waitFor(() => expect(screen.getByText('Питание')).toBeInTheDocument())
   })
 
-  it('shows "Не задан" row for transactions without expense_type_id', async () => {
+  it('renders expense types section', async () => {
     renderWithProviders(<Dashboard />)
-    // Default fixture has expense_type_id: null
     await waitFor(() => expect(screen.getByText('Типы расходов')).toBeInTheDocument())
-    // The default transaction from handlers has no expense_type_id and is EXPENSE
-    // but it's from 2026-04 and selectedMonth is current → won't appear unless current month matches
-    // Just verify section renders without crashing
     expect(screen.getByText('Типы расходов')).toBeInTheDocument()
   })
 
   it('shows active accounts count', async () => {
     renderWithProviders(<Dashboard />)
     await waitFor(() => expect(screen.getByText('1 активных')).toBeInTheDocument())
-  })
-
-  it('shows "Не задан" row when transaction has no expense_type_id', async () => {
-    server.use(
-      http.get('/api/v1/transactions', () =>
-        HttpResponse.json<Transaction[]>([
-          {
-            id: 'tx-no-type',
-            account_id: 'acc-1',
-            occurred_at: new Date().toISOString(),
-            processed_at: null,
-            amount: '-200.00',
-            type: 'EXPENSE',
-            bank_category: null,
-            counterparty_id: null,
-            expense_type_id: null,
-            description: null,
-            balance_after: null,
-            calculated_balance_after: null,
-            balance_mismatch: false,
-            receipt_id: null,
-            reconciled_status: 'UNMATCHED',
-            import_status: 'IMPORTED',
-            document_id: null,
-          },
-        ]),
-      ),
-    )
-    renderWithProviders(<Dashboard />)
-    await waitFor(() => expect(screen.getByText('Не задан')).toBeInTheDocument())
   })
 
   it('aggregates expense amounts by type', async () => {
@@ -151,7 +116,6 @@ describe('Dashboard page', () => {
             amount: '-300.00',
             type: 'EXPENSE',
             bank_category: null,
-            counterparty_id: null,
             expense_type_id: 'food',
             description: null,
             balance_after: null,
@@ -170,7 +134,6 @@ describe('Dashboard page', () => {
             amount: '-200.00',
             type: 'EXPENSE',
             bank_category: null,
-            counterparty_id: null,
             expense_type_id: 'food',
             description: null,
             balance_after: null,

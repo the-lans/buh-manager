@@ -32,7 +32,6 @@ from app.db.expense_types import (
 )
 from app.dependencies.auth import get_current_user, require_scope
 from app.models.receipt import Receipt
-from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.account import (
     AccountBalanceInit,
@@ -325,13 +324,6 @@ def delete_counterparty_endpoint(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Контрагент используется в чеках и не может быть удалён.",
-        )
-    if session.exec(
-        select(Transaction).where(Transaction.counterparty_id == cp.id).limit(1)
-    ).first():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Контрагент используется в транзакциях и не может быть удалён.",
         )
 
     delete_counterparty(session=session, counterparty=cp)

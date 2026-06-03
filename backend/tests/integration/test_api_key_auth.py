@@ -162,6 +162,7 @@ async def test_api_key_cannot_create_transaction_on_other_users_account(
     client: AsyncClient,
     test_user: User,
     second_test_account: Account,
+    test_expense_type_id: str,
     make_api_key_in_db: Callable[..., str],
 ) -> None:
     key = make_api_key_in_db(test_user.id, [ApiKeyScope.WRITE_TRANSACTIONS])
@@ -172,6 +173,7 @@ async def test_api_key_cannot_create_transaction_on_other_users_account(
             "occurred_at": "2024-01-10T10:00:00",
             "amount": -100.0,
             "type": "DEBIT",
+            "expense_type_id": test_expense_type_id,
         },
         headers={"Authorization": f"Bearer {key}"},
     )

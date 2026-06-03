@@ -81,8 +81,7 @@ export interface Transaction {
   amount: string
   type: 'INCOME' | 'EXPENSE' | 'TRANSFER'
   bank_category: string | null
-  counterparty_id: string | null
-  expense_type_id: string | null
+  expense_type_id: string
   description: string | null
   balance_after: string | null
   calculated_balance_after: string | null
@@ -188,7 +187,6 @@ export interface MissingReceiptItem {
   transaction_id: string
   occurred_at: string
   amount: string
-  counterparty_id: string | null
   expense_type_id: string | null
 }
 
@@ -204,7 +202,7 @@ export interface CollisionGroup {
   amount: string
   reason: string
   message: string
-  involved_transactions: { id: string; occurred_at: string; counterparty_id: string | null; amount: string }[]
+  involved_transactions: { id: string; occurred_at: string; amount: string }[]
   involved_receipts: { id: string; paid_at: string; counterparty_id: string | null; total_amount: string }[]
 }
 

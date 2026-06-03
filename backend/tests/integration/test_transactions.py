@@ -8,12 +8,13 @@ from httpx import AsyncClient
 from app.models.account import Account
 
 
-def _tx_payload(account_id: str, amount: float = -100.0) -> dict:
+def _tx_payload(account_id: str, amount: float = -100.0, expense_type_id: str = "test-et") -> dict:
     return {
         "account_id": account_id,
         "occurred_at": "2024-01-10T10:00:00",
         "amount": amount,
         "type": "DEBIT",
+        "expense_type_id": expense_type_id,
     }
 
 
@@ -22,10 +23,11 @@ async def test_create_transaction(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     resp = await client.post(
         "/api/v1/transactions",
-        json=_tx_payload(str(test_account.id)),
+        json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
         headers=auth_headers,
     )
     assert resp.status_code == 201
@@ -39,15 +41,16 @@ async def test_transaction_rejects_unknown_expense_type(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
     operation: Literal["create", "update"],
 ) -> None:
-    payload = {**_tx_payload(str(test_account.id)), "expense_type_id": "missing-expense-type"}
+    payload = {**_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id), "expense_type_id": "missing-expense-type"}
     if operation == "create":
         resp = await client.post("/api/v1/transactions", json=payload, headers=auth_headers)
     else:
         create_resp = await client.post(
             "/api/v1/transactions",
-            json=_tx_payload(str(test_account.id)),
+            json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
             headers=auth_headers,
         )
         assert create_resp.status_code == 201
@@ -65,11 +68,12 @@ async def test_list_transactions_with_filters(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     await client.post(
         "/api/v1/transactions",
         json={
-            **_tx_payload(str(test_account.id)),
+            **_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
             "type": "DEBIT",
             "occurred_at": "2024-01-10T10:00:00",
         },
@@ -78,7 +82,7 @@ async def test_list_transactions_with_filters(
     await client.post(
         "/api/v1/transactions",
         json={
-            **_tx_payload(str(test_account.id), 500.0),
+            **_tx_payload(str(test_account.id), 500.0, expense_type_id=test_expense_type_id),
             "type": "INCOME",
             "occurred_at": "2024-01-11T10:00:00",
         },
@@ -100,10 +104,11 @@ async def test_update_transaction(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     create_resp = await client.post(
         "/api/v1/transactions",
-        json=_tx_payload(str(test_account.id)),
+        json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
         headers=auth_headers,
     )
     tx_id = create_resp.json()["id"]
@@ -122,10 +127,11 @@ async def test_update_transaction_reconciled_status(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     create_resp = await client.post(
         "/api/v1/transactions",
-        json=_tx_payload(str(test_account.id)),
+        json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
         headers=auth_headers,
     )
     tx_id = create_resp.json()["id"]
@@ -144,10 +150,11 @@ async def test_delete_transaction(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     create_resp = await client.post(
         "/api/v1/transactions",
-        json=_tx_payload(str(test_account.id)),
+        json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
         headers=auth_headers,
     )
     tx_id = create_resp.json()["id"]
@@ -169,7 +176,7 @@ async def test_delete_transaction(
         pytest.param(
             "post",
             lambda _: "/api/v1/transactions",
-            lambda _: _tx_payload(str(uuid4())),
+            lambda account: _tx_payload(str(uuid4())),
             404,
             id="create_unknown_account",
         ),
@@ -180,6 +187,7 @@ async def test_transaction_not_found_cases(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
     method: str,
     path_fn: Callable,
     body_fn: Callable,
@@ -198,11 +206,12 @@ async def test_create_transaction_returns_valid_id(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     """create_transaction flushes internally so the response always contains a valid UUID id."""
     resp = await client.post(
         "/api/v1/transactions",
-        json=_tx_payload(str(test_account.id)),
+        json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
         headers=auth_headers,
     )
     assert resp.status_code == 201

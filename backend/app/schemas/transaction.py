@@ -17,8 +17,7 @@ class TransactionCreate(BaseModel):
     amount: Decimal
     type: str
     bank_category: str | None = None
-    counterparty_name: str | None = None
-    expense_type_id: str | None = None
+    expense_type_id: str
     description: str | None = None
     balance_after: Decimal | None = None
 
@@ -61,8 +60,7 @@ class TransactionRead(BaseModel):
     amount: Decimal
     type: str
     bank_category: str | None
-    counterparty_id: str | None
-    expense_type_id: str | None
+    expense_type_id: str
     description: str | None
     balance_after: Decimal | None
     calculated_balance_after: Decimal | None
@@ -74,7 +72,7 @@ class TransactionRead(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_serializer("counterparty_id", "expense_type_id")
+    @field_serializer("expense_type_id")
     def serialize_reference_ids(self, value: str | None) -> str | None:
         return unscope_user_id(value)
 
@@ -85,8 +83,8 @@ class TransactionListItem(BaseModel):
     occurred_at: datetime
     amount: Decimal
     type: str
-    counterparty_id: str | None
-    expense_type_id: str | None
+    bank_category: str | None
+    expense_type_id: str
     reconciled_status: str
     import_status: str
     balance_mismatch: bool
@@ -95,7 +93,7 @@ class TransactionListItem(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_serializer("counterparty_id", "expense_type_id")
+    @field_serializer("expense_type_id")
     def serialize_reference_ids(self, value: str | None) -> str | None:
         return unscope_user_id(value)
 

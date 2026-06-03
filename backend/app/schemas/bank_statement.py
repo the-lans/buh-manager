@@ -14,7 +14,6 @@ class BankStatementTransactionIn(BaseModel):
     amount: Decimal
     type: str
     bank_category: str | None = None
-    counterparty_name: str | None = None
     description: str | None = None
     balance_after: Decimal | None = None
 

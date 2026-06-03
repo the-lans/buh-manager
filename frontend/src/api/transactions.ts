@@ -17,8 +17,7 @@ export interface TransactionCreatePayload {
   occurred_at: string
   amount: string
   type: string
-  counterparty_name?: string | null
-  expense_type_id?: string | null
+  expense_type_id: string
   processed_at?: string | null
   auth_code?: string | null
   bank_category?: string | null
