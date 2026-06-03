@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useAccounts } from '../hooks/useAccounts'
 import { useExpenseTypes } from '../hooks/useExpenseTypes'
 import { useUpdateTransaction } from '../hooks/useTransactions'
-import { localInputToUtcIso, utcIsoToLocalInput } from '../utils/date'
+import { formatDate, localInputToUtcIso, utcIsoToLocalInput } from '../utils/date'
 import type { Transaction } from '../types'
 
 interface Props {
@@ -22,6 +22,12 @@ const STATUS_LABELS: Record<string, string> = {
   MATCHED: 'Сверено',
   NOT_REQUIRED: 'Не требуется',
   IGNORED_BY_USER: 'Игнорируется',
+}
+
+const IMPORT_STATUS_LABELS: Record<string, string> = {
+  IMPORTED: 'Импортирован',
+  DUPLICATE_SKIPPED: 'Дубликат',
+  CONFLICT: 'Конфликт',
 }
 
 export default function TransactionEditModal({ transaction, onClose }: Props) {
@@ -84,6 +90,10 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
     }
   }
 
+  const fmt = (v: string | null | undefined) => v ?? '—'
+  const fmtAmount = (v: string | null) =>
+    v ? `${Number(v).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽` : '—'
+
   return (
     <div
       className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
@@ -100,13 +110,42 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
           </button>
         </div>
 
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mb-2">
-          <dt className="text-gray-500">Счёт</dt>
-          <dd className="text-gray-700">{accountLabel}</dd>
-          <dt className="text-gray-500">Статус импорта</dt>
-          <dd className="text-gray-700">{transaction.import_status}</dd>
-        </dl>
+        {/* Read-only fields */}
+        <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Только чтение</p>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            <dt className="text-gray-500">ID</dt>
+            <dd className="text-gray-700 font-mono text-xs truncate" title={transaction.id}>
+              {transaction.id.slice(0, 8)}…
+            </dd>
+            <dt className="text-gray-500">Счёт</dt>
+            <dd className="text-gray-700">{accountLabel}</dd>
+            <dt className="text-gray-500">Обработан банком</dt>
+            <dd className="text-gray-700">{transaction.processed_at ? formatDate(transaction.processed_at) : '—'}</dd>
+            <dt className="text-gray-500">Код авторизации</dt>
+            <dd className="text-gray-700">{fmt(transaction.auth_code)}</dd>
+            <dt className="text-gray-500">Остаток (выписка)</dt>
+            <dd className="text-gray-700">{fmtAmount(transaction.balance_after)}</dd>
+            <dt className="text-gray-500">Остаток (расчёт)</dt>
+            <dd className="text-gray-700">{fmtAmount(transaction.calculated_balance_after)}</dd>
+            <dt className="text-gray-500">Расхождение остатка</dt>
+            <dd className={`font-medium ${transaction.balance_mismatch ? 'text-red-600' : 'text-gray-700'}`}>
+              {transaction.balance_mismatch ? 'Да' : 'Нет'}
+            </dd>
+            <dt className="text-gray-500">Статус импорта</dt>
+            <dd className="text-gray-700">{IMPORT_STATUS_LABELS[transaction.import_status] ?? transaction.import_status}</dd>
+            <dt className="text-gray-500">Чек</dt>
+            <dd className="text-gray-700 font-mono text-xs truncate" title={transaction.receipt_id ?? ''}>
+              {transaction.receipt_id ? `${transaction.receipt_id.slice(0, 8)}…` : '—'}
+            </dd>
+            <dt className="text-gray-500">Документ</dt>
+            <dd className="text-gray-700 font-mono text-xs truncate" title={transaction.document_id ?? ''}>
+              {transaction.document_id ? `${transaction.document_id.slice(0, 8)}…` : '—'}
+            </dd>
+          </dl>
+        </div>
 
+        {/* Editable fields */}
         <div className="space-y-3">
           <Field label="Дата и время">
             <input
