@@ -21,17 +21,27 @@ export default function Transactions() {
   const [form, setForm] = useState({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '' })
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   const handleCreate = async () => {
-    await createTx.mutateAsync({
-      account_id: form.account_id,
-      occurred_at: localInputToUtcIso(form.occurred_at),
-      amount: form.amount,
-      type: form.type,
-      expense_type_id: form.expense_type_id,
-    })
-    setShowForm(false)
-    setForm({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '' })
+    if (!form.account_id) { setCreateError('Выберите счёт'); return }
+    if (!form.occurred_at) { setCreateError('Укажите дату'); return }
+    if (!form.amount) { setCreateError('Укажите сумму'); return }
+    if (!form.expense_type_id) { setCreateError('Выберите вид расхода'); return }
+    setCreateError(null)
+    try {
+      await createTx.mutateAsync({
+        account_id: form.account_id,
+        occurred_at: localInputToUtcIso(form.occurred_at),
+        amount: form.amount,
+        type: form.type,
+        expense_type_id: form.expense_type_id,
+      })
+      setShowForm(false)
+      setForm({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '' })
+    } catch {
+      setCreateError('Ошибка создания транзакции')
+    }
   }
 
   return (
@@ -117,11 +127,12 @@ export default function Transactions() {
             value={form.expense_type_id}
             onChange={(e) => setForm((f) => ({ ...f, expense_type_id: e.target.value }))}
           >
-            <option value="">Вид расхода (необязательно)</option>
+            <option value="">— Вид расхода —</option>
             {expenseTypes.map((et) => (
               <option key={et.id} value={et.id}>{et.name}</option>
             ))}
           </select>
+          {createError && <p className="text-sm text-red-500">{createError}</p>}
           <div className="flex gap-2">
             <button
               onClick={handleCreate}
@@ -131,7 +142,7 @@ export default function Transactions() {
               Создать
             </button>
             <button
-              onClick={() => setShowForm(false)}
+              onClick={() => { setShowForm(false); setCreateError(null) }}
               className="px-4 py-2 border border-gray-300 text-sm rounded-lg hover:bg-gray-50"
             >
               Отмена

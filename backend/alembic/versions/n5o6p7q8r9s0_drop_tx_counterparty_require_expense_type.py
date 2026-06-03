@@ -19,7 +19,6 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     with op.batch_alter_table("transactions") as batch_op:
-        batch_op.drop_constraint("fk_transactions_counterparty_id_counterparties", type_="foreignkey")
         batch_op.drop_column("counterparty_id")
 
     # Make expense_type_id NOT NULL — delete orphan rows that have no expense type

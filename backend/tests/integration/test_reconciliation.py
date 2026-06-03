@@ -72,12 +72,13 @@ async def test_reconciliation_empty_db(
 
 
 @pytest.mark.asyncio
-async def test_reconciliation_1_to_1_auto_match(
+async def test_reconciliation_1_to_1_run(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
     test_expense_type_id: str,
 ) -> None:
+    # With threshold 75 and max score 60 (time+single_pair), no auto-match — pair goes to missing/unmatched
     await _create_transaction(client, auth_headers, str(test_account.id), test_expense_type_id)
     await _create_receipt(client, auth_headers, 100.0, "2024-01-10T12:30:00")
 
@@ -85,7 +86,9 @@ async def test_reconciliation_1_to_1_auto_match(
     assert run_resp.status_code == 200
     data = run_resp.json()
     assert "summary" in data
-    assert data["summary"]["auto_matched_count"] == 1
+    assert data["summary"]["auto_matched_count"] == 0
+    assert data["summary"]["missing_receipts_count"] == 1
+    assert data["summary"]["unmatched_receipts_count"] == 1
 
 
 @pytest.mark.asyncio
@@ -509,25 +512,30 @@ async def test_reconciliation_transaction_no_matching_receipt_amount(
 
 
 @pytest.mark.asyncio
-async def test_reconciliation_auto_match_by_time(
+async def test_reconciliation_manual_match_after_run(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
     test_expense_type_id: str,
     session: Session,
 ) -> None:
-    # 1:1 within 30min: score = 40 (time) + 20 (single pair) = 60 ≥ 55 → auto-matched
+    # With threshold 75, auto-match never fires; verify manual match still works after run
     tx_id = await _create_transaction(
         client, auth_headers, str(test_account.id), test_expense_type_id, -100.0, "2024-01-10T12:00:00"
     )
-    await _create_receipt(client, auth_headers, 100.0, "2024-01-10T12:30:00")
+    receipt_id = await _create_receipt(client, auth_headers, 100.0, "2024-01-10T12:30:00")
 
     run_resp = await client.post("/api/v1/reconciliation/run", headers=auth_headers)
     assert run_resp.status_code == 200
     data = run_resp.json()
-    assert data["summary"]["auto_matched_count"] == 1
-    assert data["summary"]["missing_receipts_count"] == 0
-    assert data["summary"]["unmatched_receipts_count"] == 0
+    assert data["summary"]["auto_matched_count"] == 0
+
+    match_resp = await client.post(
+        "/api/v1/reconciliation/match",
+        json={"transaction_id": tx_id, "receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+    assert match_resp.status_code == 200
 
     tx = session.get(Transaction, UUID(tx_id))
     assert tx is not None

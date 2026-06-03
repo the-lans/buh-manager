@@ -129,7 +129,7 @@ describe('Transactions page', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: '+ Добавить' }))
     await waitFor(() => expect(screen.getByText('Новая транзакция')).toBeInTheDocument())
-    expect(screen.getByRole('option', { name: 'Вид расхода (необязательно)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '— Вид расхода —' })).toBeInTheDocument()
   })
 
   it('lists expense types in new transaction form', async () => {
