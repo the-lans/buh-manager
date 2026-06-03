@@ -6,7 +6,6 @@ from sqlmodel import Session
 from app.constants import ApiKeyScope, AuditEntityType, ChangedBy
 from app.database import get_session
 from app.db.accounts import get_account_by_id
-from app.db.counterparties import get_or_create_counterparty
 from app.db.expense_types import get_expense_type_by_id
 from app.db.transactions import (
     create_transaction,
@@ -71,23 +70,14 @@ def create_transaction_endpoint(
     if account is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
 
-    counterparty_id: str | None = None
-    if data.counterparty_name:
-        cp = get_or_create_counterparty(
+    get_or_404(
+        get_expense_type_by_id(
             session=session,
+            expense_type_id=data.expense_type_id,
             user_id=current_user.id,
-            name=data.counterparty_name,
-        )
-        counterparty_id = cp.id
-    if data.expense_type_id is not None:
-        get_or_404(
-            get_expense_type_by_id(
-                session=session,
-                expense_type_id=data.expense_type_id,
-                user_id=current_user.id,
-            ),
-            "Expense type not found.",
-        )
+        ),
+        "Expense type not found.",
+    )
 
     tx = create_transaction(
         session=session,
@@ -98,7 +88,6 @@ def create_transaction_endpoint(
         amount=data.amount,
         type=data.type,
         bank_category=data.bank_category,
-        counterparty_id=counterparty_id,
         expense_type_id=data.expense_type_id,
         description=data.description,
         balance_after=data.balance_after,

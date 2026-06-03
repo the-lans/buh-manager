@@ -7,7 +7,6 @@ from fastapi import HTTPException, status
 from app.constants import BalanceSource, DocumentStatus, DocumentType, ImportStatus
 from app.db.accounts import get_account_by_id
 from app.db.balances import has_any_balance, upsert_balance
-from app.db.counterparties import get_or_create_counterparty
 from app.db.documents import claim_document_for_processing, get_document_by_id
 from app.db.transactions import create_transaction, find_transaction_by_dedup_key
 from app.schemas.bank_statement import (
@@ -76,15 +75,6 @@ def import_bank_statement(
     conflicts: list[ConflictItem] = []
 
     for tx_in in statement.transactions:
-        counterparty_id: str | None = None
-        if tx_in.counterparty_name:
-            cp = get_or_create_counterparty(
-                session=session,
-                user_id=current_user.id,
-                name=tx_in.counterparty_name,
-            )
-            counterparty_id = cp.id
-
         existing, used_fallback = find_transaction_by_dedup_key(
             session=session,
             account_id=statement.account_id,
@@ -103,7 +93,6 @@ def import_bank_statement(
                 amount=tx_in.amount,
                 type=tx_in.type,
                 bank_category=tx_in.bank_category,
-                counterparty_id=counterparty_id,
                 description=tx_in.description,
                 balance_after=tx_in.balance_after,
                 import_status=ImportStatus.IMPORTED,

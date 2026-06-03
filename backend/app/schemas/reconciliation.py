@@ -18,12 +18,7 @@ class ReconciliationSummary(BaseModel):
 class CollisionTransactionItem(BaseModel):
     id: UUID
     occurred_at: datetime
-    counterparty_id: str | None
     amount: Decimal
-
-    @field_serializer("counterparty_id")
-    def serialize_counterparty_id(self, value: str | None) -> str | None:
-        return unscope_user_id(value)
 
 
 class CollisionReceiptItem(BaseModel):
@@ -50,10 +45,9 @@ class MissingReceiptItem(BaseModel):
     transaction_id: UUID
     occurred_at: datetime
     amount: Decimal
-    counterparty_id: str | None
     expense_type_id: str | None
 
-    @field_serializer("counterparty_id", "expense_type_id")
+    @field_serializer("expense_type_id")
     def serialize_reference_ids(self, value: str | None) -> str | None:
         return unscope_user_id(value)
 

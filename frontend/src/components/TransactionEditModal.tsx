@@ -1,7 +1,6 @@
 import { useState } from 'react'
 
 import { useAccounts } from '../hooks/useAccounts'
-import { useCounterpartyMap } from '../hooks/useCounterparties'
 import { useExpenseTypes } from '../hooks/useExpenseTypes'
 import { useUpdateTransaction } from '../hooks/useTransactions'
 import { localInputToUtcIso, utcIsoToLocalInput } from '../utils/date'
@@ -29,7 +28,6 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
   const update = useUpdateTransaction()
   const { data: expenseTypes = [] } = useExpenseTypes()
   const { data: accounts = [] } = useAccounts()
-  const counterpartyMap = useCounterpartyMap()
 
   const [form, setForm] = useState(() =>
     transaction
@@ -105,12 +103,6 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mb-2">
           <dt className="text-gray-500">Счёт</dt>
           <dd className="text-gray-700">{accountLabel}</dd>
-          <dt className="text-gray-500">Контрагент</dt>
-          <dd className="text-gray-700">
-            {transaction.counterparty_id
-              ? (counterpartyMap.get(transaction.counterparty_id) ?? transaction.counterparty_id)
-              : '—'}
-          </dd>
           <dt className="text-gray-500">Статус импорта</dt>
           <dd className="text-gray-700">{transaction.import_status}</dd>
         </dl>

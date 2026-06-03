@@ -22,8 +22,7 @@ class Transaction(SQLModel, table=True):
     amount: Decimal = Field(decimal_places=2, max_digits=14)
     type: str
     bank_category: str | None = None
-    counterparty_id: str | None = Field(default=None, foreign_key="counterparties.id")
-    expense_type_id: str | None = Field(default=None, foreign_key="expense_types.id")
+    expense_type_id: str = Field(foreign_key="expense_types.id", index=True)
     description: str | None = None
     balance_after: Decimal | None = Field(default=None, decimal_places=2, max_digits=14)
     calculated_balance_after: Decimal | None = Field(default=None, decimal_places=2, max_digits=14)

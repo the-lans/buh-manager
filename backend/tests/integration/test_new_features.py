@@ -305,6 +305,7 @@ async def test_transaction_list_includes_receipt_id_and_document_id(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     tx_resp = await client.post(
         "/api/v1/transactions",
@@ -313,6 +314,7 @@ async def test_transaction_list_includes_receipt_id_and_document_id(
             "occurred_at": "2024-05-01T10:00:00",
             "amount": -200.0,
             "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
         },
         headers=auth_headers,
     )
@@ -325,9 +327,10 @@ async def test_transaction_list_includes_receipt_id_and_document_id(
     assert "receipt_id" in items[0]
     assert "document_id" in items[0]
     assert "expense_type_id" in items[0]
+    assert "bank_category" in items[0]
     assert items[0]["receipt_id"] is None
     assert items[0]["document_id"] is None
-    assert items[0]["expense_type_id"] is None
+    assert items[0]["expense_type_id"] == test_expense_type_id
 
 
 @pytest.mark.asyncio
@@ -335,6 +338,7 @@ async def test_transaction_list_receipt_id_populated_after_linking(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
     session: Session,
 ) -> None:
     """After reconciliation links a receipt, receipt_id appears in list items."""
@@ -346,6 +350,7 @@ async def test_transaction_list_receipt_id_populated_after_linking(
             "occurred_at": "2024-05-01T10:00:00",
             "amount": -99.0,
             "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
         },
         headers=auth_headers,
     )

@@ -15,8 +15,7 @@ const BASE_TX: Transaction = {
   amount: '-1500.00',
   type: 'EXPENSE',
   bank_category: 'Продукты',
-  counterparty_id: 'cp-1',
-  expense_type_id: null,
+  expense_type_id: 'et-1',
   description: 'Покупка продуктов',
   balance_after: '50000.00',
   calculated_balance_after: null,
@@ -46,11 +45,6 @@ describe('TransactionEditModal', () => {
       // Account "Сбербанк ···0810" from mock handler acc-1: bank=Сбербанк, account_number=40817810
       expect(screen.getByText(/Сбербанк/)).toBeInTheDocument(),
     )
-  })
-
-  it('shows counterparty name in readonly section', async () => {
-    renderWithProviders(<TransactionEditModal transaction={BASE_TX} onClose={() => {}} />)
-    await waitFor(() => expect(screen.getByText('Магазин Тест')).toBeInTheDocument())
   })
 
   it('calls onClose when cancel is clicked', async () => {

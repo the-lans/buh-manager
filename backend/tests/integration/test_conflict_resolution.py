@@ -12,7 +12,7 @@ from app.models.account import Account
 from app.models.transaction import Transaction
 
 
-async def _make_tx(client: AsyncClient, headers: dict[str, str], account_id: str) -> str:
+async def _make_tx(client: AsyncClient, headers: dict[str, str], account_id: str, expense_type_id: str) -> str:
     resp = await client.post(
         "/api/v1/transactions",
         json={
@@ -20,6 +20,7 @@ async def _make_tx(client: AsyncClient, headers: dict[str, str], account_id: str
             "occurred_at": "2024-03-01T10:00:00",
             "amount": -50.0,
             "type": "EXPENSE",
+            "expense_type_id": expense_type_id,
         },
         headers=headers,
     )
@@ -42,8 +43,9 @@ async def test_resolve_conflict_keep_old_preserves_amount(
     auth_headers: dict[str, str],
     session: Session,
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
-    tx_id = await _make_tx(client, auth_headers, str(test_account.id))
+    tx_id = await _make_tx(client, auth_headers, str(test_account.id), test_expense_type_id)
     tx = await _mark_conflict(session, tx_id)
 
     resp = await client.post(
@@ -67,8 +69,9 @@ async def test_resolve_conflict_update_from_new_changes_amount(
     auth_headers: dict[str, str],
     session: Session,
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
-    tx_id = await _make_tx(client, auth_headers, str(test_account.id))
+    tx_id = await _make_tx(client, auth_headers, str(test_account.id), test_expense_type_id)
     tx = await _mark_conflict(session, tx_id)
 
     resp = await client.post(
@@ -91,8 +94,9 @@ async def test_resolve_conflict_update_from_new_requires_amount(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
-    tx_id = await _make_tx(client, auth_headers, str(test_account.id))
+    tx_id = await _make_tx(client, auth_headers, str(test_account.id), test_expense_type_id)
     resp = await client.post(
         "/api/v1/reconciliation/resolve-conflict",
         json={"transaction_id": tx_id, "action": "UPDATE_FROM_NEW"},
@@ -114,11 +118,12 @@ async def test_resolve_conflict_rejects_invalid_transaction_state(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
     payload: dict[str, str],
     expected_status: int,
 ) -> None:
     if "transaction_id" not in payload:
-        tx_id = await _make_tx(client, auth_headers, str(test_account.id))
+        tx_id = await _make_tx(client, auth_headers, str(test_account.id), test_expense_type_id)
         payload = {"transaction_id": tx_id, **payload}
 
     resp = await client.post(
@@ -136,8 +141,9 @@ async def test_resolve_conflict_already_resolved_returns_409(
     auth_headers: dict[str, str],
     session: Session,
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
-    tx_id = await _make_tx(client, auth_headers, str(test_account.id))
+    tx_id = await _make_tx(client, auth_headers, str(test_account.id), test_expense_type_id)
     await _mark_conflict(session, tx_id)
     first = await client.post(
         "/api/v1/reconciliation/resolve-conflict",

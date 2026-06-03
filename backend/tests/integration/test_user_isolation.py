@@ -35,6 +35,7 @@ async def test_user_a_cannot_create_tx_on_user_b_account(
     client: AsyncClient,
     auth_headers: dict[str, str],
     second_test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     resp = await client.post(
         "/api/v1/transactions",
@@ -43,6 +44,7 @@ async def test_user_a_cannot_create_tx_on_user_b_account(
             "occurred_at": "2024-01-10T10:00:00",
             "amount": -100.0,
             "type": "DEBIT",
+            "expense_type_id": test_expense_type_id,
         },
         headers=auth_headers,
     )
@@ -55,6 +57,7 @@ async def test_user_a_cannot_see_user_b_transactions(
     auth_headers: dict[str, str],
     second_auth_headers: dict[str, str],
     second_test_account: Account,
+    second_test_expense_type_id: str,
 ) -> None:
     # User B creates a transaction
     tx_resp = await client.post(
@@ -64,9 +67,11 @@ async def test_user_a_cannot_see_user_b_transactions(
             "occurred_at": "2024-01-10T10:00:00",
             "amount": -500.0,
             "type": "DEBIT",
+            "expense_type_id": second_test_expense_type_id,
         },
         headers=second_auth_headers,
     )
+    assert tx_resp.status_code == 201
     tx_id = tx_resp.json()["id"]
 
     # User A lists transactions — should not see user B's

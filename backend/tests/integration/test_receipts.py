@@ -187,6 +187,7 @@ async def test_delete_receipt_linked_to_transaction_returns_409(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     create_resp = await client.post(
         "/api/v1/receipts",
@@ -203,6 +204,7 @@ async def test_delete_receipt_linked_to_transaction_returns_409(
             "occurred_at": "2024-01-15T11:30:00",
             "amount": -100.0,
             "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
         },
         headers=auth_headers,
     )

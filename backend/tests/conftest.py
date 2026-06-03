@@ -16,8 +16,10 @@ from app.db.api_keys import create_api_key
 from app.dependencies.auth import generate_api_key
 from app.main import app
 from app.models.account import Account
+from app.models.expense_type import ExpenseType
 from app.models.user import User
 from app.utils.dt import utcnow
+from app.utils.ids import scope_user_id
 from storage import get_storage_provider
 from storage.base import StorageProvider
 
@@ -96,6 +98,36 @@ def test_account(session: Session, test_user: User) -> Account:
     session.commit()
     session.refresh(account)
     return account
+
+
+@pytest.fixture()
+def test_expense_type_id(session: Session, test_user: User) -> str:
+    """Creates a default expense type for test_user; returns the public ID."""
+    public_id = "test-et"
+    et = ExpenseType(
+        id=scope_user_id(user_id=test_user.id, public_id=public_id),
+        user_id=test_user.id,
+        name="Тест расхода",
+        receipt_required=False,
+    )
+    session.add(et)
+    session.commit()
+    return public_id
+
+
+@pytest.fixture()
+def second_test_expense_type_id(session: Session, second_test_user: User) -> str:
+    """Creates a default expense type for second_test_user; returns the public ID."""
+    public_id = "test-et"
+    et = ExpenseType(
+        id=scope_user_id(user_id=second_test_user.id, public_id=public_id),
+        user_id=second_test_user.id,
+        name="Тест расхода 2",
+        receipt_required=False,
+    )
+    session.add(et)
+    session.commit()
+    return public_id
 
 
 @pytest.fixture()
