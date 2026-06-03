@@ -39,10 +39,11 @@ export default function Dashboard() {
     .filter((t) => t.type === 'EXPENSE')
     .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0)
 
-  // Latest balance per account (balances are sorted by recorded_at DESC from API)
+  // Latest balance per account as of end of selected month
+  // Balances are sorted by recorded_at DESC from API, so first match per account is the latest
   const latestByAccount = new Map<string, Balance>()
   for (const b of balances) {
-    if (!latestByAccount.has(b.account_id)) {
+    if (b.recorded_at <= end_date && !latestByAccount.has(b.account_id)) {
       latestByAccount.set(b.account_id, b)
     }
   }
@@ -66,25 +67,28 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          onClick={() => setSelectedMonth((m) => prevMonth(m))}
-          className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm leading-none shrink-0"
-          aria-label="Предыдущий месяц"
-        >
-          ←
-        </button>
-        <h1 className="text-xl font-semibold text-gray-900 flex-1 text-center whitespace-nowrap">
-          {formatMonthYear(selectedMonth)}
-        </h1>
-        <button
-          onClick={() => setSelectedMonth((m) => nextMonth(m))}
-          disabled={!canGoNext}
-          className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm leading-none disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
-          aria-label="Следующий месяц"
-        >
-          →
-        </button>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">Дашборд</h1>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setSelectedMonth((m) => prevMonth(m))}
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 text-lg font-medium leading-none shrink-0"
+            aria-label="Предыдущий месяц"
+          >
+            ‹
+          </button>
+          <span className="px-3 text-base font-semibold text-gray-900 whitespace-nowrap select-none min-w-[140px] text-center">
+            {formatMonthYear(selectedMonth)}
+          </span>
+          <button
+            onClick={() => setSelectedMonth((m) => nextMonth(m))}
+            disabled={!canGoNext}
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 text-lg font-medium leading-none disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+            aria-label="Следующий месяц"
+          >
+            ›
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
