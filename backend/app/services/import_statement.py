@@ -93,6 +93,7 @@ def import_bank_statement(
                 amount=tx_in.amount,
                 type=tx_in.type,
                 bank_category=tx_in.bank_category,
+                expense_type_id=tx_in.expense_type_id,
                 description=tx_in.description,
                 balance_after=tx_in.balance_after,
                 import_status=ImportStatus.IMPORTED,
