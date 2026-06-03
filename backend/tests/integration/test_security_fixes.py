@@ -166,7 +166,7 @@ class TestUserIdValidationInTransactions:
     """Tests for user_id validation in link_transactions_to_document."""
 
     def test_link_transactions_validates_user_ownership(
-        self, session: Session, second_test_user: User, test_account
+        self, session: Session, second_test_user: User, test_account, test_expense_type_id: str
     ) -> None:
         """Test that link_transactions_to_document validates user ownership."""
 
@@ -177,6 +177,7 @@ class TestUserIdValidationInTransactions:
             occurred_at=datetime(2024, 1, 1),
             amount=Decimal("100.00"),
             type="INCOME",
+            expense_type_id=test_expense_type_id,
         )
         session.commit()
 
