@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="70931057-2887-4f97-a77b-59973d51a513" name="Changes" comment="Rules" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;the-lans&quot;
+  }
+}</component>
+  <component name="GitHubPullRequestState">{
+  &quot;prStates&quot;: [
+    {
+      &quot;id&quot;: {
+        &quot;id&quot;: &quot;PR_kwDOSR9lBc7csQ86&quot;,
+        &quot;number&quot;: 3
+      },
+      &quot;lastSeen&quot;: 1779114592153
+    }
+  ]
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/the-lans/buh-manager.git&quot;,
+    &quot;accountId&quot;: &quot;48635ad7-5055-4f04-8a97-4230c650e3c4&quot;
+  },
+  &quot;recentNewPullRequestHead&quot;: {
+    &quot;server&quot;: {
+      &quot;useHttp&quot;: false,
+      &quot;host&quot;: &quot;github.com&quot;,
+      &quot;port&quot;: null,
+      &quot;suffix&quot;: null
+    },
+    &quot;owner&quot;: &quot;the-lans&quot;,
+    &quot;repository&quot;: &quot;buh-manager&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5
+}</component>
+  <component name="ProjectId" id="3DCa3VOLJNxNDGFzOOqnOQSWJft" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "fix/expense-type-nullable-modal-cleanup",
+    "last_opened_file_path": "/Users/thelans/Yandex.Disk.localized/ProgramProjects/!GitProjects/buh-manager",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "ts.external.directory.path": "/Users/thelans/Yandex.Disk.localized/ProgramProjects/!GitProjects/buh-manager/frontend/node_modules/typescript/lib",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-1d06a55b98c1-0b3e54e931b4-JavaScript-PY-241.19416.19" />
+        <option value="bundled-python-sdk-337b0a7a993a-2767605e8bc2-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-241.19416.19" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="70931057-2887-4f97-a77b-59973d51a513" name="Changes" comment="" />
+      <created>1777788306947</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1777788306947</updated>
+      <workItem from="1777788307980" duration="13701000" />
+      <workItem from="1779111527689" duration="26000" />
+      <workItem from="1779111627778" duration="42000" />
+      <workItem from="1779111681236" duration="13000" />
+      <workItem from="1779111746566" duration="27000" />
+      <workItem from="1779111849399" duration="623000" />
+      <workItem from="1779112483208" duration="26000" />
+      <workItem from="1779112642071" duration="52000" />
+      <workItem from="1779112702726" duration="251000" />
+      <workItem from="1779113207802" duration="75000" />
+      <workItem from="1779113291460" duration="6610000" />
+      <workItem from="1779733827585" duration="10291000" />
+      <workItem from="1780036064824" duration="25400000" />
+      <workItem from="1780325003275" duration="39618000" />
+    </task>
+    <task id="LOCAL-00001" summary="Code Review">
+      <option name="closed" value="true" />
+      <created>1777818937503</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1777818937503</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Bugs">
+      <option name="closed" value="true" />
+      <created>1777843234821</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1777843234821</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Rules">
+      <option name="closed" value="true" />
+      <created>1780136449738</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1780136449738</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Rules">
+      <option name="closed" value="true" />
+      <created>1780311824966</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1780311824966</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Code Review" />
+    <MESSAGE value="Bugs" />
+    <MESSAGE value="Rules" />
+    <option name="LAST_COMMIT_MESSAGE" value="Rules" />
+  </component>
+</project>
