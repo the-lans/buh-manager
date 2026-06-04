@@ -14,7 +14,7 @@ class BankStatementTransactionIn(BaseModel):
     amount: Decimal
     type: str
     bank_category: str | None = None
-    expense_type_id: str | None = None
+    expense_type_id: str
     description: str | None = None
     balance_after: Decimal | None = None
 

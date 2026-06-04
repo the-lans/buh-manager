@@ -23,6 +23,7 @@ from app.schemas.reconciliation import (
     ResolveConflictRequest,
 )
 from app.services.audit import audit_match, audit_update
+from app.services.balance_chain import recalculate_transaction_balances_from
 from app.services.reconciliation import run_reconciliation
 from app.utils.http import get_or_404
 
@@ -181,8 +182,14 @@ def resolve_conflict(
         )
 
     before = {"amount": str(tx.amount), "import_status": str(tx.import_status)}
+    previous_amount = tx.amount
     if data.action == ConflictResolutionAction.UPDATE_FROM_NEW and data.incoming_amount is not None:
         tx.amount = data.incoming_amount
+        recalculate_transaction_balances_from(
+            session=session,
+            transaction=tx,
+            previous_amount=previous_amount,
+        )
     tx.import_status = ImportStatus.IMPORTED
     session.add(tx)
     after: dict[str, str] = {"import_status": str(ImportStatus.IMPORTED)}

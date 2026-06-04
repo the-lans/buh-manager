@@ -91,18 +91,6 @@ describe('TransactionEditModal', () => {
     )
   })
 
-  it('shows all reconciled_status options', async () => {
-    renderWithProviders(<TransactionEditModal transaction={BASE_TX} onClose={() => {}} />)
-    const statusSelect = screen.getByDisplayValue('Не сверено')
-    expect(statusSelect).toBeInTheDocument()
-    // Check all options exist in the select
-    const options = Array.from(statusSelect.querySelectorAll('option')).map((o) => o.textContent)
-    expect(options).toContain('Не сверено')
-    expect(options).toContain('Сверено')
-    expect(options).toContain('Не требуется')
-    expect(options).toContain('Игнорируется')
-  })
-
   it('shows expense types in selector', async () => {
     renderWithProviders(<TransactionEditModal transaction={BASE_TX} onClose={() => {}} />)
     await waitFor(() => expect(screen.getByText('Питание')).toBeInTheDocument())
@@ -124,23 +112,17 @@ describe('TransactionEditModal', () => {
     expect(screen.getByText(/tx-edit/)).toBeInTheDocument()
   })
 
-  it('shows "— не задан —" when expense_type_id is null', () => {
-    renderWithProviders(
-      <TransactionEditModal
-        transaction={{ ...BASE_TX, expense_type_id: null }}
-        onClose={() => {}}
-      />,
-    )
-    expect(screen.getByDisplayValue('— не задан —')).toBeInTheDocument()
+  it('does not render a reconciled_status editor', () => {
+    renderWithProviders(<TransactionEditModal transaction={BASE_TX} onClose={() => {}} />)
+    expect(screen.queryByText('Статус сверки')).not.toBeInTheDocument()
   })
 
-  it('includes reconciled_status in the save payload', async () => {
+  it('does not include reconciled_status in the save payload', async () => {
     const updateSpy = vi.fn((info) =>
       info.request.json().then((body: Record<string, unknown>) => {
-        expect(body.reconciled_status).toBe('IGNORED_BY_USER')
+        expect(body.reconciled_status).toBeUndefined()
         return HttpResponse.json({
           ...BASE_TX,
-          reconciled_status: 'IGNORED_BY_USER',
         })
       }),
     )
@@ -149,10 +131,6 @@ describe('TransactionEditModal', () => {
     const onClose = vi.fn()
     renderWithProviders(<TransactionEditModal transaction={BASE_TX} onClose={onClose} />)
     const user = userEvent.setup()
-
-    // Change reconciled_status to IGNORED_BY_USER
-    const statusSelect = screen.getByDisplayValue('Не сверено')
-    await user.selectOptions(statusSelect, 'IGNORED_BY_USER')
 
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
 

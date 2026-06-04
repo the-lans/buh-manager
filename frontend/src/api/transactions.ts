@@ -25,12 +25,21 @@ export interface TransactionCreatePayload {
   balance_after?: string | null
 }
 
+export interface TransactionUpdatePayload {
+  occurred_at?: string
+  amount?: string
+  type?: string
+  bank_category?: string | null
+  expense_type_id?: string
+  description?: string | null
+}
+
 export const transactionsApi = {
   list: (filters?: TransactionFilters) =>
     apiClient.get<Transaction[]>('/transactions', { params: filters }).then((r) => r.data),
   create: (data: TransactionCreatePayload) =>
     apiClient.post<Transaction>('/transactions', data).then((r) => r.data),
-  update: (id: string, data: Partial<Transaction>) =>
+  update: (id: string, data: TransactionUpdatePayload) =>
     apiClient.put<Transaction>(`/transactions/${id}`, data).then((r) => r.data),
   delete: (id: string) => apiClient.delete(`/transactions/${id}`),
 }

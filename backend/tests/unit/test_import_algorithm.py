@@ -36,8 +36,8 @@ def _make_statement(
 def _tx(
     occurred_at: datetime,
     amount: Decimal,
+    expense_type_id: str,
     balance_after: Decimal | None = None,
-    expense_type_id: str | None = None,
 ) -> BankStatementTransactionIn:
     return BankStatementTransactionIn(
         occurred_at=occurred_at,
@@ -71,8 +71,8 @@ def _create_document(session: Session, user_id: object) -> Document:
 def test_import_all_new(session: Session, test_user: User, test_account: Account, test_expense_type_id: str) -> None:
     doc = _create_document(session, test_user.id)
     txs = [
-        _tx(datetime(2024, 1, 5), Decimal("-100"), Decimal("900"), expense_type_id=test_expense_type_id),
-        _tx(datetime(2024, 1, 6), Decimal("-200"), Decimal("700"), expense_type_id=test_expense_type_id),
+        _tx(datetime(2024, 1, 5), Decimal("-100"), test_expense_type_id, Decimal("900")),
+        _tx(datetime(2024, 1, 6), Decimal("-200"), test_expense_type_id, Decimal("700")),
     ]
     stmt = _make_statement(test_account.id, doc.id, txs, Decimal("1000"), Decimal("700"))
     report = import_bank_statement(session=session, statement=stmt, current_user=test_user)
@@ -88,7 +88,7 @@ def test_import_all_new(session: Session, test_user: User, test_account: Account
 
 def test_import_duplicate_skipped(session: Session, test_user: User, test_account: Account, test_expense_type_id: str) -> None:
     doc = _create_document(session, test_user.id)
-    txs = [_tx(datetime(2024, 1, 5), Decimal("-100"), Decimal("900"), expense_type_id=test_expense_type_id)]
+    txs = [_tx(datetime(2024, 1, 5), Decimal("-100"), test_expense_type_id, Decimal("900"))]
     stmt = _make_statement(test_account.id, doc.id, txs)
 
     import_bank_statement(session=session, statement=stmt, current_user=test_user)
@@ -108,13 +108,13 @@ def test_import_conflict_detected(session: Session, test_user: User, test_accoun
     occurred = datetime(2024, 1, 5)
 
     stmt1 = _make_statement(
-        test_account.id, doc.id, [_tx(occurred, Decimal("-100"), Decimal("900"), expense_type_id=test_expense_type_id)]
+        test_account.id, doc.id, [_tx(occurred, Decimal("-100"), test_expense_type_id, Decimal("900"))]
     )
     import_bank_statement(session=session, statement=stmt1, current_user=test_user)
 
     doc2 = _create_document(session, test_user.id)
     stmt2 = _make_statement(
-        test_account.id, doc2.id, [_tx(occurred, Decimal("-150"), Decimal("900"), expense_type_id=test_expense_type_id)]
+        test_account.id, doc2.id, [_tx(occurred, Decimal("-150"), test_expense_type_id, Decimal("900"))]
     )
     report = import_bank_statement(session=session, statement=stmt2, current_user=test_user)
 
@@ -134,7 +134,7 @@ def test_import_mixed_batch(session: Session, test_user: User, test_account: Acc
     stmt1 = _make_statement(
         test_account.id,
         doc.id,
-        [_tx(occurred_dup, Decimal("-100"), Decimal("900"), expense_type_id=test_expense_type_id)],
+        [_tx(occurred_dup, Decimal("-100"), test_expense_type_id, Decimal("900"))],
     )
     import_bank_statement(session=session, statement=stmt1, current_user=test_user)
 
@@ -143,8 +143,8 @@ def test_import_mixed_batch(session: Session, test_user: User, test_account: Acc
         test_account.id,
         doc2.id,
         [
-            _tx(occurred_dup, Decimal("-100"), Decimal("900"), expense_type_id=test_expense_type_id),  # duplicate
-            _tx(occurred_new, Decimal("-200"), Decimal("700"), expense_type_id=test_expense_type_id),  # new
+            _tx(occurred_dup, Decimal("-100"), test_expense_type_id, Decimal("900")),  # duplicate
+            _tx(occurred_new, Decimal("-200"), test_expense_type_id, Decimal("700")),  # new
         ],
     )
     report = import_bank_statement(session=session, statement=stmt2, current_user=test_user)

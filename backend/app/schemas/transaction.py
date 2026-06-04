@@ -41,9 +41,15 @@ class TransactionUpdate(BaseModel):
     bank_category: str | None = None
     expense_type_id: str | None = None
     description: str | None = None
-    reconciled_status: str | None = None
 
     model_config = {"extra": "forbid"}
+
+    @field_validator("expense_type_id")
+    @classmethod
+    def expense_type_id_must_not_be_empty(cls, v: str | None) -> str | None:
+        if v is not None and not v.strip():
+            raise ValueError("expense_type_id must not be empty.")
+        return v
 
     @field_validator("occurred_at", mode="after")
     @classmethod

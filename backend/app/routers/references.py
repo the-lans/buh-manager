@@ -128,8 +128,15 @@ def delete_account_endpoint(
 ) -> None:
     account = get_account_by_id(session=session, account_id=account_id, user_id=current_user.id)
     account = get_or_404(account, "Account not found.")
-    delete_account(session=session, account=account)
-    session.commit()
+    try:
+        delete_account(session=session, account=account)
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Account is used by transactions or balances and cannot be deleted.",
+        ) from exc
 
 
 @router.post(
@@ -194,8 +201,15 @@ def create_expense_type_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> ExpenseTypeRead:
-    et = create_expense_type(session=session, user_id=current_user.id, data=data)
-    session.commit()
+    try:
+        et = create_expense_type(session=session, user_id=current_user.id, data=data)
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Expense type with this id already exists.",
+        ) from exc
     return ExpenseTypeRead.model_validate(et)
 
 
@@ -237,8 +251,15 @@ def delete_expense_type_endpoint(
         user_id=current_user.id,
     )
     et = get_or_404(et, "Expense type not found.")
-    delete_expense_type(session=session, expense_type=et)
-    session.commit()
+    try:
+        delete_expense_type(session=session, expense_type=et)
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Expense type is used by transactions and cannot be deleted.",
+        ) from exc
 
 
 # ── Counterparties ───────────────────────────────────────────────────────────

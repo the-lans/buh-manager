@@ -31,15 +31,19 @@ def get_receipt_by_fiscal(
     fd: str,
     fpd: str,
     user_id: UUID,
+    exclude_receipt_id: UUID | None = None,
 ) -> Receipt | None:
-    return session.exec(
+    query = (
         select(Receipt)
         .join(Document, isouter=True)
         .where(Receipt.fn == fn)
         .where(Receipt.fd == fd)
         .where(Receipt.fpd == fpd)
         .where(_receipt_belongs_to_user(user_id=user_id))
-    ).first()
+    )
+    if exclude_receipt_id is not None:
+        query = query.where(Receipt.id != exclude_receipt_id)
+    return session.exec(query).first()
 
 
 def get_receipt_by_id(

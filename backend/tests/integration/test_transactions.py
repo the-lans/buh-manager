@@ -123,7 +123,7 @@ async def test_update_transaction(
 
 
 @pytest.mark.asyncio
-async def test_update_transaction_reconciled_status(
+async def test_update_transaction_rejects_reconciled_status_override(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
@@ -141,8 +141,29 @@ async def test_update_transaction_reconciled_status(
         json={"reconciled_status": "IGNORED_BY_USER"},
         headers=auth_headers,
     )
-    assert update_resp.status_code == 200
-    assert update_resp.json()["reconciled_status"] == "IGNORED_BY_USER"
+    assert update_resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_transaction_rejects_null_expense_type(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
+        headers=auth_headers,
+    )
+    tx_id = create_resp.json()["id"]
+
+    update_resp = await client.put(
+        f"/api/v1/transactions/{tx_id}",
+        json={"expense_type_id": None},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 422
 
 
 @pytest.mark.asyncio

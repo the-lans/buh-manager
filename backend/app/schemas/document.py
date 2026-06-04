@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from app.constants import DocumentStatus, DocumentType
+from app.utils.dt import normalize_to_utc
 
 
 class DocumentRead(BaseModel):
@@ -44,6 +45,11 @@ class LinkStatementRequest(BaseModel):
     account_id: UUID
     statement_start: datetime
     statement_end: datetime
+
+    @field_validator("statement_start", "statement_end", mode="after")
+    @classmethod
+    def normalize_period(cls, v: datetime) -> datetime:
+        return normalize_to_utc(v)
 
     @model_validator(mode="after")
     def validate_date_range(self) -> "LinkStatementRequest":

@@ -8,7 +8,10 @@ from sqlmodel import Field, SQLModel
 
 class Receipt(SQLModel, table=True):
     __tablename__ = "receipts"
-    __table_args__ = (UniqueConstraint("document_id", name="uq_receipt_document_id"),)
+    __table_args__ = (
+        UniqueConstraint("document_id", name="uq_receipt_document_id"),
+        UniqueConstraint("user_id", "fn", "fd", "fpd", name="uq_receipt_user_fiscal"),
+    )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
