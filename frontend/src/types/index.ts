@@ -40,6 +40,7 @@ export interface Document {
   file_hash: string
   uploaded_at: string
   payload?: Record<string, unknown> | null
+  raw_parsed_data?: string | null
 }
 
 export interface ReceiptItem {

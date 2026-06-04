@@ -20,11 +20,10 @@ describe('DocumentDetailModal', () => {
     expect(screen.getByText('Обработан')).toBeInTheDocument()
   })
 
-  it('shows URL field in document card', async () => {
+  it('does not show URL field in document card', async () => {
     renderWithProviders(<DocumentDetailModal documentId="doc-1" onClose={() => {}} />)
     await waitFor(() => expect(screen.getByText('receipt.pdf')).toBeInTheDocument())
-    expect(screen.getByText('URL')).toBeInTheDocument()
-    expect(screen.getByText('/media/fake/doc-1')).toBeInTheDocument()
+    expect(screen.queryByText('URL')).not.toBeInTheDocument()
   })
 
   it('shows email_source when present', async () => {
@@ -69,14 +68,14 @@ describe('DocumentDetailModal', () => {
     )
     renderWithProviders(<DocumentDetailModal documentId="doc-payload" onClose={() => {}} />)
     await waitFor(() => expect(screen.getByText('payload-doc.pdf')).toBeInTheDocument())
-    expect(screen.getByText('Дополнительные сведения')).toBeInTheDocument()
+    expect(screen.getByText('Payload')).toBeInTheDocument()
     expect(screen.getByText(/Пятёрочка/)).toBeInTheDocument()
   })
 
   it('does not show payload section when payload is null', async () => {
     renderWithProviders(<DocumentDetailModal documentId="doc-1" onClose={() => {}} />)
     await waitFor(() => expect(screen.getByText('receipt.pdf')).toBeInTheDocument())
-    expect(screen.queryByText('Дополнительные сведения')).not.toBeInTheDocument()
+    expect(screen.queryByText('Payload')).not.toBeInTheDocument()
   })
 
   it('shows linked receipt for RECEIPT type document', async () => {
