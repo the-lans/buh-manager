@@ -1,8 +1,11 @@
-from collections.abc import Callable, Generator
+from collections.abc import AsyncGenerator, Callable, Generator
 from datetime import datetime, timedelta
+from sqlite3 import Connection as SQLiteConnection
+from typing import cast
 from uuid import UUID, uuid4
 
 import pytest
+from fastapi import UploadFile
 from httpx import ASGITransport, AsyncClient
 from jose import jwt
 from sqlalchemy import event
@@ -35,7 +38,7 @@ def engine() -> Generator[Engine, None, None]:
     )
 
     @event.listens_for(test_engine, "connect")
-    def set_pragma(dbapi_conn: object, _: object) -> None:
+    def set_pragma(dbapi_conn: SQLiteConnection, _: object) -> None:
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
@@ -116,7 +119,7 @@ def test_expense_type_id(session: Session, test_user: User) -> str:
 
 
 @pytest.fixture()
-def test_expense_type_scoped_id(session: Session, test_user: User, test_expense_type_id: str) -> str:
+def test_expense_type_scoped_id(test_user: User, test_expense_type_id: str) -> str:
     """Returns the scoped (internal DB) ID of the test expense type. Use this for direct DB inserts."""
     return scope_user_id(user_id=test_user.id, public_id=test_expense_type_id)
 
@@ -156,10 +159,13 @@ def second_test_account(session: Session, second_test_user: User) -> Account:
 
 def make_jwt(user_id: str) -> str:
     expire = utcnow() + timedelta(minutes=settings.jwt_expire_minutes)
-    return jwt.encode(
-        {"sub": user_id, "exp": expire},
-        settings.jwt_secret_key,
-        algorithm=settings.jwt_algorithm,
+    return cast(
+        "str",
+        jwt.encode(
+            {"sub": user_id, "exp": expire},
+            settings.jwt_secret_key,
+            algorithm=settings.jwt_algorithm,
+        ),
     )
 
 
@@ -167,7 +173,7 @@ def make_jwt(user_id: str) -> str:
 
 
 class FakeStorageProvider:
-    async def upload_file(self, *, file: object, file_id: str) -> str:  # noqa: ARG002
+    async def upload_file(self, *, file: UploadFile, file_id: str) -> str:  # noqa: ARG002
         return f"/media/fake/{file_id}"
 
     async def delete_file(self, *, doc_url: str) -> None:  # noqa: ARG002
@@ -188,13 +194,13 @@ class FakeStorageProvider:
 
 
 @pytest.fixture()
-async def client(engine: Engine) -> AsyncClient:
+async def client(engine: Engine) -> AsyncGenerator[AsyncClient, None]:
     def override_session() -> Generator[Session, None, None]:
         with Session(engine) as s:
             yield s
 
     def override_storage() -> StorageProvider:
-        return FakeStorageProvider()  # type: ignore[return-value]
+        return FakeStorageProvider()
 
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_storage_provider] = override_storage

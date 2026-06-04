@@ -1,5 +1,5 @@
 import io
-from typing import Literal
+from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 
 import pytest
@@ -8,12 +8,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.constants import DocumentStatus, DocumentType
+from app.db import receipts as receipts_db
 from app.models.account import Account
 from app.models.counterparty import Counterparty
 from app.models.document import Document
 from app.models.receipt import Receipt
 from app.models.user import User
-from app.db import receipts as receipts_db
 from app.routers import receipts as receipts_router
 from app.utils.dt import utcnow
 from app.utils.ids import scope_user_id
@@ -26,8 +26,8 @@ def _receipt_payload(
     fpd: str | None = "1234567890",
     counterparty_id: str | None = None,
     total: float = 100.0,
-) -> dict:
-    payload: dict = {
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
         "paid_at": "2024-01-15T12:00:00",
         "total_amount": total,
         "fn": fn,
@@ -61,7 +61,7 @@ async def _create_doc(
         params={"doc_type": doc_type},
     )
     assert resp.status_code == 201
-    return resp.json()["id"]
+    return cast("str", resp.json()["id"])
 
 
 @pytest.mark.asyncio
@@ -105,12 +105,27 @@ async def test_create_duplicate_fiscal_race_returns_409_from_db_constraint(
     original = receipts_db.get_receipt_by_fiscal
     calls = 0
 
-    def bypass_precheck(**kwargs: object) -> Receipt | None:
+    def bypass_precheck(
+        *,
+        session: Session,
+        fn: str,
+        fd: str,
+        fpd: str,
+        user_id: UUID,
+        exclude_receipt_id: UUID | None = None,
+    ) -> Receipt | None:
         nonlocal calls
         calls += 1
         if calls == 1:
             return None
-        return original(**kwargs)
+        return original(
+            session=session,
+            fn=fn,
+            fd=fd,
+            fpd=fpd,
+            user_id=user_id,
+            exclude_receipt_id=exclude_receipt_id,
+        )
 
     monkeypatch.setattr(receipts_router, "get_receipt_by_fiscal", bypass_precheck)
 
