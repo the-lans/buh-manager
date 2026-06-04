@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     def parse_allowed_emails(cls, v: object) -> list[str]:
         if isinstance(v, str):
             return [e.strip() for e in v.split(",") if e.strip()]
-        return cast(list[str], v)
+        return cast("list[str]", v)
 
     yandex_s3_bucket: str = ""
     yandex_access_key: str = ""

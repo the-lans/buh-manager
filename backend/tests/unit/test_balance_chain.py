@@ -1,17 +1,18 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlmodel import Session
 
 from app.constants import ImportStatus, ReconciledStatus, TransactionType
+from app.models.account import Account
 from app.models.transaction import Transaction
 from app.services.balance_chain import verify_balance_chain
 
 
 def _make_tx(
-    account_id: object,
+    account_id: UUID,
     occurred_at: datetime,
     amount: Decimal,
     expense_type_scoped_id: str,
@@ -19,7 +20,7 @@ def _make_tx(
 ) -> Transaction:
     return Transaction(
         id=uuid4(),
-        account_id=account_id,  # type: ignore[arg-type]
+        account_id=account_id,
         occurred_at=occurred_at,
         amount=amount,
         type=TransactionType.EXPENSE,
@@ -56,7 +57,7 @@ END = datetime(2024, 1, 31, 23, 59)
 )
 def test_balance_chain_consistency(
     session: Session,
-    test_account: object,
+    test_account: Account,
     test_expense_type_scoped_id: str,
     opening: Decimal,
     txs_amounts_balances: list[tuple[Decimal, Decimal]],
@@ -82,7 +83,11 @@ def test_balance_chain_consistency(
     assert result.is_consistent is expect_consistent
 
 
-def test_balance_chain_marks_mismatch(session: Session, test_account: object, test_expense_type_scoped_id: str) -> None:
+def test_balance_chain_marks_mismatch(
+    session: Session,
+    test_account: Account,
+    test_expense_type_scoped_id: str,
+) -> None:
     acc_id = test_account.id
     # Opening 1000, tx -100 → should be 900; put 999 as balance_after → mismatch
     tx = _make_tx(acc_id, BASE, Decimal("-100"), test_expense_type_scoped_id, Decimal("999"))
@@ -103,7 +108,7 @@ def test_balance_chain_marks_mismatch(session: Session, test_account: object, te
     assert tx.calculated_balance_after == Decimal("900")
 
 
-def test_balance_chain_no_transactions(session: Session, test_account: object) -> None:
+def test_balance_chain_no_transactions(session: Session, test_account: Account) -> None:
     acc_id = test_account.id
     result = verify_balance_chain(
         session=session,
@@ -118,7 +123,9 @@ def test_balance_chain_no_transactions(session: Session, test_account: object) -
 
 
 def test_balance_chain_unavailable_when_no_balance_after(
-    session: Session, test_account: object, test_expense_type_scoped_id: str
+    session: Session,
+    test_account: Account,
+    test_expense_type_scoped_id: str,
 ) -> None:
     acc_id = test_account.id
     tx = _make_tx(acc_id, BASE, Decimal("-50"), test_expense_type_scoped_id, balance_after=None)
@@ -137,7 +144,9 @@ def test_balance_chain_unavailable_when_no_balance_after(
 
 
 def test_balance_chain_unavailable_when_opening_missing(
-    session: Session, test_account: object, test_expense_type_scoped_id: str
+    session: Session,
+    test_account: Account,
+    test_expense_type_scoped_id: str,
 ) -> None:
     acc_id = test_account.id
     tx = _make_tx(acc_id, BASE, Decimal("-50"), test_expense_type_scoped_id, balance_after=Decimal("950"))

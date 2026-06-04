@@ -40,7 +40,7 @@ def _create_access_token(user: User) -> str:
 @router.get("/google")
 async def login_via_google(request: Request) -> RedirectResponse:
     redirect_uri = request.url_for("auth_via_google_callback")
-    return cast(RedirectResponse, await oauth.google.authorize_redirect(request, redirect_uri))
+    return cast("RedirectResponse", await oauth.google.authorize_redirect(request, redirect_uri))
 
 
 @router.get("/google/callback", name="auth_via_google_callback")

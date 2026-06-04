@@ -1,11 +1,12 @@
 """T79: Conflict resolution parametrized tests."""
 
 from decimal import Decimal
+from typing import cast
 from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.constants import ImportStatus
 from app.models.account import Account
@@ -25,7 +26,7 @@ async def _make_tx(client: AsyncClient, headers: dict[str, str], account_id: str
         headers=headers,
     )
     assert resp.status_code == 201
-    return resp.json()["id"]
+    return cast("str", resp.json()["id"])
 
 
 async def _mark_conflict(session: Session, tx_id: str) -> Transaction:
@@ -139,7 +140,7 @@ async def test_resolve_conflict_recalculates_downstream_balances(
     txs = session.exec(
         select(Transaction)
         .where(Transaction.account_id == test_account.id)
-        .order_by(Transaction.occurred_at.asc(), Transaction.id.asc())
+        .order_by(col(Transaction.occurred_at).asc(), col(Transaction.id).asc())
     ).all()
     assert len(txs) == 2
     txs[0].import_status = ImportStatus.CONFLICT

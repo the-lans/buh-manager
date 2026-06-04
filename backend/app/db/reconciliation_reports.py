@@ -35,4 +35,4 @@ def get_last_report(
     ).first()
     if record is None:
         return None
-    return cast(dict[str, Any], json.loads(record.report_json))
+    return cast("dict[str, Any]", json.loads(record.report_json))

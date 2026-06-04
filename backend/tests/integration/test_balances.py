@@ -294,7 +294,6 @@ async def test_calculate_balances_includes_new_transactions(
     await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
 
     # Add a manual transaction AFTER the last imported balance (closing recorded_at = statement_end)
-    acc_resp = await client.get("/api/v1/accounts", headers=auth_headers)
     acc_id = str(test_account.id)
     tx_resp = await client.post(
         "/api/v1/transactions",
@@ -321,7 +320,6 @@ async def test_calculate_balances_includes_new_transactions(
 async def test_calculate_balances_skips_account_without_balance(
     client: AsyncClient,
     auth_headers: dict[str, str],
-    test_account: Account,
 ) -> None:
     # Account exists but has NO balance records at all
     resp = await client.post("/api/v1/balances/calculate", headers=auth_headers)
