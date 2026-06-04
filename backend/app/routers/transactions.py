@@ -120,6 +120,11 @@ def update_transaction_endpoint(
         session=session, transaction_id=transaction_id, user_id=current_user.id
     )
     tx = get_or_404(tx, "Transaction not found.")
+    if "expense_type_id" in data.model_fields_set and data.expense_type_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="expense_type_id cannot be null.",
+        )
     if data.expense_type_id is not None:
         et = get_or_404(
             get_expense_type_by_id(

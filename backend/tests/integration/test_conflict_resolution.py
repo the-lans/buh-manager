@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.constants import ImportStatus
 from app.models.account import Account
@@ -87,6 +87,82 @@ async def test_resolve_conflict_update_from_new_changes_amount(
     session.refresh(tx)
     assert tx.amount == Decimal("-75.25")
     assert tx.import_status == ImportStatus.IMPORTED
+
+
+@pytest.mark.asyncio
+async def test_resolve_conflict_recalculates_downstream_balances(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    doc_resp = await client.post(
+        "/api/v1/documents",
+        headers=auth_headers,
+        files={"file": ("statement.pdf", b"stmt", "application/pdf")},
+        params={"doc_type": "BANK_STATEMENT"},
+    )
+    assert doc_resp.status_code == 201
+    doc_id = doc_resp.json()["id"]
+
+    import_resp = await client.post(
+        "/api/v1/bank-statements",
+        json={
+            "document_id": doc_id,
+            "account_id": str(test_account.id),
+            "statement_start": "2024-03-01T00:00:00",
+            "statement_end": "2024-03-31T23:59:59",
+            "opening_balance": "1000.00",
+            "closing_balance": "850.00",
+            "transactions": [
+                {
+                    "occurred_at": "2024-03-01T10:00:00",
+                    "amount": "-50.00",
+                    "type": "DEBIT",
+                    "expense_type_id": test_expense_type_id,
+                    "balance_after": "950.00",
+                },
+                {
+                    "occurred_at": "2024-03-01T11:00:00",
+                    "amount": "-100.00",
+                    "type": "DEBIT",
+                    "expense_type_id": test_expense_type_id,
+                    "balance_after": "850.00",
+                },
+            ],
+        },
+        headers=auth_headers,
+    )
+    assert import_resp.status_code == 200
+
+    txs = session.exec(
+        select(Transaction)
+        .where(Transaction.account_id == test_account.id)
+        .order_by(Transaction.occurred_at.asc(), Transaction.id.asc())
+    ).all()
+    assert len(txs) == 2
+    txs[0].import_status = ImportStatus.CONFLICT
+    session.add(txs[0])
+    session.commit()
+
+    resp = await client.post(
+        "/api/v1/reconciliation/resolve-conflict",
+        json={
+            "transaction_id": str(txs[0].id),
+            "action": "UPDATE_FROM_NEW",
+            "incoming_amount": "-75.00",
+        },
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200
+    session.refresh(txs[0])
+    session.refresh(txs[1])
+    assert txs[0].calculated_balance_after == Decimal("925.00")
+    assert txs[0].balance_mismatch is True
+    assert txs[1].calculated_balance_after == Decimal("825.00")
+    assert txs[1].balance_mismatch is True
 
 
 @pytest.mark.asyncio

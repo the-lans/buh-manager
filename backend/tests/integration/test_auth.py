@@ -104,6 +104,8 @@ async def test_google_callback_allows_whitelisted_email(client: AsyncClient) -> 
         response = await client.get("/api/v1/auth/google/callback")
     assert response.status_code in (302, 307)
     assert "/auth/forbidden" not in response.headers["location"]
+    assert "#token=" in response.headers["location"]
+    assert "?token=" not in response.headers["location"]
 
 
 @pytest.mark.asyncio
@@ -116,3 +118,16 @@ async def test_google_callback_allows_any_email_when_whitelist_empty(client: Asy
         response = await client.get("/api/v1/auth/google/callback")
     assert response.status_code in (302, 307)
     assert "/auth/forbidden" not in response.headers["location"]
+
+
+@pytest.mark.asyncio
+async def test_google_callback_does_not_put_token_in_query_string(client: AsyncClient) -> None:
+    with patch(
+        "app.routers.auth.oauth.google.authorize_access_token",
+        new=_mock_oauth(_GOOGLE_USERINFO),
+    ):
+        response = await client.get("/api/v1/auth/google/callback")
+    assert response.status_code in (302, 307)
+    location = response.headers["location"]
+    assert "#token=" in location
+    assert "?token=" not in location

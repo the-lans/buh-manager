@@ -50,6 +50,7 @@ def create_receipt_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> ReceiptRead:
+    user_id = current_user.id
     # Fiscal deduplication (only when all three fields are present)
     if data.fn and data.fd and data.fpd:
         existing = get_receipt_by_fiscal(
@@ -57,7 +58,7 @@ def create_receipt_endpoint(
             fn=data.fn,
             fd=data.fd,
             fpd=data.fpd,
-            user_id=current_user.id,
+            user_id=user_id,
         )
         if existing is not None:
             raise HTTPException(
@@ -68,14 +69,14 @@ def create_receipt_endpoint(
     resolved_counterparty_id = _resolve_counterparty(
         session=session,
         data=data,
-        user_id=current_user.id,
+        user_id=user_id,
     )
 
     if data.document_id is not None:
         doc = get_document_by_id(
             session=session,
             document_id=data.document_id,
-            user_id=current_user.id,
+            user_id=user_id,
         )
         doc = get_or_404(doc, "Document not found.")
         _ensure_receipt_document_linkable(doc)
@@ -83,7 +84,7 @@ def create_receipt_endpoint(
             get_receipt_by_document_id(
                 session=session,
                 document_id=data.document_id,
-                user_id=current_user.id,
+                user_id=user_id,
             )
             is not None
         ):
@@ -100,17 +101,17 @@ def create_receipt_endpoint(
             session=session,
             data=data,
             counterparty_id=resolved_counterparty_id,
-            user_id=current_user.id,
+            user_id=user_id,
         )
     except IntegrityError as exc:
-        _raise_document_link_conflict(session=session, exc=exc)
+        _raise_receipt_integrity_error(session=session, exc=exc, data=data, user_id=user_id)
 
     audit_create(
         session=session,
         entity_type=AuditEntityType.RECEIPT,
         entity_id=receipt.id,
         changed_by=ChangedBy.AGENT,
-        user_id=current_user.id,
+        user_id=user_id,
         after={"receipt_id": str(receipt.id), "total_amount": str(receipt.total_amount)},
     )
     _commit_receipt_document_change(session=session)
@@ -167,6 +168,7 @@ def update_receipt_endpoint(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> ReceiptRead:
+    user_id = current_user.id
     receipt = get_receipt_by_id(session=session, receipt_id=receipt_id, user_id=current_user.id)
     receipt = get_or_404(receipt, "Receipt not found.")
 
@@ -179,7 +181,7 @@ def update_receipt_endpoint(
         cp = get_counterparty_by_id(
             session=session,
             counterparty_id=data.counterparty_id,
-            user_id=current_user.id,
+            user_id=user_id,
         )
         if cp is None:
             raise HTTPException(
@@ -187,6 +189,24 @@ def update_receipt_endpoint(
                 detail="Counterparty not found.",
             )
         resolved_counterparty_id = cp.id
+
+    new_fn = data.fn if data.fn is not None else receipt.fn
+    new_fd = data.fd if data.fd is not None else receipt.fd
+    new_fpd = data.fpd if data.fpd is not None else receipt.fpd
+    if new_fn and new_fd and new_fpd:
+        existing = get_receipt_by_fiscal(
+            session=session,
+            fn=new_fn,
+            fd=new_fd,
+            fpd=new_fpd,
+            user_id=user_id,
+            exclude_receipt_id=receipt.id,
+        )
+        if existing is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"message": "Receipt already exists.", "receipt_id": str(existing.id)},
+            )
 
     new_doc = None
     if (
@@ -197,7 +217,7 @@ def update_receipt_endpoint(
         new_doc = get_document_by_id(
             session=session,
             document_id=data.document_id,
-            user_id=current_user.id,
+            user_id=user_id,
         )
         if new_doc is None:
             raise HTTPException(
@@ -209,7 +229,7 @@ def update_receipt_endpoint(
             get_receipt_by_document_id(
                 session=session,
                 document_id=data.document_id,
-                user_id=current_user.id,
+                user_id=user_id,
                 exclude_receipt_id=receipt.id,
             )
             is not None
@@ -229,13 +249,19 @@ def update_receipt_endpoint(
             update_counterparty=update_counterparty,
         )
     except IntegrityError as exc:
-        _raise_document_link_conflict(session=session, exc=exc)
+        _raise_receipt_integrity_error(
+            session=session,
+            exc=exc,
+            data=data,
+            user_id=user_id,
+            exclude_receipt_id=receipt.id,
+        )
     after = {"total_amount": str(receipt.total_amount), "paid_at": str(receipt.paid_at)}
 
     if "document_id" in data.model_fields_set and data.document_id != old_doc_id:
         if old_doc_id is not None:
             old_doc = get_document_by_id(
-                session=session, document_id=old_doc_id, user_id=current_user.id
+                session=session, document_id=old_doc_id, user_id=user_id
             )
             if old_doc is not None:
                 old_doc.status = DocumentStatus.PENDING
@@ -249,7 +275,7 @@ def update_receipt_endpoint(
         entity_type=AuditEntityType.RECEIPT,
         entity_id=receipt.id,
         changed_by=ChangedBy.USER,
-        user_id=current_user.id,
+        user_id=user_id,
         before=before,
         after=after,
     )
@@ -319,6 +345,32 @@ def _raise_document_link_conflict(*, session: Session, exc: IntegrityError) -> N
         status_code=status.HTTP_409_CONFLICT,
         detail="Document is already linked to another receipt.",
     ) from exc
+
+
+def _raise_receipt_integrity_error(
+    *,
+    session: Session,
+    exc: IntegrityError,
+    data: ReceiptCreate | ReceiptUpdate,
+    user_id: UUID,
+    exclude_receipt_id: UUID | None = None,
+) -> NoReturn:
+    session.rollback()
+    if data.fn and data.fd and data.fpd:
+        existing = get_receipt_by_fiscal(
+            session=session,
+            fn=data.fn,
+            fd=data.fd,
+            fpd=data.fpd,
+            user_id=user_id,
+            exclude_receipt_id=exclude_receipt_id,
+        )
+        if existing is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"message": "Receipt already exists.", "receipt_id": str(existing.id)},
+            ) from exc
+    _raise_document_link_conflict(session=session, exc=exc)
 
 
 def _ensure_receipt_document_linkable(document: Document) -> None:

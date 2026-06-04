@@ -23,13 +23,6 @@ const TYPE_LABELS: Record<string, string> = {
   TRANSFER: 'Перевод',
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  UNMATCHED: 'Не сверено',
-  MATCHED: 'Сверено',
-  NOT_REQUIRED: 'Не требуется',
-  IGNORED_BY_USER: 'Игнорируется',
-}
-
 const IMPORT_STATUS_LABELS: Record<string, string> = {
   IMPORTED: 'Импортирован',
   DUPLICATE_SKIPPED: 'Дубликат',
@@ -50,7 +43,6 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
           bank_category: transaction.bank_category ?? '',
           expense_type_id: transaction.expense_type_id ?? '',
           description: transaction.description ?? '',
-          reconciled_status: transaction.reconciled_status,
         }
       : {
           occurred_at: '',
@@ -59,7 +51,6 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
           bank_category: '',
           expense_type_id: '',
           description: '',
-          reconciled_status: 'UNMATCHED',
         },
   )
   const [error, setError] = useState<string | null>(null)
@@ -74,6 +65,10 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
   async function handleSave() {
     if (!transaction) return
     setError(null)
+    if (!form.expense_type_id) {
+      setError('Выберите вид расхода')
+      return
+    }
     try {
       await update.mutateAsync({
         id: transaction.id,
@@ -82,9 +77,8 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
           amount: form.amount as unknown as string,
           type: form.type as Transaction['type'],
           bank_category: form.bank_category || null,
-          expense_type_id: form.expense_type_id || null,
+          expense_type_id: form.expense_type_id,
           description: form.description || null,
-          reconciled_status: form.reconciled_status as Transaction['reconciled_status'],
         },
       })
       onClose()
@@ -176,25 +170,13 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
             </select>
           </Field>
 
-          <Field label="Статус сверки">
-            <select
-              value={form.reconciled_status}
-              onChange={(e) => setForm((f) => ({ ...f, reconciled_status: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
-            </select>
-          </Field>
-
           <Field label="Вид расхода">
             <select
               value={form.expense_type_id}
               onChange={(e) => setForm((f) => ({ ...f, expense_type_id: e.target.value }))}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="">— не задан —</option>
+              <option value="">Выберите вид расхода</option>
               {expenseTypes.map((et) => (
                 <option key={et.id} value={et.id}>{et.name}</option>
               ))}
