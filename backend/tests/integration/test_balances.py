@@ -154,3 +154,61 @@ async def test_list_balances_ordered_newest_first(
     assert resp.status_code == 200
     dates = [b["recorded_at"] for b in resp.json()]
     assert dates == sorted(dates, reverse=True)
+
+
+@pytest.mark.asyncio
+async def test_calculate_balances_creates_manual_balance(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    # Seed an opening balance
+    doc_id = await _create_stmt_doc(client, auth_headers)
+    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+
+    # POST /balances/calculate
+    resp = await client.post("/api/v1/balances/calculate", headers=auth_headers)
+    assert resp.status_code == 200
+    results = resp.json()
+    assert len(results) == 1
+    assert results[0]["source"] == "MANUAL"
+    # opening=1000, closing=900 → last balance is 900, no new txs → calculated = 900
+    assert float(results[0]["amount"]) == pytest.approx(900.0)
+
+
+@pytest.mark.asyncio
+async def test_calculate_balances_idempotent(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    doc_id = await _create_stmt_doc(client, auth_headers)
+    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+
+    await client.post("/api/v1/balances/calculate", headers=auth_headers)
+    await client.post("/api/v1/balances/calculate", headers=auth_headers)
+
+    # Only one MANUAL record for today should exist
+    all_balances = await client.get(
+        "/api/v1/balances",
+        headers=auth_headers,
+        params={"account_id": str(test_account.id), "limit": 100},
+    )
+    manual_records = [b for b in all_balances.json() if b["source"] == "MANUAL"]
+    # The two calculate calls land on the same date → upsert → still 1 MANUAL record
+    assert len(manual_records) == 1
+
+
+@pytest.mark.asyncio
+async def test_calculate_balances_skips_account_without_balance(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    # Account exists but has NO balance records at all
+    resp = await client.post("/api/v1/balances/calculate", headers=auth_headers)
+    assert resp.status_code == 200
+    # Should return empty list — no account had a starting balance
+    assert resp.json() == []
