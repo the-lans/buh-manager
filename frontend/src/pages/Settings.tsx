@@ -101,10 +101,9 @@ function AccountsTab() {
     setDeleteError(null)
     try {
       await deleteAccount.mutateAsync(confirmDeleteId)
+      setConfirmDeleteId(null)
     } catch {
       setDeleteError('Не удалось удалить счёт. Возможно, он используется в транзакциях.')
-    } finally {
-      setConfirmDeleteId(null)
     }
   }
 
