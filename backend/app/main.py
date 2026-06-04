@@ -13,6 +13,7 @@ from app.routers import (
     audit_log,
     auth,
     bank_statements,
+    classifier_rules,
     documents,
     receipts,
     reconciliation,
@@ -45,3 +46,4 @@ app.include_router(transactions.router, prefix="/api/v1", **_protected)
 app.include_router(reconciliation.router, prefix="/api/v1", **_protected)
 app.include_router(references.router, prefix="/api/v1", **_protected)
 app.include_router(audit_log.router, prefix="/api/v1", **_protected)
+app.include_router(classifier_rules.router, prefix="/api/v1", **_protected)

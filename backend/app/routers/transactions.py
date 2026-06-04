@@ -24,7 +24,9 @@ from app.schemas.transaction import (
     TransactionRead,
     TransactionUpdate,
 )
+from app.db.classifier_rules import list_rules_for_user
 from app.services.audit import audit_create, audit_delete, audit_update
+from app.services.classifier import apply_rules
 from app.utils.http import get_or_404
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
@@ -92,6 +94,11 @@ def create_transaction_endpoint(
         description=data.description,
         balance_after=data.balance_after,
     )
+    rules = list_rules_for_user(session=session, user_id=current_user.id)
+    matched_et_id = apply_rules([r for r in rules if r.is_active], tx)
+    if matched_et_id is not None:
+        tx.expense_type_id = matched_et_id
+        session.add(tx)
     audit_create(
         session=session,
         entity_type=AuditEntityType.TRANSACTION,
@@ -138,6 +145,11 @@ def update_transaction_endpoint(
 
     before = {"amount": str(tx.amount), "occurred_at": str(tx.occurred_at)}
     tx = update_transaction(session=session, transaction=tx, data=data)
+    rules = list_rules_for_user(session=session, user_id=current_user.id)
+    matched_et_id = apply_rules([r for r in rules if r.is_active], tx)
+    if matched_et_id is not None:
+        tx.expense_type_id = matched_et_id
+        session.add(tx)
     after = {"amount": str(tx.amount), "occurred_at": str(tx.occurred_at)}
 
     audit_update(
