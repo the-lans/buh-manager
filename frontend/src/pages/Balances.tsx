@@ -17,6 +17,7 @@ export default function Balances() {
   const [accountId, setAccountId] = useState('')
   const [skip, setSkip] = useState(0)
   const [calcResult, setCalcResult] = useState<string | null>(null)
+  const [calcError, setCalcError] = useState<string | null>(null)
 
   const { data: accounts = [] } = useAccounts()
   const { data: balances = [], isLoading } = useBalances({
@@ -30,8 +31,13 @@ export default function Balances() {
 
   const handleCalculate = async () => {
     setCalcResult(null)
-    const results = await calculate.mutateAsync()
-    setCalcResult(`Обновлено счетов: ${results.length}`)
+    setCalcError(null)
+    try {
+      const results = await calculate.mutateAsync()
+      setCalcResult(`Обновлено счетов: ${results.length}`)
+    } catch {
+      setCalcError('Не удалось вычислить остатки. Попробуйте ещё раз.')
+    }
   }
 
   return (
@@ -47,9 +53,8 @@ export default function Balances() {
         </button>
       </div>
 
-      {calcResult && (
-        <p className="text-sm text-green-600">{calcResult}</p>
-      )}
+      {calcResult && <p className="text-sm text-green-600">{calcResult}</p>}
+      {calcError && <p className="text-sm text-red-500">{calcError}</p>}
 
       <div className="flex gap-3 flex-wrap">
         <select
