@@ -1,9 +1,11 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
+from sqlmodel import Session
 
 from app.models.account import Account
+from app.models.expense_type import ExpenseType
 
 # ── Accounts ─────────────────────────────────────────────────────────────────
 
@@ -108,6 +110,46 @@ async def test_crud_expense_types(
     assert update_resp.json()["name"] == "Еда"
 
     del_resp = await client.delete("/api/v1/expense-types/groceries", headers=auth_headers)
+    assert del_resp.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_update_expense_type_with_legacy_unscoped_id(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+    test_user: object,
+) -> None:
+    """Reproduces the 404 that occurs when an expense type was created before
+    the scoping migration ran (ID stored as plain slug, no user-prefix)."""
+    user_id: UUID = test_user.id  # type: ignore[attr-defined]
+
+    # Insert a legacy (unscoped) expense type directly in the DB, bypassing the API
+    legacy = ExpenseType(
+        id="personal-taxes",
+        user_id=user_id,
+        name="Налоги",
+        receipt_required=False,
+    )
+    session.add(legacy)
+    session.commit()
+
+    # LIST must return the unscoped ID unchanged
+    list_resp = await client.get("/api/v1/expense-types", headers=auth_headers)
+    assert list_resp.status_code == 200
+    assert any(e["id"] == "personal-taxes" for e in list_resp.json())
+
+    # PUT using the ID from the list response must succeed (not 404)
+    update_resp = await client.put(
+        "/api/v1/expense-types/personal-taxes",
+        json={"name": "Налоги (обновлено)", "description": None, "receipt_required": True},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200, update_resp.json()
+    assert update_resp.json()["name"] == "Налоги (обновлено)"
+
+    # DELETE must also work
+    del_resp = await client.delete("/api/v1/expense-types/personal-taxes", headers=auth_headers)
     assert del_resp.status_code == 204
 
 
