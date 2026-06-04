@@ -18,8 +18,16 @@ def get_expense_type_by_id(
     user_id: UUID,
 ) -> ExpenseType | None:
     scoped_id = scope_user_id(user_id=user_id, public_id=expense_type_id)
-    return session.exec(
+    result = session.exec(
         select(ExpenseType).where(ExpenseType.id == scoped_id).where(ExpenseType.user_id == user_id)
+    ).first()
+    if result is not None:
+        return result
+    # Fallback: IDs created before scoping migration (stored without user prefix)
+    return session.exec(
+        select(ExpenseType)
+        .where(ExpenseType.id == expense_type_id)
+        .where(ExpenseType.user_id == user_id)
     ).first()
 
 
