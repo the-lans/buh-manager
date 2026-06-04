@@ -17,7 +17,7 @@ export interface TransactionCreatePayload {
   occurred_at: string
   amount: string
   type: string
-  expense_type_id: string
+  expense_type_id?: string | null
   processed_at?: string | null
   auth_code?: string | null
   bank_category?: string | null

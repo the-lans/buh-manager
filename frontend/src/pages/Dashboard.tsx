@@ -55,7 +55,7 @@ export default function Dashboard() {
   const expenseTypeMap = new Map(expenseTypes.map((et) => [et.id, et.name]))
   const expenseByType = new Map<string, { count: number; total: number }>()
   for (const t of transactions) {
-    if (t.type !== 'EXPENSE') continue
+    if (t.type !== 'EXPENSE' || !t.expense_type_id) continue
     const cur = expenseByType.get(t.expense_type_id) ?? { count: 0, total: 0 }
     expenseByType.set(t.expense_type_id, { count: cur.count + 1, total: cur.total + Math.abs(Number(t.amount)) })
   }

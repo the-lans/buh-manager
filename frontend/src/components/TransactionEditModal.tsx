@@ -90,7 +90,6 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
     }
   }
 
-  const fmt = (v: string | null | undefined) => v ?? '—'
   const fmtAmount = (v: string | null) =>
     v ? `${Number(v).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽` : '—'
 
@@ -122,8 +121,6 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
             <dd className="text-gray-700">{accountLabel}</dd>
             <dt className="text-gray-500">Обработан банком</dt>
             <dd className="text-gray-700">{transaction.processed_at ? formatDate(transaction.processed_at) : '—'}</dd>
-            <dt className="text-gray-500">Код авторизации</dt>
-            <dd className="text-gray-700">{fmt(transaction.auth_code)}</dd>
             <dt className="text-gray-500">Остаток (выписка)</dt>
             <dd className="text-gray-700">{fmtAmount(transaction.balance_after)}</dd>
             <dt className="text-gray-500">Остаток (расчёт)</dt>

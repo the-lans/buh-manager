@@ -174,7 +174,7 @@ export default function Transactions() {
           <tr key={tx.id} className="hover:bg-gray-50">
             <td className="px-4 py-2 text-gray-600">{formatDate(tx.occurred_at)}</td>
             <td className="px-4 py-2 text-gray-800">{tx.bank_category ?? '—'}</td>
-            <td className="px-4 py-2 text-gray-800">{expenseTypeMap.get(tx.expense_type_id) ?? tx.expense_type_id}</td>
+            <td className="px-4 py-2 text-gray-800">{tx.expense_type_id ? (expenseTypeMap.get(tx.expense_type_id) ?? tx.expense_type_id) : '—'}</td>
             <td className="px-4 py-2 text-gray-500 text-sm max-w-[200px] truncate">{tx.description ?? '—'}</td>
             <td className={`px-4 py-2 text-right tabular-nums font-medium ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-green-600'}`}>
               {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
