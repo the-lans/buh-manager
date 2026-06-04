@@ -1,5 +1,6 @@
 import io
 from pathlib import Path
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 import pytest
@@ -305,7 +306,7 @@ async def test_download_other_user_document_returns_404(
 # ── link-receipt endpoint ──────────────────────────────────────────────────────
 
 
-def _receipt_payload(total: float = 100.0) -> dict:
+def _receipt_payload(total: float = 100.0) -> dict[str, Any]:
     return {
         "paid_at": "2024-03-01T10:00:00",
         "total_amount": total,
@@ -316,7 +317,7 @@ def _receipt_payload(total: float = 100.0) -> dict:
     }
 
 
-async def _create_receipt_doc(client: AsyncClient, headers: dict) -> str:
+async def _create_receipt_doc(client: AsyncClient, headers: dict[str, str]) -> str:
     resp = await client.post(
         "/api/v1/documents",
         headers=headers,
@@ -324,10 +325,10 @@ async def _create_receipt_doc(client: AsyncClient, headers: dict) -> str:
         params={"doc_type": "RECEIPT"},
     )
     assert resp.status_code == 201
-    return resp.json()["id"]
+    return cast("str", resp.json()["id"])
 
 
-async def _create_stmt_doc(client: AsyncClient, headers: dict) -> str:
+async def _create_stmt_doc(client: AsyncClient, headers: dict[str, str]) -> str:
     resp = await client.post(
         "/api/v1/documents",
         headers=headers,
@@ -335,7 +336,7 @@ async def _create_stmt_doc(client: AsyncClient, headers: dict) -> str:
         params={"doc_type": "BANK_STATEMENT"},
     )
     assert resp.status_code == 201
-    return resp.json()["id"]
+    return cast("str", resp.json()["id"])
 
 
 @pytest.mark.asyncio

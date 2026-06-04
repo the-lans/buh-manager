@@ -197,7 +197,7 @@ async def test_delete_transaction(
         pytest.param(
             "post",
             lambda _: "/api/v1/transactions",
-            lambda account: _tx_payload(str(uuid4())),
+            lambda _: _tx_payload(str(uuid4())),
             404,
             id="create_unknown_account",
         ),
@@ -208,7 +208,6 @@ async def test_transaction_not_found_cases(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
-    test_expense_type_id: str,
     method: str,
     path_fn: Callable,
     body_fn: Callable,

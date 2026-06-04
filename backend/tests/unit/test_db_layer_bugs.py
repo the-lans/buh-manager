@@ -1,7 +1,10 @@
 """Regression tests for DB-layer bugs identified in code review."""
 
+from __future__ import annotations
+
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from sqlmodel import Session, select
@@ -10,12 +13,17 @@ from app.constants import BalanceSource, ImportStatus, ReconciledStatus, Transac
 from app.db.balances import calculate_balances_for_user, upsert_balance
 from app.db.counterparties import get_or_create_counterparty
 from app.db.expense_types import create_expense_type, update_expense_type
-from app.models.transaction import Transaction
 from app.models.counterparty import Counterparty
 from app.models.expense_type import ExpenseType
-from app.models.user import User
+from app.models.transaction import Transaction
 from app.schemas.expense_type import ExpenseTypeCreate, ExpenseTypeUpdate
 from app.utils.ids import scope_user_id
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from app.models.account import Account
+    from app.models.user import User
 
 
 class _EmptyResult:
@@ -36,7 +44,7 @@ def _patch_exec_skip_first(
     Simulates the race-condition window where SELECT queries ran before a
     concurrent transaction committed its INSERT.
     """
-    original_exec = session.__class__.exec
+    original_exec: Callable[..., object] = session.__class__.exec
     call_count = 0
 
     def _mocked(self: Session, statement: object, **kwargs: object) -> object:
@@ -130,7 +138,7 @@ def test_get_or_create_counterparty_recovers_from_race(
 def test_calculate_balances_uses_naive_utc_recorded_at(
     session: Session,
     test_user: User,
-    test_account: object,
+    test_account: Account,
     test_expense_type_scoped_id: str,
 ) -> None:
     upsert_balance(
