@@ -91,6 +91,7 @@ class TransactionListItem(BaseModel):
     type: str
     bank_category: str | None
     expense_type_id: str
+    description: str | None
     reconciled_status: str
     import_status: str
     balance_mismatch: bool
