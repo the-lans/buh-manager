@@ -146,7 +146,7 @@ describe('Settings — ExpenseTypesTab edit modal', () => {
 })
 
 describe('Settings — AccountsTab edit modal', () => {
-  const goToAccounts = async (user: ReturnType<typeof userEvent.setup>) => {
+  const goToAccounts = async () => {
     renderWithProviders(<Settings />)
     // Accounts tab is default — just wait for content
     await waitFor(() => expect(screen.getByText('Сбербанк')).toBeInTheDocument())
@@ -154,7 +154,7 @@ describe('Settings — AccountsTab edit modal', () => {
 
   it('opens edit modal when Изменить is clicked for an account', async () => {
     const user = userEvent.setup()
-    await goToAccounts(user)
+    await goToAccounts()
     await user.click(screen.getByRole('button', { name: 'Изменить' }))
     await waitFor(() => expect(screen.getByText('Изменить счёт')).toBeInTheDocument())
     expect(screen.getByDisplayValue('Сбербанк')).toBeInTheDocument()
@@ -162,7 +162,7 @@ describe('Settings — AccountsTab edit modal', () => {
 
   it('closes modal when Отмена is clicked', async () => {
     const user = userEvent.setup()
-    await goToAccounts(user)
+    await goToAccounts()
     await user.click(screen.getByRole('button', { name: 'Изменить' }))
     await waitFor(() => expect(screen.getByText('Изменить счёт')).toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: 'Отмена' }))
@@ -182,7 +182,7 @@ describe('Settings — AccountsTab edit modal', () => {
     )
 
     const user = userEvent.setup()
-    await goToAccounts(user)
+    await goToAccounts()
     await user.click(screen.getByRole('button', { name: 'Изменить' }))
     await waitFor(() => expect(screen.getByDisplayValue('Сбербанк')).toBeInTheDocument())
 

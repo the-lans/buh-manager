@@ -82,7 +82,7 @@ export interface Transaction {
   amount: string
   type: 'INCOME' | 'EXPENSE' | 'TRANSFER'
   bank_category: string | null
-  expense_type_id: string
+  expense_type_id: string | null
   description: string | null
   balance_after: string | null
   calculated_balance_after: string | null
