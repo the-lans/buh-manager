@@ -1,10 +1,16 @@
 """Regression tests for DB-layer bugs identified in code review."""
 
+from datetime import datetime
+from decimal import Decimal
+
 import pytest
 from sqlmodel import Session, select
 
+from app.constants import BalanceSource, ImportStatus, ReconciledStatus, TransactionType
+from app.db.balances import calculate_balances_for_user, upsert_balance
 from app.db.counterparties import get_or_create_counterparty
 from app.db.expense_types import create_expense_type, update_expense_type
+from app.models.transaction import Transaction
 from app.models.counterparty import Counterparty
 from app.models.expense_type import ExpenseType
 from app.models.user import User
@@ -119,3 +125,34 @@ def test_get_or_create_counterparty_recovers_from_race(
         inn=inn,
     )
     assert result.id == scoped_id
+
+
+def test_calculate_balances_uses_naive_utc_recorded_at(
+    session: Session,
+    test_user: User,
+    test_account: object,
+    test_expense_type_scoped_id: str,
+) -> None:
+    upsert_balance(
+        session=session,
+        account_id=test_account.id,
+        amount=Decimal("1000.00"),
+        recorded_at=datetime(2024, 1, 31, 23, 59, 59),
+        source=BalanceSource.CLOSING,
+    )
+    tx = Transaction(
+        account_id=test_account.id,
+        occurred_at=datetime(2024, 2, 1, 10, 0, 0),
+        amount=Decimal("-100.00"),
+        type=TransactionType.EXPENSE,
+        expense_type_id=test_expense_type_scoped_id,
+        reconciled_status=ReconciledStatus.UNMATCHED,
+        import_status=ImportStatus.IMPORTED,
+    )
+    session.add(tx)
+    session.commit()
+
+    results = calculate_balances_for_user(session=session, user_id=test_user.id)
+
+    assert len(results) == 1
+    assert results[0].recorded_at.tzinfo is None

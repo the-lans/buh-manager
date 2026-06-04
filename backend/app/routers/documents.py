@@ -116,37 +116,44 @@ async def upload_document(
         file=file_bytes,
         headers=file.headers,
     )
+    url: str | None = None
     try:
         url = await storage.upload_file(file=new_file, file_id=file_id)
 
-        try:
-            document = create_document(
-                session=session,
-                user_id=current_user.id,
-                type=doc_type,
-                url=url,
-                name=file.filename or file_id,
-                status=DocumentStatus.PENDING,
-                file_hash=file_hash,
-            )
-            session.commit()
-            session.refresh(document)
-        except IntegrityError as exc:
-            session.rollback()
+        document = create_document(
+            session=session,
+            user_id=current_user.id,
+            type=doc_type,
+            url=url,
+            name=file.filename or file_id,
+            status=DocumentStatus.PENDING,
+            file_hash=file_hash,
+        )
+        session.commit()
+        session.refresh(document)
+    except IntegrityError as exc:
+        session.rollback()
+        if url is not None:
             with suppress(RuntimeError):
                 await storage.delete_file(doc_url=url)
-            duplicate = check_document_duplicate(
-                session=session,
-                file_hash=file_hash,
-                user_id=current_user.id,
-            )
-            detail: dict[str, str] = {"message": "Document already exists."}
-            if duplicate is not None:
-                detail["document_id"] = str(duplicate.id)
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=detail,
-            ) from exc
+        duplicate = check_document_duplicate(
+            session=session,
+            file_hash=file_hash,
+            user_id=current_user.id,
+        )
+        detail: dict[str, str] = {"message": "Document already exists."}
+        if duplicate is not None:
+            detail["document_id"] = str(duplicate.id)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=detail,
+        ) from exc
+    except Exception:
+        session.rollback()
+        if url is not None:
+            with suppress(RuntimeError):
+                await storage.delete_file(doc_url=url)
+        raise
     finally:
         file_bytes.close()
     return DocumentRead.model_validate(document)

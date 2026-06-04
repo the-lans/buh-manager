@@ -29,12 +29,15 @@ def _stmt_payload(
     }
 
 
-def _tx(occurred: str, amount: float, balance_after: float | None = None, expense_type_id: str | None = None) -> dict:
-    d: dict = {"occurred_at": occurred, "amount": amount, "type": "DEBIT"}
+def _tx(occurred: str, amount: float, expense_type_id: str, balance_after: float | None = None) -> dict:
+    d: dict = {
+        "occurred_at": occurred,
+        "amount": amount,
+        "type": "DEBIT",
+        "expense_type_id": expense_type_id,
+    }
     if balance_after is not None:
         d["balance_after"] = balance_after
-    if expense_type_id is not None:
-        d["expense_type_id"] = expense_type_id
     return d
 
 
@@ -64,7 +67,7 @@ async def test_import_clean(
     payload = _stmt_payload(
         str(test_account.id),
         doc_id,
-        [_tx("2024-01-05T10:00:00", -100.0, 900.0, expense_type_id=test_expense_type_id)],
+        [_tx("2024-01-05T10:00:00", -100.0, test_expense_type_id, 900.0)],
         opening=1000.0,
         closing=900.0,
     )
@@ -92,7 +95,7 @@ async def test_import_rejects_processed_document(
     payload = _stmt_payload(
         str(test_account.id),
         doc_id,
-        [_tx("2024-01-05T10:00:00", -100.0, 900.0, expense_type_id=test_expense_type_id)],
+        [_tx("2024-01-05T10:00:00", -100.0, test_expense_type_id, 900.0)],
     )
     first = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
     assert first.status_code == 200
@@ -107,12 +110,13 @@ async def test_import_rejects_receipt_document(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     doc_id = await _create_doc(client, auth_headers, doc_type="RECEIPT")
     payload = _stmt_payload(
         str(test_account.id),
         doc_id,
-        [_tx("2024-01-05T10:00:00", -100.0, 900.0)],
+        [_tx("2024-01-05T10:00:00", -100.0, test_expense_type_id, 900.0)],
     )
 
     resp = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
@@ -125,12 +129,13 @@ async def test_import_rejects_invalid_statement_period(
     client: AsyncClient,
     auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
 ) -> None:
     doc_id = await _create_doc(client, auth_headers)
     payload = _stmt_payload(
         str(test_account.id),
         doc_id,
-        [_tx("2024-01-05T10:00:00", -100.0, 900.0)],
+        [_tx("2024-01-05T10:00:00", -100.0, test_expense_type_id, 900.0)],
     )
     payload["statement_start"] = "2024-01-31T23:59:59"
     payload["statement_end"] = "2024-01-01T00:00:00"
@@ -151,7 +156,7 @@ async def test_import_duplicates_skipped(
     payload = _stmt_payload(
         str(test_account.id),
         doc_id,
-        [_tx("2024-01-05T10:00:00", -100.0, 900.0, expense_type_id=test_expense_type_id)],
+        [_tx("2024-01-05T10:00:00", -100.0, test_expense_type_id, 900.0)],
         opening=1000.0,
     )
     await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
@@ -177,7 +182,7 @@ async def test_import_conflict_detected(
         json=_stmt_payload(
             str(test_account.id),
             doc1,
-            [_tx("2024-01-05T10:00:00", -100.0, 900.0, expense_type_id=test_expense_type_id)],
+            [_tx("2024-01-05T10:00:00", -100.0, test_expense_type_id, 900.0)],
         ),
         headers=auth_headers,
     )
@@ -188,7 +193,7 @@ async def test_import_conflict_detected(
         json=_stmt_payload(
             str(test_account.id),
             doc2,
-            [_tx("2024-01-05T10:00:30", -150.0, 900.0, expense_type_id=test_expense_type_id)],  # same balance_after, different amount
+            [_tx("2024-01-05T10:00:30", -150.0, test_expense_type_id, 900.0)],  # same balance_after, different amount
         ),
         headers=auth_headers,
     )
@@ -207,7 +212,7 @@ async def test_import_no_balance_after(
     payload = _stmt_payload(
         str(test_account.id),
         doc_id,
-        [_tx("2024-01-05T10:00:00", -100.0, None, expense_type_id=test_expense_type_id)],  # No balance_after (TBank style)
+        [_tx("2024-01-05T10:00:00", -100.0, test_expense_type_id, None)],  # No balance_after (TBank style)
         opening=None,
     )
     resp = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
@@ -235,6 +240,7 @@ async def test_import_rejects_invalid_document(
     auth_headers: dict[str, str],
     second_auth_headers: dict[str, str],
     test_account: Account,
+    test_expense_type_id: str,
     document_case: Literal["nonexistent", "other_user"],
 ) -> None:
     document_id = (
@@ -245,7 +251,25 @@ async def test_import_rejects_invalid_document(
     payload = _stmt_payload(
         str(test_account.id),
         document_id,
-        [_tx("2024-01-05T10:00:00", -100.0, 900.0)],
+        [_tx("2024-01-05T10:00:00", -100.0, test_expense_type_id, 900.0)],
     )
     resp = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_import_rejects_missing_expense_type(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+) -> None:
+    doc_id = await _create_doc(client, auth_headers)
+    payload = _stmt_payload(
+        str(test_account.id),
+        doc_id,
+        [{"occurred_at": "2024-01-05T10:00:00", "amount": -100.0, "type": "DEBIT"}],
+    )
+
+    resp = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)
+
+    assert resp.status_code == 422

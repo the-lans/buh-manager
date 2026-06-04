@@ -180,7 +180,7 @@ export const handlers = [
       calculated_balance_after: null,
       balance_mismatch: false,
       receipt_id: null,
-      reconciled_status: (body.reconciled_status as Transaction['reconciled_status']) ?? 'UNMATCHED',
+      reconciled_status: 'UNMATCHED',
       import_status: 'IMPORTED',
       document_id: null,
     })

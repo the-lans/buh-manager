@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
+from sqlalchemy import and_, or_
 from sqlmodel import Session, col, select
 
 from app.models.transaction import Transaction
@@ -55,3 +56,74 @@ def verify_balance_chain(
         is_consistent=is_consistent,
         discrepancy=discrepancy,
     )
+
+
+def recalculate_transaction_balances_from(
+    *,
+    session: Session,
+    transaction: Transaction,
+    previous_amount: Decimal,
+) -> None:
+    running_before = _get_running_balance_before_transaction(
+        session=session,
+        transaction=transaction,
+        previous_amount=previous_amount,
+    )
+    if running_before is None:
+        return
+
+    transactions = list(
+        session.exec(
+            select(Transaction)
+            .where(Transaction.account_id == transaction.account_id)
+            .where(
+                or_(
+                    Transaction.occurred_at > transaction.occurred_at,
+                    and_(
+                        Transaction.occurred_at == transaction.occurred_at,
+                        col(Transaction.id) >= transaction.id,
+                    ),
+                )
+            )
+            .order_by(col(Transaction.occurred_at).asc(), col(Transaction.id).asc())
+        ).all()
+    )
+
+    running = running_before
+    for tx in transactions:
+        running += tx.amount
+        tx.calculated_balance_after = running
+        tx.balance_mismatch = tx.balance_after is not None and tx.balance_after != running
+        session.add(tx)
+
+
+def _get_running_balance_before_transaction(
+    *,
+    session: Session,
+    transaction: Transaction,
+    previous_amount: Decimal,
+) -> Decimal | None:
+    previous_tx = session.exec(
+        select(Transaction)
+        .where(Transaction.account_id == transaction.account_id)
+        .where(
+            or_(
+                Transaction.occurred_at < transaction.occurred_at,
+                and_(
+                    Transaction.occurred_at == transaction.occurred_at,
+                    col(Transaction.id) < transaction.id,
+                ),
+            )
+        )
+        .order_by(col(Transaction.occurred_at).desc(), col(Transaction.id).desc())
+    ).first()
+    if previous_tx is not None:
+        if previous_tx.calculated_balance_after is not None:
+            return previous_tx.calculated_balance_after
+        if previous_tx.balance_after is not None:
+            return previous_tx.balance_after
+
+    if transaction.calculated_balance_after is not None:
+        return transaction.calculated_balance_after - previous_amount
+
+    return None

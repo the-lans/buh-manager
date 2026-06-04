@@ -134,6 +134,30 @@ async def test_upload_integrity_error_returns_409_when_cleanup_fails(
 
 
 @pytest.mark.asyncio
+async def test_upload_runtime_error_cleans_up_uploaded_file(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage = RecordingStorageProvider()
+    app.dependency_overrides[get_storage_provider] = lambda: storage
+
+    def raise_runtime_error(**_: object) -> None:
+        raise RuntimeError("db exploded")
+
+    monkeypatch.setattr(documents_router, "create_document", raise_runtime_error)
+
+    with pytest.raises(RuntimeError, match="db exploded"):
+        await client.post(
+            "/api/v1/documents",
+            headers=auth_headers,
+            files={"file": ("doc.pdf", io.BytesIO(_pdf_bytes("runtime")), "application/pdf")},
+        )
+
+    assert storage.deleted_url == storage.uploaded_url
+
+
+@pytest.mark.asyncio
 async def test_two_users_can_upload_same_file(
     client: AsyncClient,
     auth_headers: dict[str, str],
@@ -607,6 +631,41 @@ async def test_link_statement_invalid_date_range_returns_422(
         headers=auth_headers,
     )
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_link_statement_normalizes_timezone_aware_range(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2024-01-31T21:30:00Z",
+            "amount": -100.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+        },
+        headers=auth_headers,
+    )
+    assert tx_resp.status_code == 201
+
+    doc_id = await _create_stmt_doc(client, auth_headers)
+    resp = await client.post(
+        f"/api/v1/documents/{doc_id}/link-statement",
+        json={
+            "account_id": str(test_account.id),
+            "statement_start": "2024-02-01T00:00:00+03:00",
+            "statement_end": "2024-02-01T23:59:59+03:00",
+        },
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["updated_count"] == 1
 
 
 @pytest.mark.asyncio

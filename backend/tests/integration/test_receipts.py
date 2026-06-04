@@ -13,6 +13,7 @@ from app.models.counterparty import Counterparty
 from app.models.document import Document
 from app.models.receipt import Receipt
 from app.models.user import User
+from app.db import receipts as receipts_db
 from app.routers import receipts as receipts_router
 from app.utils.dt import utcnow
 from app.utils.ids import scope_user_id
@@ -91,6 +92,37 @@ async def test_create_duplicate_fiscal_returns_409(
 
 
 @pytest.mark.asyncio
+async def test_create_duplicate_fiscal_race_returns_409_from_db_constraint(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = _receipt_payload(fn="1234500000", fd="987654", fpd="1234509876")
+    first = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+    assert first.status_code == 201
+
+    original = receipts_db.get_receipt_by_fiscal
+    calls = 0
+
+    def bypass_precheck(**kwargs: object) -> Receipt | None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return None
+        return original(**kwargs)
+
+    monkeypatch.setattr(receipts_router, "get_receipt_by_fiscal", bypass_precheck)
+
+    second = await client.post("/api/v1/receipts", json=payload, headers=auth_headers)
+
+    assert second.status_code == 409
+    assert "receipt_id" in second.json()["detail"]
+    receipts = session.exec(select(Receipt).where(Receipt.fn == "1234500000")).all()
+    assert len(receipts) == 1
+
+
+@pytest.mark.asyncio
 async def test_create_duplicate_fiscal_is_scoped_per_user(
     client: AsyncClient,
     auth_headers: dict[str, str],
@@ -161,6 +193,34 @@ async def test_update_receipt(
     )
     assert update_resp.status_code == 200
     assert float(update_resp.json()["total_amount"]) == 200.0
+
+
+@pytest.mark.asyncio
+async def test_update_receipt_to_duplicate_fiscal_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    first = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="1111222233", fd="101010", fpd="9999000011"),
+        headers=auth_headers,
+    )
+    assert first.status_code == 201
+    second = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="2222333344", fd="202020", fpd="8888777766"),
+        headers=auth_headers,
+    )
+    assert second.status_code == 201
+
+    update_resp = await client.put(
+        f"/api/v1/receipts/{second.json()['id']}",
+        json={"fn": "1111222233", "fd": "101010", "fpd": "9999000011"},
+        headers=auth_headers,
+    )
+
+    assert update_resp.status_code == 409
+    assert "receipt_id" in update_resp.json()["detail"]
 
 
 @pytest.mark.asyncio

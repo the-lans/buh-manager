@@ -1,4 +1,4 @@
-from datetime import datetime, time, timezone
+from datetime import datetime, time
 from decimal import Decimal
 from uuid import UUID
 
@@ -8,6 +8,7 @@ from app.constants import BalanceSource
 from app.models.account import Account
 from app.models.balance import Balance
 from app.models.transaction import Transaction
+from app.utils.dt import utcnow
 
 # End of UTC day used as recorded_at for MANUAL calculated balances.
 # Ensures idempotency: multiple runs on the same day hit the same (date, source) key.
@@ -118,11 +119,7 @@ def calculate_balances_for_user(*, session: Session, user_id: UUID) -> list[Bala
     The new amount is: latest_balance + SUM(transactions since latest_balance).
     Recorded at end-of-day UTC so repeated calls on the same day are idempotent.
     """
-    today_end_utc: datetime = datetime.combine(
-        datetime.now(timezone.utc).date(),
-        _BALANCE_DAY_END_TIME,
-        tzinfo=timezone.utc,
-    )
+    today_end_utc = datetime.combine(utcnow().date(), _BALANCE_DAY_END_TIME)
     accounts: list[Account] = list(
         session.exec(select(Account).where(Account.user_id == user_id)).all()
     )

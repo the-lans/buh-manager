@@ -46,6 +46,31 @@ async def test_crud_accounts(
 
 
 @pytest.mark.asyncio
+async def test_delete_account_with_transactions_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2024-01-10T10:00:00",
+            "amount": -100.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+        },
+        headers=auth_headers,
+    )
+    assert tx_resp.status_code == 201
+
+    del_resp = await client.delete(f"/api/v1/accounts/{test_account.id}", headers=auth_headers)
+
+    assert del_resp.status_code == 409
+
+
+@pytest.mark.asyncio
 async def test_initialize_balance(
     client: AsyncClient,
     auth_headers: dict[str, str],
@@ -111,6 +136,55 @@ async def test_crud_expense_types(
 
     del_resp = await client.delete("/api/v1/expense-types/groceries", headers=auth_headers)
     assert del_resp.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_create_duplicate_expense_type_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    first = await client.post(
+        "/api/v1/expense-types",
+        json={"id": "travel", "name": "Travel", "receipt_required": True},
+        headers=auth_headers,
+    )
+    assert first.status_code == 201
+
+    second = await client.post(
+        "/api/v1/expense-types",
+        json={"id": "travel", "name": "Travel 2", "receipt_required": False},
+        headers=auth_headers,
+    )
+
+    assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_delete_expense_type_with_transactions_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2024-01-10T10:00:00",
+            "amount": -100.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+        },
+        headers=auth_headers,
+    )
+    assert tx_resp.status_code == 201
+
+    del_resp = await client.delete(
+        f"/api/v1/expense-types/{test_expense_type_id}",
+        headers=auth_headers,
+    )
+
+    assert del_resp.status_code == 409
 
 
 @pytest.mark.asyncio

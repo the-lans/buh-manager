@@ -7,9 +7,14 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const token = params.get('token')
+    const fragment = window.location.hash.startsWith('#')
+      ? window.location.hash.slice(1)
+      : window.location.hash
+    const hashParams = new URLSearchParams(fragment)
+    const token = hashParams.get('token') ?? params.get('token')
     if (token) {
       setToken(token)
+      window.history.replaceState(null, '', window.location.pathname)
       navigate('/', { replace: true })
     } else {
       navigate('/login', { replace: true })

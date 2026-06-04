@@ -19,7 +19,8 @@ describe('AuthCallback', () => {
   })
 
   function renderWithSearch(search: string) {
-    vi.stubGlobal('location', { search })
+    vi.stubGlobal('location', { search, hash: '', pathname: '/auth/callback' })
+    vi.stubGlobal('history', { replaceState: vi.fn() })
     return render(
       <MemoryRouter>
         <Routes>
@@ -29,9 +30,17 @@ describe('AuthCallback', () => {
     )
   }
 
-  it('saves token and navigates to / when token is in query string', async () => {
+  it('saves token and navigates to / when token is in URL fragment', async () => {
     const token = makeJwt({ sub: 'user-1', email: 'a@b.com', exp: 9999999999 })
-    renderWithSearch(`?token=${token}`)
+    vi.stubGlobal('location', { search: '', hash: `#token=${token}`, pathname: '/auth/callback' })
+    vi.stubGlobal('history', { replaceState: vi.fn() })
+    render(
+      <MemoryRouter>
+        <Routes>
+          <Route path="*" element={<AuthCallback />} />
+        </Routes>
+      </MemoryRouter>,
+    )
 
     await waitFor(() => {
       expect(sessionStorage.getItem(TOKEN_KEY)).toBe(token)
@@ -49,7 +58,8 @@ describe('AuthCallback', () => {
   })
 
   it('shows spinner text while processing', () => {
-    vi.stubGlobal('location', { search: '' })
+    vi.stubGlobal('location', { search: '', hash: '', pathname: '/auth/callback' })
+    vi.stubGlobal('history', { replaceState: vi.fn() })
     const { getByText } = render(
       <MemoryRouter>
         <AuthCallback />
