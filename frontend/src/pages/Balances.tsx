@@ -34,7 +34,11 @@ export default function Balances() {
     setCalcError(null)
     try {
       const results = await calculate.mutateAsync()
-      setCalcResult(`Обновлено счетов: ${results.length}`)
+      setCalcResult(
+        results.length > 0
+          ? `Обновлено счетов: ${results.length}`
+          : 'Балансы актуальны — изменений нет',
+      )
     } catch {
       setCalcError('Не удалось вычислить остатки. Попробуйте ещё раз.')
     }

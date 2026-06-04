@@ -39,11 +39,12 @@ export default function Dashboard() {
     .filter((t) => t.type === 'EXPENSE')
     .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0)
 
-  // Latest balance per account as of end of selected month
-  // Balances are sorted by recorded_at DESC from API, so first match per account is the latest
+  // Latest balance per account as of end of selected month.
+  // Use numeric Date comparison to avoid lexicographic issues with UTC suffix ("Z").
+  const endMs = new Date(end_date + 'Z').getTime()
   const latestByAccount = new Map<string, Balance>()
   for (const b of balances) {
-    if (b.recorded_at <= end_date && !latestByAccount.has(b.account_id)) {
+    if (new Date(b.recorded_at).getTime() <= endMs && !latestByAccount.has(b.account_id)) {
       latestByAccount.set(b.account_id, b)
     }
   }
@@ -67,9 +68,9 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="grid grid-cols-3 items-center">
         <h1 className="text-2xl font-semibold text-gray-900">Дашборд</h1>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-center gap-1">
           <button
             onClick={() => setSelectedMonth((m) => prevMonth(m))}
             className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 text-lg font-medium leading-none shrink-0"
@@ -89,6 +90,7 @@ export default function Dashboard() {
             ›
           </button>
         </div>
+        <div />
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

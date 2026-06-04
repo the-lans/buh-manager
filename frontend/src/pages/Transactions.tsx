@@ -20,7 +20,7 @@ export default function Transactions() {
   const expenseTypeMap = new Map(expenseTypes.map((et) => [et.id, et.name]))
 
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '' })
+  const [form, setForm] = useState({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '', description: '' })
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -38,9 +38,10 @@ export default function Transactions() {
         amount: form.amount,
         type: form.type,
         expense_type_id: form.expense_type_id,
+        description: form.description || null,
       })
       setShowForm(false)
-      setForm({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '' })
+      setForm({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '', description: '' })
     } catch {
       setCreateError('Ошибка создания транзакции')
     }
@@ -134,6 +135,13 @@ export default function Transactions() {
               <option key={et.id} value={et.id}>{et.name}</option>
             ))}
           </select>
+          <textarea
+            rows={2}
+            placeholder="Описание (необязательно)"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+          />
           {createError && <p className="text-sm text-red-500">{createError}</p>}
           <div className="flex gap-2">
             <button

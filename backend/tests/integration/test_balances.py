@@ -123,6 +123,60 @@ async def test_list_balances_other_user_empty(
 
 
 @pytest.mark.asyncio
+async def test_calculate_balances_skips_when_amount_unchanged(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    """POST /balances/calculate must NOT write a new record when the computed
+    amount equals the latest stored balance."""
+    doc_id = await _create_stmt_doc(client, auth_headers)
+    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+
+    # No new transactions → balance unchanged → returns empty list
+    resp = await client.post("/api/v1/balances/calculate", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json() == [], "Should return empty list when balance is unchanged"
+
+    # Verify no extra MANUAL record was created
+    balances_resp = await client.get("/api/v1/balances", headers=auth_headers)
+    sources = [b["source"] for b in balances_resp.json()]
+    assert "MANUAL" not in sources
+
+
+@pytest.mark.asyncio
+async def test_calculate_balances_writes_when_amount_changed(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    """POST /balances/calculate writes a MANUAL record only when the balance changed."""
+    doc_id = await _create_stmt_doc(client, auth_headers)
+    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+
+    # Add a transaction that changes the balance
+    await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2024-05-01T12:00:00",
+            "amount": "-50.00",
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+        },
+        headers=auth_headers,
+    )
+
+    resp = await client.post("/api/v1/balances/calculate", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["source"] == "MANUAL"
+
+
+@pytest.mark.asyncio
 async def test_list_balances_ordered_newest_first(
     client: AsyncClient,
     auth_headers: dict[str, str],
@@ -163,18 +217,31 @@ async def test_calculate_balances_creates_manual_balance(
     test_account: Account,
     test_expense_type_id: str,
 ) -> None:
-    # Seed an opening balance
+    # Seed a closing balance of 900 via import
     doc_id = await _create_stmt_doc(client, auth_headers)
     await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
 
-    # POST /balances/calculate
+    # Add a new transaction AFTER the imported statement period — this changes the balance
+    await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2025-01-01T00:00:00",
+            "amount": -50.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+        },
+        headers=auth_headers,
+    )
+
+    # POST /balances/calculate — amount changed, so a MANUAL record is written
     resp = await client.post("/api/v1/balances/calculate", headers=auth_headers)
     assert resp.status_code == 200
     results = resp.json()
     assert len(results) == 1
     assert results[0]["source"] == "MANUAL"
-    # opening=1000, closing=900 → last balance is 900, no new txs → calculated = 900
-    assert float(results[0]["amount"]) == pytest.approx(900.0)
+    # closing=900, new tx=-50 → 850
+    assert float(results[0]["amount"]) == pytest.approx(850.0)
 
 
 @pytest.mark.asyncio
@@ -187,17 +254,31 @@ async def test_calculate_balances_idempotent(
     doc_id = await _create_stmt_doc(client, auth_headers)
     await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
 
+    # Add a transaction to trigger a balance change on the first call
+    await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2025-01-01T00:00:00",
+            "amount": -50.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+        },
+        headers=auth_headers,
+    )
+
+    # First calculate → writes MANUAL record (amount changed)
     await client.post("/api/v1/balances/calculate", headers=auth_headers)
+    # Second calculate → amount unchanged since first call → skips write
     await client.post("/api/v1/balances/calculate", headers=auth_headers)
 
-    # Only one MANUAL record for today should exist
+    # Only one MANUAL record should exist
     all_balances = await client.get(
         "/api/v1/balances",
         headers=auth_headers,
         params={"account_id": str(test_account.id), "limit": 100},
     )
     manual_records = [b for b in all_balances.json() if b["source"] == "MANUAL"]
-    # The two calculate calls land on the same date → upsert → still 1 MANUAL record
     assert len(manual_records) == 1
 
 

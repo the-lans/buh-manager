@@ -143,6 +143,9 @@ def calculate_balances_for_user(*, session: Session, user_id: UUID) -> list[Bala
 
         new_amount: Decimal = latest.amount + (tx_sum or Decimal(0))
 
+        if new_amount == latest.amount:
+            continue
+
         balance: Balance = upsert_balance(
             session=session,
             account_id=account.id,
