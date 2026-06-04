@@ -22,9 +22,17 @@ def get_counterparty_by_id(
     user_id: UUID,
 ) -> Counterparty | None:
     scoped_id = scope_user_id(user_id=user_id, public_id=counterparty_id)
-    return session.exec(
+    result = session.exec(
         select(Counterparty)
         .where(Counterparty.id == scoped_id)
+        .where(Counterparty.user_id == user_id)
+    ).first()
+    if result is not None:
+        return result
+    # Fallback: IDs created before scoping migration (stored without user prefix)
+    return session.exec(
+        select(Counterparty)
+        .where(Counterparty.id == counterparty_id)
         .where(Counterparty.user_id == user_id)
     ).first()
 
