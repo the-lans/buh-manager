@@ -6,6 +6,12 @@ import { useUpdateTransaction } from '../hooks/useTransactions'
 import { formatDate, localInputToUtcIso, utcIsoToLocalInput } from '../utils/date'
 import type { Transaction } from '../types'
 
+const ID_PREVIEW_LEN = 8
+
+function fmtAmount(v: string | null): string {
+  return v ? `${Number(v).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽` : '—'
+}
+
 interface Props {
   transaction: Transaction | null
   onClose: () => void
@@ -74,7 +80,7 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
         data: {
           occurred_at: localInputToUtcIso(form.occurred_at) as unknown as string,
           amount: form.amount as unknown as string,
-          type: form.type as 'INCOME' | 'EXPENSE',
+          type: form.type as Transaction['type'],
           bank_category: form.bank_category || null,
           expense_type_id: form.expense_type_id || null,
           description: form.description || null,
@@ -89,9 +95,6 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
       else setError('Ошибка сохранения')
     }
   }
-
-  const fmtAmount = (v: string | null) =>
-    v ? `${Number(v).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽` : '—'
 
   return (
     <div
@@ -109,13 +112,12 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
           </button>
         </div>
 
-        {/* Read-only fields */}
         <div className="bg-gray-50 rounded-lg p-3 space-y-1">
           <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Только чтение</p>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
             <dt className="text-gray-500">ID</dt>
             <dd className="text-gray-700 font-mono text-xs truncate" title={transaction.id}>
-              {transaction.id.slice(0, 8)}…
+              {transaction.id.slice(0, ID_PREVIEW_LEN)}…
             </dd>
             <dt className="text-gray-500">Счёт</dt>
             <dd className="text-gray-700">{accountLabel}</dd>
@@ -133,16 +135,15 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
             <dd className="text-gray-700">{IMPORT_STATUS_LABELS[transaction.import_status] ?? transaction.import_status}</dd>
             <dt className="text-gray-500">Чек</dt>
             <dd className="text-gray-700 font-mono text-xs truncate" title={transaction.receipt_id ?? ''}>
-              {transaction.receipt_id ? `${transaction.receipt_id.slice(0, 8)}…` : '—'}
+              {transaction.receipt_id ? `${transaction.receipt_id.slice(0, ID_PREVIEW_LEN)}…` : '—'}
             </dd>
             <dt className="text-gray-500">Документ</dt>
             <dd className="text-gray-700 font-mono text-xs truncate" title={transaction.document_id ?? ''}>
-              {transaction.document_id ? `${transaction.document_id.slice(0, 8)}…` : '—'}
+              {transaction.document_id ? `${transaction.document_id.slice(0, ID_PREVIEW_LEN)}…` : '—'}
             </dd>
           </dl>
         </div>
 
-        {/* Editable fields */}
         <div className="space-y-3">
           <Field label="Дата и время">
             <input
