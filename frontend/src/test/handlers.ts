@@ -1,6 +1,24 @@
 import { http, HttpResponse } from 'msw'
-import type { Account, Balance, Counterparty, Document, ReceiptListItem, Transaction, ExpenseType } from '../types'
+import type { Account, Balance, ClassifierRule, Counterparty, Document, ReceiptListItem, Transaction, ExpenseType } from '../types'
 import type { AccountCreate } from '../types'
+
+const RULE_FIXTURE: ClassifierRule = {
+  id: 'rule-1',
+  name: 'Продукты',
+  expense_type_id: 'food',
+  priority: 1,
+  is_active: true,
+  representation: "Тип: Расход; Категория содержит 'продукты'",
+  cond_account_id: null,
+  cond_day_month: null,
+  cond_day_month_op: null,
+  cond_day_week: null,
+  cond_amount: null,
+  cond_amount_op: null,
+  cond_type: 'EXPENSE',
+  cond_bank_category: 'продукты',
+  cond_description: null,
+}
 
 export const handlers = [
   http.get('/api/v1/accounts', () =>
@@ -311,4 +329,27 @@ export const handlers = [
   }),
 
   http.delete('/api/v1/counterparties/:id', () => new HttpResponse(null, { status: 204 })),
+
+  http.get('/api/v1/classifier-rules', () =>
+    HttpResponse.json<ClassifierRule[]>([RULE_FIXTURE]),
+  ),
+
+  http.post('/api/v1/classifier-rules', async ({ request }) => {
+    const body = (await request.json()) as Partial<ClassifierRule>
+    return HttpResponse.json<ClassifierRule>(
+      { ...RULE_FIXTURE, id: 'rule-new', ...body } as ClassifierRule,
+      { status: 201 },
+    )
+  }),
+
+  http.put('/api/v1/classifier-rules/:id', async ({ request }) => {
+    const body = (await request.json()) as Partial<ClassifierRule>
+    return HttpResponse.json<ClassifierRule>({ ...RULE_FIXTURE, ...body } as ClassifierRule)
+  }),
+
+  http.delete('/api/v1/classifier-rules/:id', () => new HttpResponse(null, { status: 204 })),
+
+  http.post('/api/v1/classifier-rules/apply', () =>
+    HttpResponse.json({ updated_count: 3 }),
+  ),
 ]

@@ -15,6 +15,7 @@ import Documents from './pages/Documents'
 import Login from './pages/Login'
 import Receipts from './pages/Receipts'
 import Reconciliation from './pages/Reconciliation'
+import Rules from './pages/Rules'
 import Settings from './pages/Settings'
 import Transactions from './pages/Transactions'
 import './index.css'
@@ -47,6 +48,7 @@ function App() {
           <Route path="documents" element={<Documents />} />
           <Route path="balances" element={<Balances />} />
           <Route path="counterparties" element={<Counterparties />} />
+          <Route path="rules" element={<Rules />} />
           <Route path="reconciliation" element={<Reconciliation />} />
           <Route path="audit-log" element={<AuditLog />} />
           <Route path="settings" element={<Settings />} />
