@@ -15,6 +15,17 @@ def has_any_balance(*, session: Session, account_id: UUID) -> bool:
     return count > 0
 
 
+def get_accounts_with_balances(*, session: Session, account_ids: list[UUID]) -> set[UUID]:
+    """Return the subset of account_ids that have at least one balance record.
+    Single query replaces N individual has_any_balance calls."""
+    if not account_ids:
+        return set()
+    rows = session.exec(
+        select(Balance.account_id).where(Balance.account_id.in_(account_ids)).distinct()
+    ).all()
+    return set(rows)
+
+
 def upsert_balance(
     *,
     session: Session,
@@ -111,13 +122,13 @@ def calculate_balances_for_user(*, session: Session, user_id: UUID) -> list[Bala
         if latest is None:
             continue
 
-        new_txs = session.exec(
-            select(Transaction)
+        tx_sum = session.exec(
+            select(func.sum(Transaction.amount))
             .where(Transaction.account_id == account.id)
             .where(Transaction.occurred_at > latest.recorded_at)
-        ).all()
+        ).one()
 
-        new_amount = latest.amount + sum(tx.amount for tx in new_txs)
+        new_amount = latest.amount + (tx_sum or Decimal(0))
 
         balance = upsert_balance(
             session=session,

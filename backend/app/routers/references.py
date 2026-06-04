@@ -14,7 +14,12 @@ from app.db.accounts import (
     has_balances_for_account,
     update_account,
 )
-from app.db.balances import calculate_balances_for_user, get_balances_for_user, upsert_balance
+from app.db.balances import (
+    calculate_balances_for_user,
+    get_accounts_with_balances,
+    get_balances_for_user,
+    upsert_balance,
+)
 from app.db.counterparties import (
     delete_counterparty,
     get_counterparty_by_id,
@@ -62,10 +67,13 @@ def list_accounts_endpoint(
     current_user: User = Depends(get_current_user),
 ) -> list[AccountRead]:
     accounts = get_accounts_for_user(session=session, user_id=current_user.id)
+    accounts_with_balances = get_accounts_with_balances(
+        session=session, account_ids=[acc.id for acc in accounts]
+    )
     result = []
     for acc in accounts:
         read = AccountRead.model_validate(acc)
-        read.has_balances = has_balances_for_account(session=session, account_id=acc.id)
+        read.has_balances = acc.id in accounts_with_balances
         result.append(read)
     return result
 
