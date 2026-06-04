@@ -463,6 +463,7 @@ function ExpenseTypesTab() {
   const { data: types = [] } = useExpenseTypes()
   const createType = useCreateExpenseType()
   const updateType = useUpdateExpenseType()
+  const updateTypeInline = useUpdateExpenseType()
   const deleteType = useDeleteExpenseType()
   const [form, setForm] = useState({ id: '', name: '', description: '', receipt_required: true })
   const [editType, setEditType] = useState<ExpenseType | null>(null)
@@ -484,8 +485,11 @@ function ExpenseTypesTab() {
         data: { name: editTypeForm.name, description: editTypeForm.description.trim() || null, receipt_required: editTypeForm.receipt_required },
       })
       setEditType(null)
-    } catch {
-      setEditTypeError('Не удалось сохранить изменения.')
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: unknown } } }
+      const detail = err?.response?.data?.detail
+      if (typeof detail === 'string') setEditTypeError(detail)
+      else setEditTypeError('Не удалось сохранить изменения.')
     }
   }
 
@@ -552,7 +556,7 @@ function ExpenseTypesTab() {
                 <input
                   type="checkbox"
                   checked={t.receipt_required}
-                  onChange={(e) => updateType.mutate({ id: t.id, data: { receipt_required: e.target.checked } })}
+                  onChange={(e) => updateTypeInline.mutate({ id: t.id, data: { receipt_required: e.target.checked } })}
                 />
                 Чек
               </label>
