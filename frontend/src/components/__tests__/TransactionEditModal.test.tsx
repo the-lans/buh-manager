@@ -124,6 +124,16 @@ describe('TransactionEditModal', () => {
     expect(screen.getByText(/tx-edit/)).toBeInTheDocument()
   })
 
+  it('shows "— не задан —" when expense_type_id is null', () => {
+    renderWithProviders(
+      <TransactionEditModal
+        transaction={{ ...BASE_TX, expense_type_id: null }}
+        onClose={() => {}}
+      />,
+    )
+    expect(screen.getByDisplayValue('— не задан —')).toBeInTheDocument()
+  })
+
   it('includes reconciled_status in the save payload', async () => {
     const updateSpy = vi.fn((info) =>
       info.request.json().then((body: Record<string, unknown>) => {
