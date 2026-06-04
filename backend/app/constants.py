@@ -57,6 +57,7 @@ class AuditEntityType(StrEnum):
     RECEIPT = "receipt"
     MATCH = "match"
     IMPORT = "import"
+    CLASSIFIER_RULE = "classifier_rule"
 
 
 class ChangedBy(StrEnum):
@@ -88,6 +89,8 @@ class ApiKeyScope(StrEnum):
     READ_EXCHANGE_RATES = "read:exchange_rates"
     WRITE_EXCHANGE_RATES = "write:exchange_rates"
     READ_AUDIT_LOG = "read:audit_log"
+    READ_CLASSIFIER_RULES = "read:classifier_rules"
+    WRITE_CLASSIFIER_RULES = "write:classifier_rules"
 
 
 # Deduplication & algorithm constants

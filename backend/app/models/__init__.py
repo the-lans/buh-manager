@@ -1,4 +1,5 @@
 from app.models.account import Account
+from app.models.classifier_rule import ClassifierRule
 from app.models.audit_log import AuditLog
 from app.models.balance import Balance
 from app.models.counterparty import Counterparty
@@ -13,6 +14,7 @@ from app.models.user import User
 
 __all__ = [
     "Account",
+    "ClassifierRule",
     "AuditLog",
     "Balance",
     "Counterparty",
