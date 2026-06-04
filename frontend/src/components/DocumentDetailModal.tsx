@@ -69,15 +69,8 @@ export default function DocumentDetailModal({ documentId, onClose }: Props) {
               <dt className="text-gray-500">Загружен</dt>
               <dd className="text-gray-900">{formatDate(doc.uploaded_at)}</dd>
 
-              <dt className="text-gray-500">URL</dt>
-              <dd className="text-gray-900 break-all text-xs font-mono">{doc.url}</dd>
-
-              {doc.email_source && (
-                <>
-                  <dt className="text-gray-500">Email-источник</dt>
-                  <dd className="text-gray-900">{doc.email_source}</dd>
-                </>
-              )}
+              <dt className="text-gray-500">Email-источник</dt>
+              <dd className="text-gray-900">{doc.email_source ?? '—'}</dd>
             </dl>
 
             {linkedReceipt && (
@@ -104,9 +97,18 @@ export default function DocumentDetailModal({ documentId, onClose }: Props) {
 
             {doc.payload && (
               <div className="space-y-1">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Дополнительные сведения</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Payload</p>
                 <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 overflow-auto max-h-60 whitespace-pre-wrap break-all">
                   {JSON.stringify(doc.payload, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {doc.raw_parsed_data && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Сырые данные парсинга</p>
+                <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 overflow-auto max-h-60 whitespace-pre-wrap break-all">
+                  {doc.raw_parsed_data}
                 </pre>
               </div>
             )}
