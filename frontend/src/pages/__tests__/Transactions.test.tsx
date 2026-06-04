@@ -144,6 +144,37 @@ describe('Transactions page', () => {
     })
   })
 
+  it('shows "—" in expense type column when expense_type_id is null', async () => {
+    server.use(
+      http.get('/api/v1/transactions', () =>
+        HttpResponse.json<Transaction[]>([
+          {
+            id: 'tx-null-type',
+            account_id: 'acc-1',
+            occurred_at: '2026-04-01T10:00:00',
+            processed_at: null,
+            amount: '-500.00',
+            type: 'EXPENSE',
+            bank_category: null,
+            expense_type_id: null,
+            description: null,
+            balance_after: null,
+            calculated_balance_after: null,
+            balance_mismatch: false,
+            receipt_id: null,
+            reconciled_status: 'UNMATCHED',
+            import_status: 'IMPORTED',
+            document_id: null,
+          },
+        ]),
+      ),
+    )
+    renderWithProviders(<Transactions />)
+    await waitFor(() => expect(screen.getByText(/500,00\s*₽/)).toBeInTheDocument())
+    // no expense type name resolved — 'Питание' must not be visible
+    expect(screen.queryByText('Питание')).not.toBeInTheDocument()
+  })
+
   it('opens edit modal with pre-filled amount when Изменить is clicked', async () => {
     renderWithProviders(<Transactions />)
     const user = userEvent.setup()

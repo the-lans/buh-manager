@@ -108,6 +108,38 @@ describe('Dashboard page', () => {
     await waitFor(() => expect(screen.getByText('1 активных')).toBeInTheDocument())
   })
 
+  it('excludes transactions with null expense_type_id from expense breakdown', async () => {
+    server.use(
+      http.get('/api/v1/transactions', () =>
+        HttpResponse.json<Transaction[]>([
+          {
+            id: 'tx-no-type',
+            account_id: 'acc-1',
+            occurred_at: new Date().toISOString(),
+            processed_at: null,
+            amount: '-300.00',
+            type: 'EXPENSE',
+            bank_category: null,
+            expense_type_id: null,
+            description: null,
+            balance_after: null,
+            calculated_balance_after: null,
+            balance_mismatch: false,
+            receipt_id: null,
+            reconciled_status: 'UNMATCHED',
+            import_status: 'IMPORTED',
+            document_id: null,
+          },
+        ]),
+      ),
+    )
+    renderWithProviders(<Dashboard />)
+    await waitFor(() =>
+      expect(screen.getByText('Нет расходов за период')).toBeInTheDocument(),
+    )
+    expect(screen.queryByText('Питание')).not.toBeInTheDocument()
+  })
+
   it('aggregates expense amounts by type', async () => {
     server.use(
       http.get('/api/v1/transactions', () =>
