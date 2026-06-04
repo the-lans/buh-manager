@@ -73,7 +73,7 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
         id: transaction.id,
         data: {
           occurred_at: localInputToUtcIso(form.occurred_at) as unknown as string,
-          amount: Number(form.amount) as unknown as string,
+          amount: form.amount as unknown as string,
           type: form.type as 'INCOME' | 'EXPENSE',
           bank_category: form.bank_category || null,
           expense_type_id: form.expense_type_id || null,
