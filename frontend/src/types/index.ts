@@ -257,3 +257,53 @@ export interface ApiKeyUpdate {
   scopes?: string[]
   is_active?: boolean
 }
+
+export interface ClassifierRule {
+  id: string
+  name: string
+  expense_type_id: string
+  priority: number
+  is_active: boolean
+  representation: string
+  cond_account_id: string | null
+  cond_day_month: number | null
+  cond_day_month_op: string | null
+  cond_day_week: string | null
+  cond_amount: string | null
+  cond_amount_op: string | null
+  cond_type: string | null
+  cond_bank_category: string | null
+  cond_description: string | null
+}
+
+export interface ClassifierRuleCreate {
+  name: string
+  expense_type_id: string
+  priority: number
+  is_active?: boolean
+  cond_account_id?: string | null
+  cond_day_month?: number | null
+  cond_day_month_op?: string | null
+  cond_day_week?: string | null
+  cond_amount?: string | null
+  cond_amount_op?: string | null
+  cond_type?: string | null
+  cond_bank_category?: string | null
+  cond_description?: string | null
+}
+
+export interface ClassifierRuleUpdate {
+  name?: string
+  expense_type_id?: string
+  priority?: number
+  is_active?: boolean
+  cond_account_id?: string | null
+  cond_day_month?: number | null
+  cond_day_month_op?: string | null
+  cond_day_week?: string | null
+  cond_amount?: string | null
+  cond_amount_op?: string | null
+  cond_type?: string | null
+  cond_bank_category?: string | null
+  cond_description?: string | null
+}

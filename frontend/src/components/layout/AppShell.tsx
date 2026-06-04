@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { to: '/receipts', label: 'Чеки' },
   { to: '/documents', label: 'Документы' },
   { to: '/counterparties', label: 'Контрагенты' },
+  { to: '/rules', label: 'Правила' },
   { to: '/reconciliation', label: 'Сверка' },
   { to: '/audit-log', label: 'Журнал' },
   { to: '/settings', label: 'Настройки' },

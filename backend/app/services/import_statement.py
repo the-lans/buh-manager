@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from app.constants import BalanceSource, DocumentStatus, DocumentType, ImportStatus
 from app.db.accounts import get_account_by_id
 from app.db.balances import has_any_balance, upsert_balance
+from app.db.classifier_rules import list_rules_for_user
 from app.db.documents import claim_document_for_processing, get_document_by_id
 from app.db.expense_types import get_expense_type_by_id
 from app.db.transactions import create_transaction, find_transaction_by_dedup_key
@@ -18,6 +19,7 @@ from app.schemas.bank_statement import (
 )
 from app.services.audit import audit_conflict
 from app.services.balance_chain import verify_balance_chain
+from app.services.classifier import apply_rules
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -71,6 +73,8 @@ def import_bank_statement(
 
     is_initial_import = not has_any_balance(session=session, account_id=statement.account_id)
 
+    active_rules = [r for r in list_rules_for_user(session=session, user_id=current_user.id) if r.is_active]
+
     imported_ids: list[UUID] = []
     skipped_count = 0
     conflicts: list[ConflictItem] = []
@@ -111,6 +115,10 @@ def import_bank_statement(
                 import_status=ImportStatus.IMPORTED,
                 document_id=statement.document_id,
             )
+            matched_et_id = apply_rules(active_rules, new_tx)
+            if matched_et_id is not None:
+                new_tx.expense_type_id = matched_et_id
+                session.add(new_tx)
             session.flush()
             imported_ids.append(new_tx.id)
 
