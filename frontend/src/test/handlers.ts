@@ -82,6 +82,17 @@ export const handlers = [
     HttpResponse.json<ExpenseType[]>([{ id: 'food', name: 'Питание', description: null, receipt_required: true }]),
   ),
 
+  http.put('/api/v1/expense-types/:id', async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    return HttpResponse.json<ExpenseType>({ id: params.id as string, name: 'Питание', description: null, receipt_required: true, ...body })
+  }),
+
+  http.post('/api/v1/balances/calculate', () =>
+    HttpResponse.json<Balance[]>([
+      { id: 'bal-calc-1', account_id: 'acc-1', amount: '48500.00', recorded_at: '2026-06-04T23:59:59', source: 'MANUAL', document_id: null },
+    ]),
+  ),
+
   http.get('/api/v1/reconciliation/report', () =>
     HttpResponse.json({
       report_generated_at: '2026-04-01T12:00:00',

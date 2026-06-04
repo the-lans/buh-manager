@@ -1,11 +1,13 @@
-from datetime import datetime
+from datetime import datetime, time, timezone
 from decimal import Decimal
 from uuid import UUID
 
 from sqlmodel import Session, col, func, select
 
+from app.constants import BalanceSource
 from app.models.account import Account
 from app.models.balance import Balance
+from app.models.transaction import Transaction
 
 
 def has_any_balance(*, session: Session, account_id: UUID) -> bool:
@@ -83,6 +85,50 @@ def link_balances_to_document(
         bal.document_id = document_id
         session.add(bal)
     return len(rows)
+
+
+def get_latest_balance_for_account(*, session: Session, account_id: UUID) -> Balance | None:
+    """Return the most recent balance record for an account."""
+    return session.exec(
+        select(Balance)
+        .where(Balance.account_id == account_id)
+        .order_by(col(Balance.recorded_at).desc())
+    ).first()
+
+
+def calculate_balances_for_user(*, session: Session, user_id: UUID) -> list[Balance]:
+    """For each account that already has a balance, compute the running total through
+    all transactions since the latest known balance and upsert a MANUAL balance for
+    today (end of day UTC).  Idempotent: re-running on the same day updates the amount
+    of the existing MANUAL record instead of inserting a new one."""
+    today_end_utc = datetime.combine(datetime.now(timezone.utc).date(), time(23, 59, 59), tzinfo=timezone.utc)
+
+    accounts = session.exec(select(Account).where(Account.user_id == user_id)).all()
+    results: list[Balance] = []
+
+    for account in accounts:
+        latest = get_latest_balance_for_account(session=session, account_id=account.id)
+        if latest is None:
+            continue
+
+        new_txs = session.exec(
+            select(Transaction)
+            .where(Transaction.account_id == account.id)
+            .where(Transaction.occurred_at > latest.recorded_at)
+        ).all()
+
+        new_amount = latest.amount + sum(tx.amount for tx in new_txs)
+
+        balance = upsert_balance(
+            session=session,
+            account_id=account.id,
+            amount=new_amount,
+            recorded_at=today_end_utc,
+            source=BalanceSource.MANUAL,
+        )
+        results.append(balance)
+
+    return results
 
 
 def get_balances_for_user(

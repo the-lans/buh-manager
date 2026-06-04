@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { useAccounts, useCreateAccount, useDeleteAccount } from '../hooks/useAccounts'
+import { useAccounts, useCreateAccount, useDeleteAccount, useUpdateAccount } from '../hooks/useAccounts'
 import { useExpenseTypes, useCreateExpenseType, useUpdateExpenseType, useDeleteExpenseType } from '../hooks/useExpenseTypes'
 import { useApiKeys, useCreateApiKey, useUpdateApiKey, useDeleteApiKey } from '../hooks/useApiKeys'
 import { accountsApi } from '../api/accounts'
 import { useQueryClient } from '@tanstack/react-query'
-import type { ApiKeyCreated } from '../types'
+import type { Account, ApiKeyCreated, ExpenseType } from '../types'
 import { formatDate, localInputToUtcIso } from '../utils/date'
 
 type Tab = 'accounts' | 'expense-types' | 'api-keys'
@@ -58,6 +58,7 @@ export default function Settings() {
 function AccountsTab() {
   const { data: accounts = [] } = useAccounts()
   const createAccount = useCreateAccount()
+  const updateAccount = useUpdateAccount()
   const deleteAccount = useDeleteAccount()
   const qc = useQueryClient()
   const [form, setForm] = useState({ bank: '', account_number: '', currency: 'RUB' })
@@ -66,6 +67,9 @@ function AccountsTab() {
   const [initPending, setInitPending] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [editAccount, setEditAccount] = useState<Account | null>(null)
+  const [editForm, setEditForm] = useState({ bank: '', account_number: '', currency: '', is_active: true })
+  const [editError, setEditError] = useState<string | null>(null)
 
   const handleCreate = async () => {
     await createAccount.mutateAsync(form)
@@ -101,6 +105,23 @@ function AccountsTab() {
       setDeleteError('Не удалось удалить счёт. Возможно, он используется в транзакциях.')
     } finally {
       setConfirmDeleteId(null)
+    }
+  }
+
+  const openEdit = (acc: Account) => {
+    setEditAccount(acc)
+    setEditForm({ bank: acc.bank, account_number: acc.account_number, currency: acc.currency, is_active: acc.is_active })
+    setEditError(null)
+  }
+
+  const handleEditSave = async () => {
+    if (!editAccount) return
+    setEditError(null)
+    try {
+      await updateAccount.mutateAsync({ id: editAccount.id, data: editForm })
+      setEditAccount(null)
+    } catch {
+      setEditError('Не удалось сохранить изменения.')
     }
   }
 
@@ -151,6 +172,12 @@ function AccountsTab() {
                   ⚠ Задать баланс
                 </button>
               )}
+              <button
+                onClick={() => openEdit(acc)}
+                className="text-xs text-indigo-600 hover:underline"
+              >
+                Изменить
+              </button>
               {confirmDeleteId === acc.id ? (
                 <span className="inline-flex items-center gap-2 text-xs">
                   <span className="text-gray-600">Удалить?</span>
@@ -171,6 +198,57 @@ function AccountsTab() {
       </div>
 
       {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
+
+      {editAccount && (
+        <div
+          className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+          onClick={() => setEditAccount(null)}
+        >
+          <div className="bg-white rounded-xl p-6 space-y-3 w-96" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <h2 className="font-medium text-gray-900">Изменить счёт</h2>
+              <button onClick={() => setEditAccount(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+            </div>
+            <input
+              placeholder="Банк"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              value={editForm.bank}
+              onChange={(e) => setEditForm((f) => ({ ...f, bank: e.target.value }))}
+            />
+            <input
+              placeholder="Номер счёта"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              value={editForm.account_number}
+              onChange={(e) => setEditForm((f) => ({ ...f, account_number: e.target.value }))}
+            />
+            <input
+              placeholder="Валюта"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              value={editForm.currency}
+              onChange={(e) => setEditForm((f) => ({ ...f, currency: e.target.value }))}
+            />
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={editForm.is_active}
+                onChange={(e) => setEditForm((f) => ({ ...f, is_active: e.target.checked }))}
+              />
+              Активен
+            </label>
+            {editError && <p className="text-sm text-red-500">{editError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={handleEditSave}
+                disabled={updateAccount.isPending}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg disabled:opacity-50"
+              >
+                {updateAccount.isPending ? 'Сохранение...' : 'Сохранить'}
+              </button>
+              <button onClick={() => setEditAccount(null)} className="px-4 py-2 border border-gray-300 text-sm rounded-lg">Отмена</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {initForm && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
@@ -388,6 +466,29 @@ function ExpenseTypesTab() {
   const updateType = useUpdateExpenseType()
   const deleteType = useDeleteExpenseType()
   const [form, setForm] = useState({ id: '', name: '', description: '', receipt_required: true })
+  const [editType, setEditType] = useState<ExpenseType | null>(null)
+  const [editTypeForm, setEditTypeForm] = useState({ name: '', description: '', receipt_required: true })
+  const [editTypeError, setEditTypeError] = useState<string | null>(null)
+
+  const openEditType = (t: ExpenseType) => {
+    setEditType(t)
+    setEditTypeForm({ name: t.name, description: t.description ?? '', receipt_required: t.receipt_required })
+    setEditTypeError(null)
+  }
+
+  const handleEditTypeSave = async () => {
+    if (!editType) return
+    setEditTypeError(null)
+    try {
+      await updateType.mutateAsync({
+        id: editType.id,
+        data: { name: editTypeForm.name, description: editTypeForm.description.trim() || null, receipt_required: editTypeForm.receipt_required },
+      })
+      setEditType(null)
+    } catch {
+      setEditTypeError('Не удалось сохранить изменения.')
+    }
+  }
 
   const handleCreate = async () => {
     await createType.mutateAsync({
@@ -457,6 +558,12 @@ function ExpenseTypesTab() {
                 Чек
               </label>
               <button
+                onClick={() => openEditType(t)}
+                className="text-xs text-indigo-600 hover:underline"
+              >
+                Изменить
+              </button>
+              <button
                 onClick={() => deleteType.mutate(t.id)}
                 className="text-xs text-red-500 hover:underline"
               >
@@ -466,6 +573,53 @@ function ExpenseTypesTab() {
           </div>
         ))}
       </div>
+
+      {editType && (
+        <div
+          className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+          onClick={() => setEditType(null)}
+        >
+          <div className="bg-white rounded-xl p-6 space-y-3 w-96" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <h2 className="font-medium text-gray-900">Изменить тип расходов</h2>
+              <button onClick={() => setEditType(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+            </div>
+            <p className="text-xs text-gray-400">ID: <span className="font-mono">{editType.id}</span></p>
+            <input
+              placeholder="Название"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              value={editTypeForm.name}
+              onChange={(e) => setEditTypeForm((f) => ({ ...f, name: e.target.value }))}
+            />
+            <textarea
+              placeholder="Описание (необязательно)"
+              rows={2}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+              value={editTypeForm.description}
+              onChange={(e) => setEditTypeForm((f) => ({ ...f, description: e.target.value }))}
+            />
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={editTypeForm.receipt_required}
+                onChange={(e) => setEditTypeForm((f) => ({ ...f, receipt_required: e.target.checked }))}
+              />
+              Требуется чек
+            </label>
+            {editTypeError && <p className="text-sm text-red-500">{editTypeError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={handleEditTypeSave}
+                disabled={updateType.isPending}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg disabled:opacity-50"
+              >
+                {updateType.isPending ? 'Сохранение...' : 'Сохранить'}
+              </button>
+              <button onClick={() => setEditType(null)} className="px-4 py-2 border border-gray-300 text-sm rounded-lg">Отмена</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

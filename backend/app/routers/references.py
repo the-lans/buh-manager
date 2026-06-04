@@ -14,7 +14,7 @@ from app.db.accounts import (
     has_balances_for_account,
     update_account,
 )
-from app.db.balances import get_balances_for_user, upsert_balance
+from app.db.balances import calculate_balances_for_user, get_balances_for_user, upsert_balance
 from app.db.counterparties import (
     delete_counterparty,
     get_counterparty_by_id,
@@ -359,6 +359,20 @@ def list_balances_endpoint(
         limit=pagination.limit,
     )
     return [BalanceRead.model_validate(b) for b in balances]
+
+
+@router.post(
+    "/balances/calculate",
+    response_model=list[BalanceRead],
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_ACCOUNTS))],
+)
+def calculate_balances_endpoint(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> list[BalanceRead]:
+    results = calculate_balances_for_user(session=session, user_id=current_user.id)
+    session.commit()
+    return [BalanceRead.model_validate(b) for b in results]
 
 
 # ── Exchange Rates ───────────────────────────────────────────────────────────

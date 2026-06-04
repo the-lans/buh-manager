@@ -40,6 +40,7 @@ class ImportStatus(StrEnum):
 class BalanceSource(StrEnum):
     OPENING = "OPENING"
     CLOSING = "CLOSING"
+    MANUAL = "MANUAL"
 
 
 class AuditAction(StrEnum):

@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import { DataTable } from '../components/DataTable'
 import { useAccounts } from '../hooks/useAccounts'
-import { useBalances } from '../hooks/useBalances'
+import { useBalances, useCalculateBalances } from '../hooks/useBalances'
 import { formatDate } from '../utils/date'
 
 const PAGE_SIZE = 20
@@ -16,6 +16,7 @@ const SOURCE_LABELS: Record<string, string> = {
 export default function Balances() {
   const [accountId, setAccountId] = useState('')
   const [skip, setSkip] = useState(0)
+  const [calcResult, setCalcResult] = useState<string | null>(null)
 
   const { data: accounts = [] } = useAccounts()
   const { data: balances = [], isLoading } = useBalances({
@@ -24,11 +25,31 @@ export default function Balances() {
     limit: PAGE_SIZE,
   })
 
+  const calculate = useCalculateBalances()
   const accountMap = new Map(accounts.map((a) => [a.id, `${a.bank} ···${a.account_number.slice(-4)}`]))
+
+  const handleCalculate = async () => {
+    setCalcResult(null)
+    const results = await calculate.mutateAsync()
+    setCalcResult(`Обновлено счетов: ${results.length}`)
+  }
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-gray-900">Остатки по счетам</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">Остатки по счетам</h1>
+        <button
+          onClick={handleCalculate}
+          disabled={calculate.isPending}
+          className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {calculate.isPending ? 'Вычисляю...' : 'Вычислить'}
+        </button>
+      </div>
+
+      {calcResult && (
+        <p className="text-sm text-green-600">{calcResult}</p>
+      )}
 
       <div className="flex gap-3 flex-wrap">
         <select

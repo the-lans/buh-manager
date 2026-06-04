@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw'
 import Settings from '../Settings'
 import { renderWithProviders } from '../../test/utils'
 import { server } from '../../test/server'
-import type { ExpenseType } from '../../types'
+import type { Account, ExpenseType } from '../../types'
 
 describe('Settings — ExpenseTypesTab', () => {
   it('renders existing expense types with name and id', async () => {
@@ -94,5 +94,104 @@ describe('Settings — ExpenseTypesTab', () => {
 
     await waitFor(() => expect(capturedBody).not.toBeNull())
     expect(capturedBody!.description).toBeNull()
+  })
+})
+
+describe('Settings — ExpenseTypesTab edit modal', () => {
+  const goToExpenseTypes = async (user: ReturnType<typeof userEvent.setup>) => {
+    renderWithProviders(<Settings />)
+    await user.click(screen.getByRole('button', { name: 'Типы расходов' }))
+    await waitFor(() => expect(screen.getByText('Питание')).toBeInTheDocument())
+  }
+
+  it('opens edit modal when Изменить is clicked', async () => {
+    const user = userEvent.setup()
+    await goToExpenseTypes(user)
+    await user.click(screen.getByRole('button', { name: 'Изменить' }))
+    await waitFor(() => expect(screen.getByText('Изменить тип расходов')).toBeInTheDocument())
+    expect(screen.getByDisplayValue('Питание')).toBeInTheDocument()
+  })
+
+  it('closes modal when Отмена is clicked', async () => {
+    const user = userEvent.setup()
+    await goToExpenseTypes(user)
+    await user.click(screen.getByRole('button', { name: 'Изменить' }))
+    await waitFor(() => expect(screen.getByText('Изменить тип расходов')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Отмена' }))
+    expect(screen.queryByText('Изменить тип расходов')).not.toBeInTheDocument()
+  })
+
+  it('calls PUT /expense-types/:id with updated data on save', async () => {
+    let captured: Record<string, unknown> | null = null
+    server.use(
+      http.put('/api/v1/expense-types/:id', async ({ request }) => {
+        captured = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json<ExpenseType>({ id: 'food', name: 'Новое название', description: null, receipt_required: true })
+      }),
+    )
+
+    const user = userEvent.setup()
+    await goToExpenseTypes(user)
+    await user.click(screen.getByRole('button', { name: 'Изменить' }))
+    await waitFor(() => expect(screen.getByText('Изменить тип расходов')).toBeInTheDocument())
+
+    const nameInput = screen.getByDisplayValue('Питание')
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Новое название')
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+
+    await waitFor(() => expect(captured).not.toBeNull())
+    expect(captured!.name).toBe('Новое название')
+  })
+})
+
+describe('Settings — AccountsTab edit modal', () => {
+  const goToAccounts = async (user: ReturnType<typeof userEvent.setup>) => {
+    renderWithProviders(<Settings />)
+    // Accounts tab is default — just wait for content
+    await waitFor(() => expect(screen.getByText('Сбербанк')).toBeInTheDocument())
+  }
+
+  it('opens edit modal when Изменить is clicked for an account', async () => {
+    const user = userEvent.setup()
+    await goToAccounts(user)
+    await user.click(screen.getByRole('button', { name: 'Изменить' }))
+    await waitFor(() => expect(screen.getByText('Изменить счёт')).toBeInTheDocument())
+    expect(screen.getByDisplayValue('Сбербанк')).toBeInTheDocument()
+  })
+
+  it('closes modal when Отмена is clicked', async () => {
+    const user = userEvent.setup()
+    await goToAccounts(user)
+    await user.click(screen.getByRole('button', { name: 'Изменить' }))
+    await waitFor(() => expect(screen.getByText('Изменить счёт')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Отмена' }))
+    expect(screen.queryByText('Изменить счёт')).not.toBeInTheDocument()
+  })
+
+  it('calls PUT /accounts/:id with updated data on save', async () => {
+    let captured: Record<string, unknown> | null = null
+    server.use(
+      http.put('/api/v1/accounts/:id', async ({ request }) => {
+        captured = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json<Account>({
+          id: 'acc-1', user_id: 'user-1', bank: 'Тинькофф', account_number: '40817810',
+          currency: 'RUB', is_active: true, has_balances: true,
+        })
+      }),
+    )
+
+    const user = userEvent.setup()
+    await goToAccounts(user)
+    await user.click(screen.getByRole('button', { name: 'Изменить' }))
+    await waitFor(() => expect(screen.getByDisplayValue('Сбербанк')).toBeInTheDocument())
+
+    const bankInput = screen.getByDisplayValue('Сбербанк')
+    await user.clear(bankInput)
+    await user.type(bankInput, 'Тинькофф')
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+
+    await waitFor(() => expect(captured).not.toBeNull())
+    expect(captured!.bank).toBe('Тинькофф')
   })
 })
