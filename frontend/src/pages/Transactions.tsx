@@ -17,6 +17,8 @@ export default function Transactions() {
   const createTx = useCreateTransaction()
   const deleteTx = useDeleteTransaction()
 
+  const expenseTypeMap = new Map(expenseTypes.map((et) => [et.id, et.name]))
+
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '' })
   const [editTx, setEditTx] = useState<Transaction | null>(null)
@@ -155,6 +157,8 @@ export default function Transactions() {
         columns={[
           { label: 'Дата' },
           { label: 'Категория банка' },
+          { label: 'Вид расхода' },
+          { label: 'Описание' },
           { label: 'Сумма', align: 'right' },
           { label: 'Тип' },
           { label: 'Статус' },
@@ -170,6 +174,8 @@ export default function Transactions() {
           <tr key={tx.id} className="hover:bg-gray-50">
             <td className="px-4 py-2 text-gray-600">{formatDate(tx.occurred_at)}</td>
             <td className="px-4 py-2 text-gray-800">{tx.bank_category ?? '—'}</td>
+            <td className="px-4 py-2 text-gray-800">{expenseTypeMap.get(tx.expense_type_id) ?? tx.expense_type_id}</td>
+            <td className="px-4 py-2 text-gray-500 text-sm max-w-[200px] truncate">{tx.description ?? '—'}</td>
             <td className={`px-4 py-2 text-right tabular-nums font-medium ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-green-600'}`}>
               {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
             </td>
