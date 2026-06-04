@@ -11,6 +11,25 @@ import type { Transaction } from '../../types'
 // Use a regex to avoid locale/environment differences.
 const TX_AMOUNT = /1\s*500,00\s*₽/
 
+const TX_FIXTURE: Transaction = {
+  id: 'tx-with-desc',
+  account_id: 'acc-1',
+  occurred_at: '2026-04-01T10:00:00',
+  processed_at: null,
+  amount: '-2750.00',
+  type: 'EXPENSE',
+  bank_category: 'Супермаркеты',
+  expense_type_id: 'food',
+  description: 'Покупка продуктов',
+  balance_after: null,
+  calculated_balance_after: null,
+  balance_mismatch: false,
+  receipt_id: null,
+  reconciled_status: 'UNMATCHED',
+  import_status: 'IMPORTED',
+  document_id: null,
+}
+
 describe('Transactions page', () => {
   it('renders transaction list', async () => {
     renderWithProviders(<Transactions />)
@@ -185,4 +204,48 @@ describe('Transactions page', () => {
     expect(screen.getByDisplayValue('-1500.00')).toBeInTheDocument()
   })
 
+  it('shows description, bank_category, expense type and type in the list', async () => {
+    server.use(
+      http.get('/api/v1/transactions', () => HttpResponse.json<Transaction[]>([TX_FIXTURE])),
+    )
+    renderWithProviders(<Transactions />)
+    await waitFor(() => expect(screen.getByText('Покупка продуктов')).toBeInTheDocument())
+    expect(screen.getByText('Супермаркеты')).toBeInTheDocument()
+    // expense_type_id 'et-1' maps to 'Питание' from mock handlers
+    await waitFor(() => expect(screen.getByText('Питание')).toBeInTheDocument())
+    expect(screen.getByText(/2\s*750,00\s*₽/)).toBeInTheDocument()
+    expect(screen.getByText('EXPENSE')).toBeInTheDocument()
+  })
+
+  it('opens edit modal with pre-filled description, amount and bank_category when Изменить is clicked', async () => {
+    server.use(
+      http.get('/api/v1/transactions', () => HttpResponse.json<Transaction[]>([TX_FIXTURE])),
+    )
+    renderWithProviders(<Transactions />)
+    const user = userEvent.setup()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Изменить' })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Изменить' }))
+    await waitFor(() => expect(screen.getByText('Изменить транзакцию')).toBeInTheDocument())
+    expect(screen.getByDisplayValue('Покупка продуктов')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('-2750.00')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Супермаркеты')).toBeInTheDocument()
+  })
+
+  it('shows pagination buttons', async () => {
+    renderWithProviders(<Transactions />)
+    await waitFor(() => expect(screen.getByRole('button', { name: /Назад/ })).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /Вперёд/ })).toBeInTheDocument()
+  })
+
+  it('back button is disabled on first page', async () => {
+    renderWithProviders(<Transactions />)
+    await waitFor(() => expect(screen.getByRole('button', { name: /Назад/ })).toBeDisabled())
+  })
+
+  it('forward button is disabled when fewer items than page size', async () => {
+    renderWithProviders(<Transactions />)
+    // Default fixture has 1 transaction, which is less than PAGE_SIZE=20
+    await waitFor(() => expect(screen.getByText(TX_AMOUNT)).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /Вперёд/ })).toBeDisabled()
+  })
 })

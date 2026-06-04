@@ -9,9 +9,17 @@ import { DataTable } from '../components/DataTable'
 import { StatusBadge } from '../components/StatusBadge'
 import TransactionEditModal from '../components/TransactionEditModal'
 
+const PAGE_SIZE = 50
+
 export default function Transactions() {
-  const [filters, setFilters] = useState<TransactionFilters>({ limit: 50 })
-  const { data: transactions = [], isLoading } = useTransactions(filters)
+  const [skip, setSkip] = useState(0)
+  const [filters, setFilters] = useState<TransactionFilters>({})
+  const { data: transactions = [], isLoading } = useTransactions({ ...filters, skip, limit: PAGE_SIZE })
+
+  function updateFilter(update: Partial<TransactionFilters>) {
+    setFilters((f) => ({ ...f, ...update }))
+    setSkip(0)
+  }
   const { data: accounts = [] } = useAccounts()
   const { data: expenseTypes = [] } = useExpenseTypes()
   const createTx = useCreateTransaction()
@@ -63,7 +71,7 @@ export default function Transactions() {
         <select
           className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
           value={filters.type ?? ''}
-          onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value || undefined }))}
+          onChange={(e) => updateFilter({ type: e.target.value || undefined })}
         >
           <option value="">Все типы</option>
           <option value="INCOME">Доход</option>
@@ -72,7 +80,7 @@ export default function Transactions() {
         <select
           className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
           value={filters.reconciled_status ?? ''}
-          onChange={(e) => setFilters((f) => ({ ...f, reconciled_status: e.target.value || undefined }))}
+          onChange={(e) => updateFilter({ reconciled_status: e.target.value || undefined })}
         >
           <option value="">Все статусы</option>
           <option value="UNMATCHED">Не сверено</option>
@@ -82,7 +90,7 @@ export default function Transactions() {
         <select
           className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
           value={filters.account_id ?? ''}
-          onChange={(e) => setFilters((f) => ({ ...f, account_id: e.target.value || undefined }))}
+          onChange={(e) => updateFilter({ account_id: e.target.value || undefined })}
         >
           <option value="">Все счета</option>
           {accounts.map((a) => (
@@ -239,6 +247,23 @@ export default function Transactions() {
           </tr>
         ))}
       </DataTable>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setSkip((s) => Math.max(0, s - PAGE_SIZE))}
+          disabled={skip === 0}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+        >
+          ← Назад
+        </button>
+        <button
+          onClick={() => setSkip((s) => s + PAGE_SIZE)}
+          disabled={transactions.length < PAGE_SIZE}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+        >
+          Вперёд →
+        </button>
+      </div>
 
       <TransactionEditModal key={editTx?.id ?? ''} transaction={editTx} onClose={() => setEditTx(null)} />
     </div>
