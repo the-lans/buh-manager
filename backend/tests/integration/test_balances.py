@@ -202,6 +202,41 @@ async def test_calculate_balances_idempotent(
 
 
 @pytest.mark.asyncio
+async def test_calculate_balances_includes_new_transactions(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    # Seed closing balance of 900 via import (opening 1000, one -100 tx)
+    doc_id = await _create_stmt_doc(client, auth_headers)
+    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+
+    # Add a manual transaction AFTER the last imported balance (closing recorded_at = statement_end)
+    acc_resp = await client.get("/api/v1/accounts", headers=auth_headers)
+    acc_id = str(test_account.id)
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": acc_id,
+            "occurred_at": "2025-01-01T00:00:00",
+            "amount": -250.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+        },
+        headers=auth_headers,
+    )
+    assert tx_resp.status_code == 201
+
+    resp = await client.post("/api/v1/balances/calculate", headers=auth_headers)
+    assert resp.status_code == 200
+    results = resp.json()
+    assert len(results) == 1
+    # closing balance 900 + new tx -250 = 650
+    assert float(results[0]["amount"]) == pytest.approx(650.0)
+
+
+@pytest.mark.asyncio
 async def test_calculate_balances_skips_account_without_balance(
     client: AsyncClient,
     auth_headers: dict[str, str],

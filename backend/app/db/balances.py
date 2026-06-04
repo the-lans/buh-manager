@@ -9,6 +9,10 @@ from app.models.account import Account
 from app.models.balance import Balance
 from app.models.transaction import Transaction
 
+# End of UTC day used as recorded_at for MANUAL calculated balances.
+# Ensures idempotency: multiple runs on the same day hit the same (date, source) key.
+_BALANCE_DAY_END_TIME: time = time(23, 59, 59)
+
 
 def has_any_balance(*, session: Session, account_id: UUID) -> bool:
     count = session.exec(select(func.count()).where(Balance.account_id == account_id)).one()
@@ -16,12 +20,13 @@ def has_any_balance(*, session: Session, account_id: UUID) -> bool:
 
 
 def get_accounts_with_balances(*, session: Session, account_ids: list[UUID]) -> set[UUID]:
-    """Return the subset of account_ids that have at least one balance record.
-    Single query replaces N individual has_any_balance calls."""
+    """Return the subset of account_ids that have at least one balance record."""
     if not account_ids:
         return set()
     rows = session.exec(
-        select(Balance.account_id).where(Balance.account_id.in_(account_ids)).distinct()
+        select(Balance.account_id)
+        .where(Balance.account_id.in_(account_ids))
+        .distinct()
     ).all()
     return set(rows)
 
@@ -108,29 +113,37 @@ def get_latest_balance_for_account(*, session: Session, account_id: UUID) -> Bal
 
 
 def calculate_balances_for_user(*, session: Session, user_id: UUID) -> list[Balance]:
-    """For each account that already has a balance, compute the running total through
-    all transactions since the latest known balance and upsert a MANUAL balance for
-    today (end of day UTC).  Idempotent: re-running on the same day updates the amount
-    of the existing MANUAL record instead of inserting a new one."""
-    today_end_utc = datetime.combine(datetime.now(timezone.utc).date(), time(23, 59, 59), tzinfo=timezone.utc)
+    """Upsert a MANUAL balance for each account that has a known starting balance.
 
-    accounts = session.exec(select(Account).where(Account.user_id == user_id)).all()
+    The new amount is: latest_balance + SUM(transactions since latest_balance).
+    Recorded at end-of-day UTC so repeated calls on the same day are idempotent.
+    """
+    today_end_utc: datetime = datetime.combine(
+        datetime.now(timezone.utc).date(),
+        _BALANCE_DAY_END_TIME,
+        tzinfo=timezone.utc,
+    )
+    accounts: list[Account] = list(
+        session.exec(select(Account).where(Account.user_id == user_id)).all()
+    )
     results: list[Balance] = []
 
     for account in accounts:
-        latest = get_latest_balance_for_account(session=session, account_id=account.id)
+        latest: Balance | None = get_latest_balance_for_account(
+            session=session, account_id=account.id
+        )
         if latest is None:
             continue
 
-        tx_sum = session.exec(
+        tx_sum: Decimal | None = session.exec(
             select(func.sum(Transaction.amount))
             .where(Transaction.account_id == account.id)
             .where(Transaction.occurred_at > latest.recorded_at)
         ).one()
 
-        new_amount = latest.amount + (tx_sum or Decimal(0))
+        new_amount: Decimal = latest.amount + (tx_sum or Decimal(0))
 
-        balance = upsert_balance(
+        balance: Balance = upsert_balance(
             session=session,
             account_id=account.id,
             amount=new_amount,
