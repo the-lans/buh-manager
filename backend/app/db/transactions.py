@@ -120,7 +120,7 @@ def get_transactions_for_user(
         query = query.where(Transaction.reconciled_status == filters.reconciled_status)
     if filters.import_status is not None:
         query = query.where(Transaction.import_status == filters.import_status)
-    query = query.order_by(col(Transaction.occurred_at).desc()).offset(skip).limit(limit)
+    query = query.order_by(col(Transaction.occurred_at).desc(), col(Transaction.id).desc()).offset(skip).limit(limit)
     return list(session.exec(query).all())
 
 
