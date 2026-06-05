@@ -6,6 +6,7 @@ from sqlmodel import Session
 from app.constants import ApiKeyScope, AuditEntityType, ChangedBy
 from app.database import get_session
 from app.db.accounts import get_account_by_id
+from app.db.classifier_rules import list_rules_for_user
 from app.db.expense_types import get_expense_type_by_id
 from app.db.transactions import (
     create_transaction,
@@ -24,7 +25,6 @@ from app.schemas.transaction import (
     TransactionRead,
     TransactionUpdate,
 )
-from app.db.classifier_rules import list_rules_for_user
 from app.services.audit import audit_create, audit_delete, audit_update
 from app.services.classifier import apply_rules
 from app.utils.http import get_or_404

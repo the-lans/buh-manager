@@ -1,6 +1,6 @@
+import json
 from datetime import datetime
 from decimal import Decimal
-import json
 from uuid import UUID
 
 from pydantic import BaseModel, model_validator
@@ -34,6 +34,7 @@ def _normalize_condition_string_fields(data: dict[str, object]) -> dict[str, obj
 
 
 def has_at_least_one_condition(
+    *,
     cond_account_id: UUID | None,
     cond_day_month: int | None,
     cond_day_week: str | None,
@@ -44,7 +45,15 @@ def has_at_least_one_condition(
 ) -> bool:
     return not all(
         c is None
-        for c in [cond_account_id, cond_day_month, cond_day_week, cond_amount, cond_type, cond_bank_category, cond_description]
+        for c in [
+            cond_account_id,
+            cond_day_month,
+            cond_day_week,
+            cond_amount,
+            cond_type,
+            cond_bank_category,
+            cond_description,
+        ]
     )
 
 
@@ -64,8 +73,13 @@ def _validate_classifier_conditions(
     if cond_day_month is not None and not 1 <= cond_day_month <= 31:
         raise ValueError("cond_day_month must be between 1 and 31.")
     if require_at_least_one and not has_at_least_one_condition(
-        cond_account_id, cond_day_month, cond_day_week,
-        cond_amount, cond_type, cond_bank_category, cond_description,
+        cond_account_id=cond_account_id,
+        cond_day_month=cond_day_month,
+        cond_day_week=cond_day_week,
+        cond_amount=cond_amount,
+        cond_type=cond_type,
+        cond_bank_category=cond_bank_category,
+        cond_description=cond_description,
     ):
         raise ValueError("Необходимо указать хотя бы одно условие.")
     if cond_day_month is not None and cond_day_month_op not in _VALID_OPS:
