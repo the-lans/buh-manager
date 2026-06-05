@@ -6,11 +6,16 @@ from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
+from sqlmodel import select
 
 from app.models.account import Account
+from app.models.expense_type import ExpenseType
+from app.models.transaction import Transaction
+from app.models.user import User
+from app.utils.ids import scope_user_id
 
 
-def _rule_payload(expense_type_id: str = "test-et", **kwargs) -> dict:
+def _rule_payload(expense_type_id: str = "test-et", **kwargs: object) -> dict[str, object]:
     base = {
         "name": "Правило продукты",
         "expense_type_id": expense_type_id,
@@ -343,7 +348,6 @@ async def test_rules_isolated_between_users(
     auth_headers: dict[str, str],
     second_auth_headers: dict[str, str],
     test_expense_type_id: str,
-    second_test_expense_type_id: str,
 ) -> None:
     await client.post(
         "/api/v1/classifier-rules",
@@ -363,18 +367,7 @@ async def test_apply_rules_updates_expense_type(
     auth_headers: dict[str, str],
     test_account: Account,
     test_expense_type_id: str,
-    second_test_expense_type_id: str,
-    second_test_user,
 ) -> None:
-    from app.utils.ids import scope_user_id
-    from tests.conftest import make_jwt
-    from app.models.expense_type import ExpenseType
-    from sqlmodel import Session
-    # Need a second expense type for the same user
-    # We'll use the test client to create a rule that matches all EXPENSE transactions
-    # and changes expense_type to test_expense_type_id
-
-    # First create a transaction with test_expense_type_id
     tx_resp = await client.post(
         "/api/v1/transactions",
         json={
@@ -388,10 +381,6 @@ async def test_apply_rules_updates_expense_type(
         headers=auth_headers,
     )
     assert tx_resp.status_code == 201
-    tx_id = tx_resp.json()["id"]
-
-    # Create a rule: bank_category contains "кофе" → keep same expense_type (already applied on create)
-    # For a meaningful test, create rule with cond_bank_category and verify apply endpoint works
     rule_resp = await client.post(
         "/api/v1/classifier-rules",
         json={
@@ -423,11 +412,6 @@ async def test_apply_rules_normalizes_period_as_moscow_dates(
     test_expense_type_id: str,
     session,
 ) -> None:
-    from app.models.expense_type import ExpenseType
-    from app.models.user import User
-    from app.utils.ids import scope_user_id
-    from sqlmodel import select
-
     user = session.exec(select(User).where(User.email == "test@example.com")).first()
     assert user is not None
 
@@ -492,11 +476,6 @@ async def test_apply_rules_match_day_month_in_app_timezone(
     test_expense_type_id: str,
     session,
 ) -> None:
-    from app.models.expense_type import ExpenseType
-    from app.models.user import User
-    from app.utils.ids import scope_user_id
-    from sqlmodel import select
-
     user = session.exec(select(User).where(User.email == "test@example.com")).first()
     assert user is not None
 
@@ -582,8 +561,6 @@ async def test_update_rule_rejects_blank_string_conditions(
 async def test_apply_rules_no_rules_returns_zero(
     client: AsyncClient,
     auth_headers: dict[str, str],
-    test_account: Account,
-    test_expense_type_id: str,
 ) -> None:
     resp = await client.post(
         "/api/v1/classifier-rules/apply",
@@ -602,12 +579,6 @@ async def test_apply_rules_processes_more_than_previous_hard_limit(
     test_expense_type_id: str,
     session,
 ) -> None:
-    from app.models.expense_type import ExpenseType
-    from app.models.transaction import Transaction
-    from app.models.user import User
-    from app.utils.ids import scope_user_id
-    from sqlmodel import select
-
     user = session.exec(select(User).where(User.email == "test@example.com")).first()
     assert user is not None
 
@@ -670,18 +641,15 @@ async def test_rule_does_not_override_manual_expense_type_on_transaction_create(
     test_expense_type_id: str,
     session,
 ) -> None:
-    from app.models.expense_type import ExpenseType
-    from app.utils.ids import scope_user_id
-    from app.models.user import User
-    from sqlmodel import select
-
     # Get test_user from DB
     user = session.exec(select(User).where(User.email == "test@example.com")).first()
 
     # Create a second expense type for the same user
     et2_public = "categoria-rule"
     et2_scoped = scope_user_id(user_id=user.id, public_id=et2_public)
-    et2 = ExpenseType(id=et2_scoped, user_id=user.id, name="Категория правила", receipt_required=False)
+    et2 = ExpenseType(
+        id=et2_scoped, user_id=user.id, name="Категория правила", receipt_required=False
+    )
     session.add(et2)
     session.commit()
 
@@ -728,15 +696,12 @@ async def test_rule_applied_on_create_when_apply_rules_true(
     test_expense_type_id: str,
     session,
 ) -> None:
-    from app.models.expense_type import ExpenseType
-    from app.models.user import User
-    from app.utils.ids import scope_user_id
-    from sqlmodel import select
-
     user = session.exec(select(User).where(User.email == "test@example.com")).first()
     rule_et_public = "rule-et-create"
     rule_et_scoped = scope_user_id(user_id=user.id, public_id=rule_et_public)
-    session.add(ExpenseType(id=rule_et_scoped, user_id=user.id, name="Rule ET", receipt_required=False))
+    session.add(
+        ExpenseType(id=rule_et_scoped, user_id=user.id, name="Rule ET", receipt_required=False)
+    )
     session.commit()
 
     await client.post(
@@ -776,15 +741,12 @@ async def test_rule_not_applied_on_create_when_apply_rules_false(
     test_expense_type_id: str,
     session,
 ) -> None:
-    from app.models.expense_type import ExpenseType
-    from app.models.user import User
-    from app.utils.ids import scope_user_id
-    from sqlmodel import select
-
     user = session.exec(select(User).where(User.email == "test@example.com")).first()
     rule_et_public = "rule-et-create-false"
     rule_et_scoped = scope_user_id(user_id=user.id, public_id=rule_et_public)
-    session.add(ExpenseType(id=rule_et_scoped, user_id=user.id, name="Rule ET 2", receipt_required=False))
+    session.add(
+        ExpenseType(id=rule_et_scoped, user_id=user.id, name="Rule ET 2", receipt_required=False)
+    )
     session.commit()
 
     await client.post(
@@ -824,15 +786,14 @@ async def test_rule_applied_on_update_when_apply_rules_true(
     test_expense_type_id: str,
     session,
 ) -> None:
-    from app.models.expense_type import ExpenseType
-    from app.models.user import User
-    from app.utils.ids import scope_user_id
-    from sqlmodel import select
-
     user = session.exec(select(User).where(User.email == "test@example.com")).first()
     rule_et_public = "rule-et-update"
     rule_et_scoped = scope_user_id(user_id=user.id, public_id=rule_et_public)
-    session.add(ExpenseType(id=rule_et_scoped, user_id=user.id, name="Update Rule ET", receipt_required=False))
+    session.add(
+        ExpenseType(
+            id=rule_et_scoped, user_id=user.id, name="Update Rule ET", receipt_required=False
+        )
+    )
     session.commit()
 
     # Create tx without apply_rules (rule not applied)
@@ -883,15 +844,14 @@ async def test_rule_not_applied_on_update_when_apply_rules_false(
     test_expense_type_id: str,
     session,
 ) -> None:
-    from app.models.expense_type import ExpenseType
-    from app.models.user import User
-    from app.utils.ids import scope_user_id
-    from sqlmodel import select
-
     user = session.exec(select(User).where(User.email == "test@example.com")).first()
     rule_et_public = "rule-et-update-false"
     rule_et_scoped = scope_user_id(user_id=user.id, public_id=rule_et_public)
-    session.add(ExpenseType(id=rule_et_scoped, user_id=user.id, name="Update Rule ET F", receipt_required=False))
+    session.add(
+        ExpenseType(
+            id=rule_et_scoped, user_id=user.id, name="Update Rule ET F", receipt_required=False
+        )
+    )
     session.commit()
 
     tx_resp = await client.post(

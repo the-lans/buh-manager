@@ -44,7 +44,9 @@ def _resolve_representation(
 ) -> str:
     account_label: str | None = None
     if data.cond_account_id is not None:
-        account = get_account_by_id(session=session, account_id=data.cond_account_id, user_id=user_id)
+        account = get_account_by_id(
+            session=session, account_id=data.cond_account_id, user_id=user_id
+        )
         if account:
             account_label = f"{account.bank} ***{account.account_number[-4:]}"
     return generate_representation(
@@ -117,7 +119,9 @@ def create_classifier_rule(
     current_user: User = Depends(get_current_user),
 ) -> ClassifierRuleRead:
     et = get_or_404(
-        get_expense_type_by_id(session=session, expense_type_id=data.expense_type_id, user_id=current_user.id),
+        get_expense_type_by_id(
+            session=session, expense_type_id=data.expense_type_id, user_id=current_user.id
+        ),
         "Expense type not found.",
     )
     data = data.model_copy(update={"expense_type_id": et.id})
@@ -127,7 +131,9 @@ def create_classifier_rule(
         cond_account_id=data.cond_account_id,
     )
     representation = _resolve_representation(data, session, current_user.id)
-    rule = create_rule(session=session, user_id=current_user.id, data=data, representation=representation)
+    rule = create_rule(
+        session=session, user_id=current_user.id, data=data, representation=representation
+    )
     audit_create(
         session=session,
         entity_type=AuditEntityType.CLASSIFIER_RULE,
@@ -158,7 +164,9 @@ def update_classifier_rule(
     )
     if data.expense_type_id is not None:
         et = get_or_404(
-            get_expense_type_by_id(session=session, expense_type_id=data.expense_type_id, user_id=current_user.id),
+            get_expense_type_by_id(
+                session=session, expense_type_id=data.expense_type_id, user_id=current_user.id
+            ),
             "Expense type not found.",
         )
         data = data.model_copy(update={"expense_type_id": et.id})
@@ -170,13 +178,13 @@ def update_classifier_rule(
             detail=str(exc),
         ) from exc
     if not has_at_least_one_condition(
-        effective_conditions.cond_account_id,
-        effective_conditions.cond_day_month,
-        effective_conditions.cond_day_week,
-        effective_conditions.cond_amount,
-        effective_conditions.cond_type,
-        effective_conditions.cond_bank_category,
-        effective_conditions.cond_description,
+        cond_account_id=effective_conditions.cond_account_id,
+        cond_day_month=effective_conditions.cond_day_month,
+        cond_day_week=effective_conditions.cond_day_week,
+        cond_amount=effective_conditions.cond_amount,
+        cond_type=effective_conditions.cond_type,
+        cond_bank_category=effective_conditions.cond_bank_category,
+        cond_description=effective_conditions.cond_description,
     ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,

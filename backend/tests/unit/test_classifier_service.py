@@ -3,7 +3,7 @@
 import json
 from datetime import datetime
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -21,7 +21,7 @@ BASE_DT = datetime(2026, 6, 1, 10, 0)  # weekday() == 0 (Mon), day == 1
 
 def _tx(
     *,
-    account_id=ACCOUNT_ID,
+    account_id: UUID = ACCOUNT_ID,
     occurred_at: datetime = BASE_DT,
     amount: Decimal = Decimal("-500.00"),
     type: str = TransactionType.EXPENSE,
@@ -42,25 +42,25 @@ def _tx(
     )
 
 
-def _rule(**kwargs) -> ClassifierRule:
-    defaults = dict(
-        id=uuid4(),
-        user_id=uuid4(),
-        name="Тест",
-        expense_type_id="et-rule",
-        priority=1,
-        is_active=True,
-        representation="",
-        cond_account_id=None,
-        cond_day_month=None,
-        cond_day_month_op=None,
-        cond_day_week=None,
-        cond_amount=None,
-        cond_amount_op=None,
-        cond_type=None,
-        cond_bank_category=None,
-        cond_description=None,
-    )
+def _rule(**kwargs: object) -> ClassifierRule:
+    defaults: dict[str, object] = {
+        "id": uuid4(),
+        "user_id": uuid4(),
+        "name": "Тест",
+        "expense_type_id": "et-rule",
+        "priority": 1,
+        "is_active": True,
+        "representation": "",
+        "cond_account_id": None,
+        "cond_day_month": None,
+        "cond_day_month_op": None,
+        "cond_day_week": None,
+        "cond_amount": None,
+        "cond_amount_op": None,
+        "cond_type": None,
+        "cond_bank_category": None,
+        "cond_description": None,
+    }
     defaults.update(kwargs)
     return ClassifierRule(**defaults)
 
@@ -139,14 +139,14 @@ def test_match_day_week_uses_app_timezone() -> None:
 @pytest.mark.parametrize(
     "op, threshold, tx_amount, expected",
     [
-        ("eq", Decimal("-500"), Decimal("-500"), True),   # -500 == -500 → True
+        ("eq", Decimal("-500"), Decimal("-500"), True),  # -500 == -500 → True
         ("eq", Decimal("-500"), Decimal("-400"), False),  # -400 == -500 → False
-        ("lt", Decimal("-300"), Decimal("-500"), True),   # -500 < -300 → True (more negative)
+        ("lt", Decimal("-300"), Decimal("-500"), True),  # -500 < -300 → True (more negative)
         ("lt", Decimal("-600"), Decimal("-500"), False),  # -500 < -600 → False
-        ("gt", Decimal("-600"), Decimal("-500"), True),   # -500 > -600 → True
+        ("gt", Decimal("-600"), Decimal("-500"), True),  # -500 > -600 → True
         ("gt", Decimal("-400"), Decimal("-500"), False),  # -500 > -400 → False
         ("lte", Decimal("-500"), Decimal("-500"), True),  # -500 <= -500 → True
-        ("gte", Decimal("-300"), Decimal("-500"), False), # -500 >= -300 → False
+        ("gte", Decimal("-300"), Decimal("-500"), False),  # -500 >= -300 → False
         ("gte", Decimal("-600"), Decimal("-500"), True),  # -500 >= -600 → True
     ],
 )
