@@ -119,6 +119,20 @@ def test_match_day_week_miss() -> None:
     assert match_transaction(tx, rule) is False
 
 
+def test_match_day_month_uses_app_timezone() -> None:
+    # 2026-02-28 21:30 UTC == 2026-03-01 00:30 Europe/Moscow
+    tx = _tx(occurred_at=datetime(2026, 2, 28, 21, 30))
+    rule = _rule(cond_day_month=1, cond_day_month_op="eq")
+    assert match_transaction(tx, rule) is True
+
+
+def test_match_day_week_uses_app_timezone() -> None:
+    # 2026-02-28 21:30 UTC == Sunday 2026-03-01 00:30 Europe/Moscow
+    tx = _tx(occurred_at=datetime(2026, 2, 28, 21, 30))
+    rule = _rule(cond_day_week=json.dumps([6]))  # Sunday
+    assert match_transaction(tx, rule) is True
+
+
 # ── amount ────────────────────────────────────────────────────────────────────
 
 
