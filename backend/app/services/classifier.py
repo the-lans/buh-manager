@@ -4,6 +4,8 @@ import json
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from app.utils.dt import utc_to_app_timezone
+
 if TYPE_CHECKING:
     from app.models.classifier_rule import ClassifierRule
     from app.models.transaction import Transaction
@@ -28,12 +30,14 @@ def _apply_op(value: Decimal, op: str, target: Decimal) -> bool:
 
 
 def match_transaction(tx: Transaction, rule: ClassifierRule) -> bool:
+    tx_local_dt = utc_to_app_timezone(tx.occurred_at)
+
     if rule.cond_account_id is not None and tx.account_id != rule.cond_account_id:
         return False
 
     if rule.cond_day_month is not None:
         op = rule.cond_day_month_op or "eq"
-        if not _apply_op(Decimal(tx.occurred_at.day), op, Decimal(rule.cond_day_month)):
+        if not _apply_op(Decimal(tx_local_dt.day), op, Decimal(rule.cond_day_month)):
             return False
 
     if rule.cond_day_week is not None:
@@ -41,7 +45,7 @@ def match_transaction(tx: Transaction, rule: ClassifierRule) -> bool:
             allowed_days: list[int] = json.loads(rule.cond_day_week)
         except (ValueError, TypeError):
             allowed_days = []
-        if tx.occurred_at.weekday() not in allowed_days:
+        if tx_local_dt.weekday() not in allowed_days:
             return False
 
     if rule.cond_amount is not None:

@@ -21,3 +21,8 @@ def normalize_to_utc(dt: datetime) -> datetime:
     if dt.tzinfo is not None:
         return dt.astimezone(UTC).replace(tzinfo=None)
     return dt.replace(tzinfo=ZoneInfo(settings.app_timezone)).astimezone(UTC).replace(tzinfo=None)
+
+
+def utc_to_app_timezone(dt: datetime) -> datetime:
+    """Interpret stored naive UTC datetime in app timezone."""
+    return dt.replace(tzinfo=UTC).astimezone(ZoneInfo(settings.app_timezone))
