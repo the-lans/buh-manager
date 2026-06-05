@@ -12,6 +12,7 @@ def list_rules_for_user(*, session: Session, user_id: UUID) -> list[ClassifierRu
             select(ClassifierRule)
             .where(ClassifierRule.user_id == user_id)
             .order_by(col(ClassifierRule.priority).asc())
+            .order_by(col(ClassifierRule.id).asc())
         ).all()
     )
 
