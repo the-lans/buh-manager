@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from app.models.classifier_rule import ClassifierRule
     from app.models.transaction import Transaction
 
-_DAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+_DAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]  # noqa: RUF001
 _TYPE_LABELS = {"EXPENSE": "Расход", "INCOME": "Доход", "TRANSFER": "Перевод"}
 _OP_SYMBOLS = {"eq": "=", "lt": "<", "gt": ">", "lte": "≤", "gte": "≥"}
 
@@ -56,13 +56,15 @@ def match_transaction(tx: Transaction, rule: ClassifierRule) -> bool:
     if rule.cond_type is not None and tx.type != rule.cond_type:
         return False
 
-    if rule.cond_bank_category is not None:
-        if not tx.bank_category or rule.cond_bank_category.lower() not in tx.bank_category.lower():
-            return False
+    if rule.cond_bank_category is not None and (
+        not tx.bank_category or rule.cond_bank_category.lower() not in tx.bank_category.lower()
+    ):
+        return False
 
-    if rule.cond_description is not None:
-        if not tx.description or rule.cond_description.lower() not in tx.description.lower():
-            return False
+    if rule.cond_description is not None and (
+        not tx.description or rule.cond_description.lower() not in tx.description.lower()
+    ):
+        return False
 
     return True
 
