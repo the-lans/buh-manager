@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from datetime import datetime
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -120,6 +121,126 @@ async def test_update_transaction(
     )
     assert update_resp.status_code == 200
     assert float(update_resp.json()["amount"]) == -200.0
+
+
+@pytest.mark.asyncio
+async def test_transaction_create_preserves_manual_expense_type_when_rule_matches(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+    session,
+) -> None:
+    from app.models.expense_type import ExpenseType
+    from app.models.user import User
+    from app.utils.ids import scope_user_id
+    from sqlmodel import select
+
+    user = session.exec(select(User).where(User.email == "test@example.com")).first()
+    assert user is not None
+
+    auto_et_public = "auto-et"
+    auto_et_scoped = scope_user_id(user_id=user.id, public_id=auto_et_public)
+    session.add(
+        ExpenseType(
+            id=auto_et_scoped,
+            user_id=user.id,
+            name="Auto category",
+            receipt_required=False,
+        )
+    )
+    session.commit()
+
+    rule_resp = await client.post(
+        "/api/v1/classifier-rules",
+        json={
+            "name": "Автоправило кофе",
+            "expense_type_id": auto_et_public,
+            "priority": 1,
+            "is_active": True,
+            "cond_bank_category": "кофе",
+        },
+        headers=auth_headers,
+    )
+    assert rule_resp.status_code == 201
+
+    create_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            **_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
+            "type": "EXPENSE",
+            "bank_category": "Кофе и напитки",
+        },
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    assert create_resp.json()["expense_type_id"] == test_expense_type_id
+
+
+@pytest.mark.asyncio
+async def test_transaction_update_preserves_manual_expense_type_when_rule_matches(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+    session,
+) -> None:
+    from app.models.expense_type import ExpenseType
+    from app.models.user import User
+    from app.utils.ids import scope_user_id
+    from sqlmodel import select
+
+    user = session.exec(select(User).where(User.email == "test@example.com")).first()
+    assert user is not None
+
+    auto_et_public = "auto-et-update"
+    auto_et_scoped = scope_user_id(user_id=user.id, public_id=auto_et_public)
+    session.add(
+        ExpenseType(
+            id=auto_et_scoped,
+            user_id=user.id,
+            name="Auto category update",
+            receipt_required=False,
+        )
+    )
+    session.commit()
+
+    rule_resp = await client.post(
+        "/api/v1/classifier-rules",
+        json={
+            "name": "Автоправило update",
+            "expense_type_id": auto_et_public,
+            "priority": 1,
+            "is_active": True,
+            "cond_bank_category": "кофе",
+        },
+        headers=auth_headers,
+    )
+    assert rule_resp.status_code == 201
+
+    create_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            **_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
+            "type": "EXPENSE",
+            "bank_category": "Еда",
+        },
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    tx_id = create_resp.json()["id"]
+
+    update_resp = await client.put(
+        f"/api/v1/transactions/{tx_id}",
+        json={
+            "expense_type_id": test_expense_type_id,
+            "bank_category": "Кофе и напитки",
+            "occurred_at": datetime(2024, 1, 10, 10, 0).isoformat(),
+        },
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["expense_type_id"] == test_expense_type_id
 
 
 @pytest.mark.asyncio
