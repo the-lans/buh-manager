@@ -99,6 +99,20 @@ async def test_create_rule_rejects_invalid_condition_values(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["cond_bank_category", "cond_description"])
+async def test_create_rule_rejects_blank_string_as_only_condition(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_expense_type_id: str,
+    field: str,
+) -> None:
+    payload = _rule_payload(expense_type_id=test_expense_type_id, cond_type=None)
+    payload[field] = "   "
+    resp = await client.post("/api/v1/classifier-rules", json=payload, headers=auth_headers)
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_create_rule_rejects_unknown_account_condition(
     client: AsyncClient,
     auth_headers: dict[str, str],
@@ -468,6 +482,100 @@ async def test_apply_rules_normalizes_period_as_moscow_dates(
     tx_resp = await client.get("/api/v1/transactions", headers=auth_headers)
     tx = next(item for item in tx_resp.json() if item["id"] == tx_id)
     assert tx["expense_type_id"] == target_et_public
+
+
+@pytest.mark.asyncio
+async def test_apply_rules_match_day_month_in_app_timezone(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+    session,
+) -> None:
+    from app.models.expense_type import ExpenseType
+    from app.models.user import User
+    from app.utils.ids import scope_user_id
+    from sqlmodel import select
+
+    user = session.exec(select(User).where(User.email == "test@example.com")).first()
+    assert user is not None
+
+    target_et_public = "local-day-et"
+    target_et_scoped = scope_user_id(user_id=user.id, public_id=target_et_public)
+    session.add(
+        ExpenseType(
+            id=target_et_scoped,
+            user_id=user.id,
+            name="Local day category",
+            receipt_required=False,
+        )
+    )
+    session.commit()
+
+    create_tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2026-03-01T00:30:00",
+            "amount": -175.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+            "bank_category": "Ночная покупка",
+        },
+        headers=auth_headers,
+    )
+    assert create_tx_resp.status_code == 201
+    tx_id = create_tx_resp.json()["id"]
+
+    rule_resp = await client.post(
+        "/api/v1/classifier-rules",
+        json={
+            "name": "Первое число месяца",
+            "expense_type_id": target_et_public,
+            "priority": 1,
+            "is_active": True,
+            "cond_day_month": 1,
+            "cond_day_month_op": "eq",
+        },
+        headers=auth_headers,
+    )
+    assert rule_resp.status_code == 201
+
+    apply_resp = await client.post(
+        "/api/v1/classifier-rules/apply",
+        json={"start_date": "2026-03-01T00:00:00", "end_date": "2026-03-01T23:59:59"},
+        headers=auth_headers,
+    )
+    assert apply_resp.status_code == 200
+    assert apply_resp.json()["updated_count"] == 1
+
+    tx_resp = await client.get("/api/v1/transactions", headers=auth_headers)
+    tx = next(item for item in tx_resp.json() if item["id"] == tx_id)
+    assert tx["expense_type_id"] == target_et_public
+
+
+@pytest.mark.asyncio
+async def test_update_rule_rejects_blank_string_conditions(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_expense_type_id: str,
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/classifier-rules",
+        json=_rule_payload(
+            expense_type_id=test_expense_type_id,
+            cond_bank_category="кофе",
+        ),
+        headers=auth_headers,
+    )
+    rule_id = create_resp.json()["id"]
+
+    resp = await client.put(
+        f"/api/v1/classifier-rules/{rule_id}",
+        json={"cond_bank_category": "   ", "cond_type": None},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
 
 
 @pytest.mark.asyncio
