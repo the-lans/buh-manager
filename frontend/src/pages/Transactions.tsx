@@ -28,7 +28,7 @@ export default function Transactions() {
   const expenseTypeMap = new Map(expenseTypes.map((et) => [et.id, et.name]))
 
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '', description: '' })
+  const [form, setForm] = useState({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '', description: '', apply_rules: false })
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -47,9 +47,10 @@ export default function Transactions() {
         type: form.type,
         expense_type_id: form.expense_type_id,
         description: form.description || null,
+        apply_rules: form.apply_rules,
       })
       setShowForm(false)
-      setForm({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '', description: '' })
+      setForm({ account_id: '', occurred_at: '', amount: '', type: 'EXPENSE', expense_type_id: '', description: '', apply_rules: false })
     } catch {
       setCreateError('Ошибка создания транзакции')
     }
@@ -150,6 +151,15 @@ export default function Transactions() {
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
           />
+          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.apply_rules}
+              onChange={(e) => setForm((f) => ({ ...f, apply_rules: e.target.checked }))}
+              className="w-4 h-4 accent-indigo-600"
+            />
+            Применить правила
+          </label>
           {createError && <p className="text-sm text-red-500">{createError}</p>}
           <div className="flex gap-2">
             <button

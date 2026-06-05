@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import ValidationError
 from sqlmodel import Session
 
 from app.constants import ApiKeyScope, AuditEntityType, ChangedBy
@@ -24,6 +25,7 @@ from app.schemas.classifier_rule import (
     ClassifierRuleCreate,
     ClassifierRuleRead,
     ClassifierRuleUpdate,
+    has_at_least_one_condition,
 )
 from app.schemas.transaction import TransactionFilters
 from app.services.audit import audit_create, audit_delete, audit_update
@@ -160,7 +162,26 @@ def update_classifier_rule(
             "Expense type not found.",
         )
         data = data.model_copy(update={"expense_type_id": et.id})
-    effective_conditions = _merge_rule_update(rule, data)
+    try:
+        effective_conditions = _merge_rule_update(rule, data)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    if not has_at_least_one_condition(
+        effective_conditions.cond_account_id,
+        effective_conditions.cond_day_month,
+        effective_conditions.cond_day_week,
+        effective_conditions.cond_amount,
+        effective_conditions.cond_type,
+        effective_conditions.cond_bank_category,
+        effective_conditions.cond_description,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Необходимо указать хотя бы одно условие.",
+        )
     _ensure_rule_account_belongs_to_user(
         session=session,
         user_id=current_user.id,

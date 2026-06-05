@@ -33,6 +33,21 @@ def _normalize_condition_string_fields(data: dict[str, object]) -> dict[str, obj
     return data
 
 
+def has_at_least_one_condition(
+    cond_account_id: UUID | None,
+    cond_day_month: int | None,
+    cond_day_week: str | None,
+    cond_amount: Decimal | None,
+    cond_type: str | None,
+    cond_bank_category: str | None,
+    cond_description: str | None,
+) -> bool:
+    return not all(
+        c is None
+        for c in [cond_account_id, cond_day_month, cond_day_week, cond_amount, cond_type, cond_bank_category, cond_description]
+    )
+
+
 def _validate_classifier_conditions(
     *,
     cond_account_id: UUID | None,
@@ -44,19 +59,14 @@ def _validate_classifier_conditions(
     cond_type: str | None,
     cond_bank_category: str | None,
     cond_description: str | None,
+    require_at_least_one: bool = True,
 ) -> None:
     if cond_day_month is not None and not 1 <= cond_day_month <= 31:
         raise ValueError("cond_day_month must be between 1 and 31.")
-    conditions = [
-        cond_account_id,
-        cond_day_month,
-        cond_day_week,
-        cond_amount,
-        cond_type,
-        cond_bank_category,
-        cond_description,
-    ]
-    if all(c is None for c in conditions):
+    if require_at_least_one and not has_at_least_one_condition(
+        cond_account_id, cond_day_month, cond_day_week,
+        cond_amount, cond_type, cond_bank_category, cond_description,
+    ):
         raise ValueError("Необходимо указать хотя бы одно условие.")
     if cond_day_month is not None and cond_day_month_op not in _VALID_OPS:
         raise ValueError("cond_day_month_op must be one of: eq, lt, gt, lte, gte.")
@@ -164,6 +174,7 @@ class ClassifierRuleUpdate(BaseModel):
             cond_type=data.get("cond_type"),  # type: ignore[arg-type]
             cond_bank_category=data.get("cond_bank_category"),  # type: ignore[arg-type]
             cond_description=data.get("cond_description"),  # type: ignore[arg-type]
+            require_at_least_one=False,
         )
         return data
 
