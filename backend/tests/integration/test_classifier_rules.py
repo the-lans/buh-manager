@@ -715,3 +715,274 @@ async def test_rule_does_not_override_manual_expense_type_on_transaction_create(
     assert tx_resp.status_code == 201
     data = tx_resp.json()
     assert data["expense_type_id"] == test_expense_type_id
+
+
+# ── apply_rules flag on manual transaction create/update ─────────────────────
+
+
+@pytest.mark.asyncio
+async def test_rule_applied_on_create_when_apply_rules_true(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+    session,
+) -> None:
+    from app.models.expense_type import ExpenseType
+    from app.models.user import User
+    from app.utils.ids import scope_user_id
+    from sqlmodel import select
+
+    user = session.exec(select(User).where(User.email == "test@example.com")).first()
+    rule_et_public = "rule-et-create"
+    rule_et_scoped = scope_user_id(user_id=user.id, public_id=rule_et_public)
+    session.add(ExpenseType(id=rule_et_scoped, user_id=user.id, name="Rule ET", receipt_required=False))
+    session.commit()
+
+    await client.post(
+        "/api/v1/classifier-rules",
+        json={
+            "name": "Кофе правило",
+            "expense_type_id": rule_et_public,
+            "priority": 1,
+            "is_active": True,
+            "cond_bank_category": "кофе",
+        },
+        headers=auth_headers,
+    )
+
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2026-04-01T09:00:00",
+            "amount": -200.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+            "bank_category": "Кофе",
+            "apply_rules": True,
+        },
+        headers=auth_headers,
+    )
+    assert tx_resp.status_code == 201
+    assert tx_resp.json()["expense_type_id"] == rule_et_public
+
+
+@pytest.mark.asyncio
+async def test_rule_not_applied_on_create_when_apply_rules_false(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+    session,
+) -> None:
+    from app.models.expense_type import ExpenseType
+    from app.models.user import User
+    from app.utils.ids import scope_user_id
+    from sqlmodel import select
+
+    user = session.exec(select(User).where(User.email == "test@example.com")).first()
+    rule_et_public = "rule-et-create-false"
+    rule_et_scoped = scope_user_id(user_id=user.id, public_id=rule_et_public)
+    session.add(ExpenseType(id=rule_et_scoped, user_id=user.id, name="Rule ET 2", receipt_required=False))
+    session.commit()
+
+    await client.post(
+        "/api/v1/classifier-rules",
+        json={
+            "name": "Кофе правило 2",
+            "expense_type_id": rule_et_public,
+            "priority": 1,
+            "is_active": True,
+            "cond_bank_category": "чай",
+        },
+        headers=auth_headers,
+    )
+
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2026-04-02T09:00:00",
+            "amount": -200.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+            "bank_category": "чай",
+            # apply_rules omitted → defaults to False
+        },
+        headers=auth_headers,
+    )
+    assert tx_resp.status_code == 201
+    assert tx_resp.json()["expense_type_id"] == test_expense_type_id
+
+
+@pytest.mark.asyncio
+async def test_rule_applied_on_update_when_apply_rules_true(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+    session,
+) -> None:
+    from app.models.expense_type import ExpenseType
+    from app.models.user import User
+    from app.utils.ids import scope_user_id
+    from sqlmodel import select
+
+    user = session.exec(select(User).where(User.email == "test@example.com")).first()
+    rule_et_public = "rule-et-update"
+    rule_et_scoped = scope_user_id(user_id=user.id, public_id=rule_et_public)
+    session.add(ExpenseType(id=rule_et_scoped, user_id=user.id, name="Update Rule ET", receipt_required=False))
+    session.commit()
+
+    # Create tx without apply_rules (rule not applied)
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2026-04-03T09:00:00",
+            "amount": -300.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+            "bank_category": "Кофе обновление",
+        },
+        headers=auth_headers,
+    )
+    assert tx_resp.status_code == 201
+    tx_id = tx_resp.json()["id"]
+    assert tx_resp.json()["expense_type_id"] == test_expense_type_id
+
+    # Create matching rule
+    await client.post(
+        "/api/v1/classifier-rules",
+        json={
+            "name": "Кофе обновление",
+            "expense_type_id": rule_et_public,
+            "priority": 1,
+            "is_active": True,
+            "cond_bank_category": "Кофе обновление",
+        },
+        headers=auth_headers,
+    )
+
+    # Update tx with apply_rules=True
+    upd_resp = await client.put(
+        f"/api/v1/transactions/{tx_id}",
+        json={"apply_rules": True},
+        headers=auth_headers,
+    )
+    assert upd_resp.status_code == 200
+    assert upd_resp.json()["expense_type_id"] == rule_et_public
+
+
+@pytest.mark.asyncio
+async def test_rule_not_applied_on_update_when_apply_rules_false(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+    session,
+) -> None:
+    from app.models.expense_type import ExpenseType
+    from app.models.user import User
+    from app.utils.ids import scope_user_id
+    from sqlmodel import select
+
+    user = session.exec(select(User).where(User.email == "test@example.com")).first()
+    rule_et_public = "rule-et-update-false"
+    rule_et_scoped = scope_user_id(user_id=user.id, public_id=rule_et_public)
+    session.add(ExpenseType(id=rule_et_scoped, user_id=user.id, name="Update Rule ET F", receipt_required=False))
+    session.commit()
+
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2026-04-04T09:00:00",
+            "amount": -300.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+            "bank_category": "Кофе без флага",
+        },
+        headers=auth_headers,
+    )
+    tx_id = tx_resp.json()["id"]
+
+    await client.post(
+        "/api/v1/classifier-rules",
+        json={
+            "name": "Кофе без флага",
+            "expense_type_id": rule_et_public,
+            "priority": 1,
+            "is_active": True,
+            "cond_bank_category": "Кофе без флага",
+        },
+        headers=auth_headers,
+    )
+
+    # Update tx WITHOUT apply_rules
+    upd_resp = await client.put(
+        f"/api/v1/transactions/{tx_id}",
+        json={"description": "Обновлено"},
+        headers=auth_headers,
+    )
+    assert upd_resp.status_code == 200
+    assert upd_resp.json()["expense_type_id"] == test_expense_type_id
+
+
+# ── Partial update condition fix (bug #2) ────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_update_rule_remove_one_of_two_conditions_succeeds(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_expense_type_id: str,
+) -> None:
+    """Removing cond_type from a rule that also has cond_bank_category must succeed."""
+    create_resp = await client.post(
+        "/api/v1/classifier-rules",
+        json={
+            "name": "Два условия",
+            "expense_type_id": test_expense_type_id,
+            "priority": 1,
+            "cond_type": "EXPENSE",
+            "cond_bank_category": "кофе",
+        },
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    rule_id = create_resp.json()["id"]
+
+    # Remove only cond_type — rule still has cond_bank_category → must be valid
+    resp = await client.put(
+        f"/api/v1/classifier-rules/{rule_id}",
+        json={"cond_type": None},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["cond_type"] is None
+    assert data["cond_bank_category"] == "кофе"
+
+
+@pytest.mark.asyncio
+async def test_update_rule_remove_only_condition_returns_422(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_expense_type_id: str,
+) -> None:
+    """Removing the last remaining condition must return 422."""
+    create_resp = await client.post(
+        "/api/v1/classifier-rules",
+        json=_rule_payload(expense_type_id=test_expense_type_id),  # only cond_type="EXPENSE"
+        headers=auth_headers,
+    )
+    rule_id = create_resp.json()["id"]
+
+    resp = await client.put(
+        f"/api/v1/classifier-rules/{rule_id}",
+        json={"cond_type": None},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422

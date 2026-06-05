@@ -20,6 +20,7 @@ class TransactionCreate(BaseModel):
     expense_type_id: str
     description: str | None = None
     balance_after: Decimal | None = None
+    apply_rules: bool = False
 
     model_config = {"extra": "forbid"}
 
@@ -41,6 +42,7 @@ class TransactionUpdate(BaseModel):
     bank_category: str | None = None
     expense_type_id: str | None = None
     description: str | None = None
+    apply_rules: bool = False
 
     model_config = {"extra": "forbid"}
 
