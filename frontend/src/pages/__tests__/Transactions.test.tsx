@@ -248,4 +248,28 @@ describe('Transactions page', () => {
     await waitFor(() => expect(screen.getByText(TX_AMOUNT)).toBeInTheDocument())
     expect(screen.getByRole('button', { name: /Вперёд/ })).toBeDisabled()
   })
+
+  it('shows "Применить правила" checkbox in create form unchecked by default', async () => {
+    renderWithProviders(<Transactions />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: '+ Добавить' }))
+    await waitFor(() => expect(screen.getByText('Новая транзакция')).toBeInTheDocument())
+    const checkbox = screen.getByRole('checkbox', { name: /Применить правила/ })
+    expect(checkbox).toBeInTheDocument()
+    expect(checkbox).not.toBeChecked()
+  })
+
+  it('"Применить правила" checkbox toggles state correctly in create form', async () => {
+    renderWithProviders(<Transactions />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: '+ Добавить' }))
+    await waitFor(() => expect(screen.getByText('Новая транзакция')).toBeInTheDocument())
+
+    const checkbox = screen.getByRole('checkbox', { name: /Применить правила/ })
+    expect(checkbox).not.toBeChecked()
+    await user.click(checkbox)
+    expect(checkbox).toBeChecked()
+    await user.click(checkbox)
+    expect(checkbox).not.toBeChecked()
+  })
 })

@@ -23,6 +23,7 @@ export interface TransactionCreatePayload {
   bank_category?: string | null
   description?: string | null
   balance_after?: string | null
+  apply_rules?: boolean
 }
 
 export interface TransactionUpdatePayload {
@@ -32,6 +33,7 @@ export interface TransactionUpdatePayload {
   bank_category?: string | null
   expense_type_id?: string
   description?: string | null
+  apply_rules?: boolean
 }
 
 export const transactionsApi = {

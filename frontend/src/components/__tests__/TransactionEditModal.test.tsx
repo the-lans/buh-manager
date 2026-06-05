@@ -137,4 +137,42 @@ describe('TransactionEditModal', () => {
     await waitFor(() => expect(updateSpy).toHaveBeenCalled())
     await waitFor(() => expect(onClose).toHaveBeenCalled())
   })
+
+  it('shows "Применить правила" checkbox unchecked by default', () => {
+    renderWithProviders(<TransactionEditModal transaction={BASE_TX} onClose={() => {}} />)
+    const checkbox = screen.getByRole('checkbox', { name: /Применить правила/ })
+    expect(checkbox).toBeInTheDocument()
+    expect(checkbox).not.toBeChecked()
+  })
+
+  it('sends apply_rules=false when checkbox is unchecked', async () => {
+    const updateSpy = vi.fn((info) =>
+      info.request.json().then((body: Record<string, unknown>) => {
+        expect(body.apply_rules).toBe(false)
+        return HttpResponse.json({ ...BASE_TX })
+      }),
+    )
+    server.use(http.put('/api/v1/transactions/:id', updateSpy))
+
+    renderWithProviders(<TransactionEditModal transaction={BASE_TX} onClose={() => {}} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled())
+  })
+
+  it('sends apply_rules=true when checkbox is checked before saving', async () => {
+    const updateSpy = vi.fn((info) =>
+      info.request.json().then((body: Record<string, unknown>) => {
+        expect(body.apply_rules).toBe(true)
+        return HttpResponse.json({ ...BASE_TX })
+      }),
+    )
+    server.use(http.put('/api/v1/transactions/:id', updateSpy))
+
+    renderWithProviders(<TransactionEditModal transaction={BASE_TX} onClose={() => {}} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('checkbox', { name: /Применить правила/ }))
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled())
+  })
 })

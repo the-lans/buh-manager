@@ -53,6 +53,7 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
           description: '',
         },
   )
+  const [applyRules, setApplyRules] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   if (!transaction) return null
@@ -79,6 +80,7 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
           bank_category: form.bank_category || null,
           expense_type_id: form.expense_type_id,
           description: form.description || null,
+          apply_rules: applyRules,
         },
       })
       onClose()
@@ -203,6 +205,16 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
             />
           </Field>
         </div>
+
+        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={applyRules}
+            onChange={(e) => setApplyRules(e.target.checked)}
+            className="w-4 h-4 accent-indigo-600"
+          />
+          Применить правила
+        </label>
 
         {error && <p className="text-sm text-red-500">{error}</p>}
 
