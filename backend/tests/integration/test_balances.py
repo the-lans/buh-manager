@@ -35,7 +35,14 @@ async def _import_statement(
         "statement_end": "2024-04-30T23:59:59",
         "opening_balance": opening,
         "closing_balance": closing,
-        "transactions": [{"occurred_at": "2024-04-10T10:00:00", "amount": -100.0, "type": "DEBIT", "expense_type_id": expense_type_id}],
+        "transactions": [
+            {
+                "occurred_at": "2024-04-10T10:00:00",
+                "amount": -100.0,
+                "type": "DEBIT",
+                "expense_type_id": expense_type_id,
+            }
+        ],
     }
     resp = await client.post("/api/v1/bank-statements", json=payload, headers=headers)
     assert resp.status_code == 200
@@ -59,7 +66,9 @@ async def test_list_balances_after_import(
     test_expense_type_id: str,
 ) -> None:
     doc_id = await _create_stmt_doc(client, auth_headers)
-    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+    await _import_statement(
+        client, auth_headers, str(test_account.id), doc_id, test_expense_type_id
+    )
 
     resp = await client.get("/api/v1/balances", headers=auth_headers)
     assert resp.status_code == 200
@@ -77,7 +86,9 @@ async def test_list_balances_filter_by_account(
     test_expense_type_id: str,
 ) -> None:
     doc_id = await _create_stmt_doc(client, auth_headers)
-    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+    await _import_statement(
+        client, auth_headers, str(test_account.id), doc_id, test_expense_type_id
+    )
 
     # Create second account with no balances
     acc2_resp = await client.post(
@@ -115,7 +126,9 @@ async def test_list_balances_other_user_empty(
     test_expense_type_id: str,
 ) -> None:
     doc_id = await _create_stmt_doc(client, auth_headers)
-    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+    await _import_statement(
+        client, auth_headers, str(test_account.id), doc_id, test_expense_type_id
+    )
 
     resp = await client.get("/api/v1/balances", headers=second_auth_headers)
     assert resp.status_code == 200
@@ -132,7 +145,9 @@ async def test_calculate_balances_skips_when_amount_unchanged(
     """POST /balances/calculate must NOT write a new record when the computed
     amount equals the latest stored balance."""
     doc_id = await _create_stmt_doc(client, auth_headers)
-    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+    await _import_statement(
+        client, auth_headers, str(test_account.id), doc_id, test_expense_type_id
+    )
 
     # No new transactions → balance unchanged → returns empty list
     resp = await client.post("/api/v1/balances/calculate", headers=auth_headers)
@@ -154,7 +169,9 @@ async def test_calculate_balances_writes_when_amount_changed(
 ) -> None:
     """POST /balances/calculate writes a MANUAL record only when the balance changed."""
     doc_id = await _create_stmt_doc(client, auth_headers)
-    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+    await _import_statement(
+        client, auth_headers, str(test_account.id), doc_id, test_expense_type_id
+    )
 
     # Add a transaction that changes the balance
     await client.post(
@@ -219,7 +236,9 @@ async def test_calculate_balances_creates_manual_balance(
 ) -> None:
     # Seed a closing balance of 900 via import
     doc_id = await _create_stmt_doc(client, auth_headers)
-    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+    await _import_statement(
+        client, auth_headers, str(test_account.id), doc_id, test_expense_type_id
+    )
 
     # Add a new transaction AFTER the imported statement period — this changes the balance
     await client.post(
@@ -252,7 +271,9 @@ async def test_calculate_balances_idempotent(
     test_expense_type_id: str,
 ) -> None:
     doc_id = await _create_stmt_doc(client, auth_headers)
-    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+    await _import_statement(
+        client, auth_headers, str(test_account.id), doc_id, test_expense_type_id
+    )
 
     # Add a transaction to trigger a balance change on the first call
     await client.post(
@@ -291,7 +312,9 @@ async def test_calculate_balances_includes_new_transactions(
 ) -> None:
     # Seed closing balance of 900 via import (opening 1000, one -100 tx)
     doc_id = await _create_stmt_doc(client, auth_headers)
-    await _import_statement(client, auth_headers, str(test_account.id), doc_id, test_expense_type_id)
+    await _import_statement(
+        client, auth_headers, str(test_account.id), doc_id, test_expense_type_id
+    )
 
     # Add a manual transaction AFTER the last imported balance (closing recorded_at = statement_end)
     acc_id = str(test_account.id)

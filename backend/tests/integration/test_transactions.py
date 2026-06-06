@@ -45,7 +45,10 @@ async def test_transaction_rejects_unknown_expense_type(
     test_expense_type_id: str,
     operation: Literal["create", "update"],
 ) -> None:
-    payload = {**_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id), "expense_type_id": "missing-expense-type"}
+    payload = {
+        **_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
+        "expense_type_id": "missing-expense-type",
+    }
     if operation == "create":
         resp = await client.post("/api/v1/transactions", json=payload, headers=auth_headers)
     else:
@@ -131,10 +134,11 @@ async def test_transaction_create_preserves_manual_expense_type_when_rule_matche
     test_expense_type_id: str,
     session,
 ) -> None:
+    from sqlmodel import select
+
     from app.models.expense_type import ExpenseType
     from app.models.user import User
     from app.utils.ids import scope_user_id
-    from sqlmodel import select
 
     user = session.exec(select(User).where(User.email == "test@example.com")).first()
     assert user is not None
@@ -185,10 +189,11 @@ async def test_transaction_update_preserves_manual_expense_type_when_rule_matche
     test_expense_type_id: str,
     session,
 ) -> None:
+    from sqlmodel import select
+
     from app.models.expense_type import ExpenseType
     from app.models.user import User
     from app.utils.ids import scope_user_id
-    from sqlmodel import select
 
     user = session.exec(select(User).where(User.email == "test@example.com")).first()
     assert user is not None

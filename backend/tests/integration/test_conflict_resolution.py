@@ -13,7 +13,9 @@ from app.models.account import Account
 from app.models.transaction import Transaction
 
 
-async def _make_tx(client: AsyncClient, headers: dict[str, str], account_id: str, expense_type_id: str) -> str:
+async def _make_tx(
+    client: AsyncClient, headers: dict[str, str], account_id: str, expense_type_id: str
+) -> str:
     resp = await client.post(
         "/api/v1/transactions",
         json={

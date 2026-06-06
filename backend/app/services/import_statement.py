@@ -73,7 +73,9 @@ def import_bank_statement(
 
     is_initial_import = not has_any_balance(session=session, account_id=statement.account_id)
 
-    active_rules = [r for r in list_rules_for_user(session=session, user_id=current_user.id) if r.is_active]
+    active_rules = [
+        r for r in list_rules_for_user(session=session, user_id=current_user.id) if r.is_active
+    ]
 
     imported_ids: list[UUID] = []
     skipped_count = 0

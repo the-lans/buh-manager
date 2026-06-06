@@ -25,9 +25,7 @@ def get_accounts_with_balances(*, session: Session, account_ids: list[UUID]) -> 
     if not account_ids:
         return set()
     rows = session.exec(
-        select(Balance.account_id)
-        .where(col(Balance.account_id).in_(account_ids))
-        .distinct()
+        select(Balance.account_id).where(col(Balance.account_id).in_(account_ids)).distinct()
     ).all()
     return set(rows)
 

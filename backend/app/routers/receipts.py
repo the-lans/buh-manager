@@ -260,9 +260,7 @@ def update_receipt_endpoint(
 
     if "document_id" in data.model_fields_set and data.document_id != old_doc_id:
         if old_doc_id is not None:
-            old_doc = get_document_by_id(
-                session=session, document_id=old_doc_id, user_id=user_id
-            )
+            old_doc = get_document_by_id(session=session, document_id=old_doc_id, user_id=user_id)
             if old_doc is not None:
                 old_doc.status = DocumentStatus.PENDING
                 session.add(old_doc)
