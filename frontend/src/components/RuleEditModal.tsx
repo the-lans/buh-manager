@@ -5,16 +5,21 @@ import { useCreateClassifierRule, useUpdateClassifierRule } from '../hooks/useCl
 import { useExpenseTypes } from '../hooks/useExpenseTypes'
 import type { ClassifierRule } from '../types'
 
+const OP_EQ = 'eq'
+const OP_BETWEEN = 'between'
+const TX_TYPE_EXPENSE = 'EXPENSE'
+
 const DAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 const OP_OPTIONS = [
-  { value: 'eq', label: '=' },
+  { value: OP_EQ, label: '=' },
   { value: 'lt', label: '<' },
   { value: 'gt', label: '>' },
   { value: 'lte', label: '≤' },
   { value: 'gte', label: '≥' },
+  { value: OP_BETWEEN, label: '≤…≤' },
 ]
 const TYPE_OPTIONS = [
-  { value: 'EXPENSE', label: 'Расход' },
+  { value: TX_TYPE_EXPENSE, label: 'Расход' },
   { value: 'INCOME', label: 'Доход' },
   { value: 'TRANSFER', label: 'Перевод' },
 ]
@@ -31,11 +36,13 @@ interface CondState {
   day_month: boolean
   day_month_val: string
   day_month_op: string
+  day_month_val_to: string
   day_week: boolean
   day_week_days: boolean[]
   amount: boolean
   amount_val: string
   amount_op: string
+  amount_val_to: string
   type: boolean
   type_val: string
   bank_category: boolean
@@ -58,10 +65,10 @@ function initCond(rule: ClassifierRule | null): CondState {
   if (!rule) {
     return {
       account: false, account_id: '',
-      day_month: false, day_month_val: '', day_month_op: 'eq',
+      day_month: false, day_month_val: '', day_month_op: OP_EQ, day_month_val_to: '',
       day_week: false, day_week_days: Array(7).fill(false),
-      amount: false, amount_val: '', amount_op: 'eq',
-      type: false, type_val: 'EXPENSE',
+      amount: false, amount_val: '', amount_op: OP_EQ, amount_val_to: '',
+      type: false, type_val: TX_TYPE_EXPENSE,
       bank_category: false, bank_category_val: '',
       description: false, description_val: '',
     }
@@ -71,14 +78,16 @@ function initCond(rule: ClassifierRule | null): CondState {
     account_id: rule.cond_account_id ?? '',
     day_month: rule.cond_day_month !== null,
     day_month_val: rule.cond_day_month !== null ? String(rule.cond_day_month) : '',
-    day_month_op: rule.cond_day_month_op ?? 'eq',
+    day_month_op: rule.cond_day_month_op ?? OP_EQ,
+    day_month_val_to: rule.cond_day_month_to !== null ? String(rule.cond_day_month_to) : '',
     day_week: rule.cond_day_week !== null,
     day_week_days: parseWeekDays(rule.cond_day_week),
     amount: rule.cond_amount !== null,
     amount_val: rule.cond_amount ?? '',
-    amount_op: rule.cond_amount_op ?? 'eq',
+    amount_op: rule.cond_amount_op ?? OP_EQ,
+    amount_val_to: rule.cond_amount_to ?? '',
     type: rule.cond_type !== null,
-    type_val: rule.cond_type ?? 'EXPENSE',
+    type_val: rule.cond_type ?? TX_TYPE_EXPENSE,
     bank_category: rule.cond_bank_category !== null,
     bank_category_val: rule.cond_bank_category ?? '',
     description: rule.cond_description !== null,
@@ -122,9 +131,15 @@ export default function RuleEditModal({ rule, mode, onClose }: Props) {
       cond_account_id: cond.account && cond.account_id ? cond.account_id : null,
       cond_day_month: cond.day_month && cond.day_month_val ? Number(cond.day_month_val) : null,
       cond_day_month_op: cond.day_month ? cond.day_month_op : null,
+      cond_day_month_to: cond.day_month && cond.day_month_op === OP_BETWEEN && cond.day_month_val_to
+        ? Number(cond.day_month_val_to)
+        : null,
       cond_day_week: cond.day_week && selectedDays.length > 0 ? JSON.stringify(selectedDays) : null,
       cond_amount: cond.amount && cond.amount_val ? cond.amount_val : null,
       cond_amount_op: cond.amount ? cond.amount_op : null,
+      cond_amount_to: cond.amount && cond.amount_op === OP_BETWEEN && cond.amount_val_to
+        ? cond.amount_val_to
+        : null,
       cond_type: cond.type ? cond.type_val : null,
       cond_bank_category: cond.bank_category && cond.bank_category_val ? cond.bank_category_val : null,
       cond_description: cond.description && cond.description_val ? cond.description_val : null,
@@ -249,12 +264,12 @@ export default function RuleEditModal({ rule, mode, onClose }: Props) {
               onToggle={(v) => setC('day_month', v)}
               label="День месяца"
             >
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 items-center">
                 <select
                   value={cond.day_month_op}
                   onChange={(e) => setC('day_month_op', e.target.value)}
                   disabled={!cond.day_month}
-                  className={inputCls + ' w-16'}
+                  className={inputCls + ' w-20 shrink-0'}
                 >
                   {OP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
@@ -266,8 +281,23 @@ export default function RuleEditModal({ rule, mode, onClose }: Props) {
                   min={1}
                   max={31}
                   placeholder="1–31"
-                  className={inputCls + ' w-20'}
+                  className={inputCls + ' w-20 shrink-0'}
                 />
+                {cond.day_month_op === OP_BETWEEN && (
+                  <>
+                    <span className="text-xs text-gray-400 shrink-0">и</span>
+                    <input
+                      type="number"
+                      value={cond.day_month_val_to}
+                      onChange={(e) => setC('day_month_val_to', e.target.value)}
+                      disabled={!cond.day_month}
+                      min={1}
+                      max={31}
+                      placeholder="1–31"
+                      className={inputCls + ' w-20 shrink-0'}
+                    />
+                  </>
+                )}
               </div>
             </CondRow>
 
@@ -299,12 +329,12 @@ export default function RuleEditModal({ rule, mode, onClose }: Props) {
               onToggle={(v) => setC('amount', v)}
               label="Сумма"
             >
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 items-center">
                 <select
                   value={cond.amount_op}
                   onChange={(e) => setC('amount_op', e.target.value)}
                   disabled={!cond.amount}
-                  className={inputCls + ' w-16'}
+                  className={inputCls + ' w-20 shrink-0'}
                 >
                   {OP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
@@ -315,8 +345,22 @@ export default function RuleEditModal({ rule, mode, onClose }: Props) {
                   onChange={(e) => setC('amount_val', e.target.value)}
                   disabled={!cond.amount}
                   placeholder="Сумма"
-                  className={inputCls + ' w-32'}
+                  className={inputCls + ' min-w-[6rem] flex-1'}
                 />
+                {cond.amount_op === OP_BETWEEN && (
+                  <>
+                    <span className="text-xs text-gray-400 shrink-0">и</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={cond.amount_val_to}
+                      onChange={(e) => setC('amount_val_to', e.target.value)}
+                      disabled={!cond.amount}
+                      placeholder="Сумма до"
+                      className={inputCls + ' min-w-[6rem] flex-1'}
+                    />
+                  </>
+                )}
               </div>
             </CondRow>
 

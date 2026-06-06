@@ -149,7 +149,9 @@ def test_balance_chain_unavailable_when_opening_missing(
     test_expense_type_scoped_id: str,
 ) -> None:
     acc_id = test_account.id
-    tx = _make_tx(acc_id, BASE, Decimal("-50"), test_expense_type_scoped_id, balance_after=Decimal("950"))
+    tx = _make_tx(
+        acc_id, BASE, Decimal("-50"), test_expense_type_scoped_id, balance_after=Decimal("950")
+    )
     session.add(tx)
     session.commit()
 

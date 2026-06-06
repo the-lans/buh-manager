@@ -4,6 +4,7 @@ import json
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from app.constants import ClassifierOp
 from app.utils.dt import utc_to_app_timezone
 
 if TYPE_CHECKING:
@@ -12,19 +13,26 @@ if TYPE_CHECKING:
 
 _DAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]  # noqa: RUF001
 _TYPE_LABELS = {"EXPENSE": "Расход", "INCOME": "Доход", "TRANSFER": "Перевод"}
-_OP_SYMBOLS = {"eq": "=", "lt": "<", "gt": ">", "lte": "≤", "gte": "≥"}
+_OP_SYMBOLS: dict[str, str] = {
+    ClassifierOp.EQ: "=",
+    ClassifierOp.LT: "<",
+    ClassifierOp.GT: ">",
+    ClassifierOp.LTE: "≤",
+    ClassifierOp.GTE: "≥",
+    ClassifierOp.BETWEEN: "≤…≤",
+}
 
 
 def _apply_op(value: Decimal, op: str, target: Decimal) -> bool:
-    if op == "eq":
+    if op == ClassifierOp.EQ:
         return value == target
-    if op == "lt":
+    if op == ClassifierOp.LT:
         return value < target
-    if op == "gt":
+    if op == ClassifierOp.GT:
         return value > target
-    if op == "lte":
+    if op == ClassifierOp.LTE:
         return value <= target
-    if op == "gte":
+    if op == ClassifierOp.GTE:
         return value >= target
     return False
 
@@ -36,8 +44,14 @@ def match_transaction(tx: Transaction, rule: ClassifierRule) -> bool:
         return False
 
     if rule.cond_day_month is not None:
-        op = rule.cond_day_month_op or "eq"
-        if not _apply_op(Decimal(tx_local_dt.day), op, Decimal(rule.cond_day_month)):
+        op = rule.cond_day_month_op or ClassifierOp.EQ
+        day = Decimal(tx_local_dt.day)
+        if op == ClassifierOp.BETWEEN:
+            lo = Decimal(rule.cond_day_month)
+            hi = Decimal(rule.cond_day_month_to) if rule.cond_day_month_to is not None else lo
+            if not (lo <= day <= hi):
+                return False
+        elif not _apply_op(day, op, Decimal(rule.cond_day_month)):
             return False
 
     if rule.cond_day_week is not None:
@@ -49,8 +63,13 @@ def match_transaction(tx: Transaction, rule: ClassifierRule) -> bool:
             return False
 
     if rule.cond_amount is not None:
-        op = rule.cond_amount_op or "eq"
-        if not _apply_op(tx.amount, op, rule.cond_amount):
+        op = rule.cond_amount_op or ClassifierOp.EQ
+        if op == ClassifierOp.BETWEEN:
+            lo = rule.cond_amount
+            hi = rule.cond_amount_to if rule.cond_amount_to is not None else lo
+            if not (lo <= tx.amount <= hi):
+                return False
+        elif not _apply_op(tx.amount, op, rule.cond_amount):
             return False
 
     if rule.cond_type is not None and tx.type != rule.cond_type:
@@ -61,12 +80,10 @@ def match_transaction(tx: Transaction, rule: ClassifierRule) -> bool:
     ):
         return False
 
-    if rule.cond_description is not None and (
-        not tx.description or rule.cond_description.lower() not in tx.description.lower()
-    ):
-        return False
-
-    return True
+    return not (
+        rule.cond_description is not None
+        and (not tx.description or rule.cond_description.lower() not in tx.description.lower())
+    )
 
 
 def apply_rules(rules: list[ClassifierRule], tx: Transaction) -> str | None:
@@ -82,9 +99,11 @@ def generate_representation(
     account_label: str | None = None,
     cond_day_month: int | None = None,
     cond_day_month_op: str | None = None,
+    cond_day_month_to: int | None = None,
     cond_day_week: str | None = None,
     cond_amount: Decimal | None = None,
     cond_amount_op: str | None = None,
+    cond_amount_to: Decimal | None = None,
     cond_type: str | None = None,
     cond_bank_category: str | None = None,
     cond_description: str | None = None,
@@ -96,8 +115,11 @@ def generate_representation(
         parts.append(f"Счёт: {label}")
 
     if cond_day_month is not None:
-        op_sym = _OP_SYMBOLS.get(cond_day_month_op or "eq", "=")
-        parts.append(f"День месяца {op_sym} {cond_day_month}")
+        if cond_day_month_op == ClassifierOp.BETWEEN and cond_day_month_to is not None:
+            parts.append(f"День месяца: {cond_day_month} ≤ ... ≤ {cond_day_month_to}")
+        else:
+            op_sym = _OP_SYMBOLS.get(cond_day_month_op or ClassifierOp.EQ, "=")
+            parts.append(f"День месяца {op_sym} {cond_day_month}")
 
     if cond_day_week is not None:
         try:
@@ -108,8 +130,11 @@ def generate_representation(
         parts.append(f"День недели: {day_str}")
 
     if cond_amount is not None:
-        op_sym = _OP_SYMBOLS.get(cond_amount_op or "eq", "=")
-        parts.append(f"Сумма {op_sym} {cond_amount}")
+        if cond_amount_op == ClassifierOp.BETWEEN and cond_amount_to is not None:
+            parts.append(f"Сумма: {cond_amount} ≤ ... ≤ {cond_amount_to}")
+        else:
+            op_sym = _OP_SYMBOLS.get(cond_amount_op or ClassifierOp.EQ, "=")
+            parts.append(f"Сумма {op_sym} {cond_amount}")
 
     if cond_type is not None:
         parts.append(f"Тип: {_TYPE_LABELS.get(cond_type, cond_type)}")

@@ -117,7 +117,9 @@ async def test_manual_match(
     test_account: Account,
     test_expense_type_id: str,
 ) -> None:
-    tx_id = await _create_transaction(client, auth_headers, str(test_account.id), test_expense_type_id)
+    tx_id = await _create_transaction(
+        client, auth_headers, str(test_account.id), test_expense_type_id
+    )
     receipt_id = await _create_receipt(client, auth_headers)
 
     resp = await client.post(
@@ -137,7 +139,9 @@ async def test_manual_match_returns_409_on_commit_race(
     test_expense_type_id: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    tx_id = await _create_transaction(client, auth_headers, str(test_account.id), test_expense_type_id)
+    tx_id = await _create_transaction(
+        client, auth_headers, str(test_account.id), test_expense_type_id
+    )
     receipt_id = await _create_receipt(client, auth_headers)
 
     original_commit = Session.commit
@@ -164,7 +168,9 @@ async def test_manual_match_rejects_already_matched_transaction(
     test_account: Account,
     test_expense_type_id: str,
 ) -> None:
-    tx_id = await _create_transaction(client, auth_headers, str(test_account.id), test_expense_type_id)
+    tx_id = await _create_transaction(
+        client, auth_headers, str(test_account.id), test_expense_type_id
+    )
     receipt_id_1 = await _create_receipt(client, auth_headers, fn="match-409-r1")
     receipt_id_2 = await _create_receipt(client, auth_headers, fn="match-409-r2")
 
@@ -191,7 +197,9 @@ async def test_manual_match_rejects_transaction_with_existing_receipt_link(
     test_expense_type_id: str,
     session: Session,
 ) -> None:
-    tx_id = await _create_transaction(client, auth_headers, str(test_account.id), test_expense_type_id)
+    tx_id = await _create_transaction(
+        client, auth_headers, str(test_account.id), test_expense_type_id
+    )
     receipt_id_1 = await _create_receipt(client, auth_headers, fn="match-link-r1")
     receipt_id_2 = await _create_receipt(client, auth_headers, fn="match-link-r2")
 
@@ -218,10 +226,20 @@ async def test_manual_match_rejects_already_matched_receipt(
     test_expense_type_id: str,
 ) -> None:
     first_tx_id = await _create_transaction(
-        client, auth_headers, str(test_account.id), test_expense_type_id, -100.0, "2024-01-10T12:00:00"
+        client,
+        auth_headers,
+        str(test_account.id),
+        test_expense_type_id,
+        -100.0,
+        "2024-01-10T12:00:00",
     )
     second_tx_id = await _create_transaction(
-        client, auth_headers, str(test_account.id), test_expense_type_id, -101.0, "2024-01-10T12:01:00"
+        client,
+        auth_headers,
+        str(test_account.id),
+        test_expense_type_id,
+        -101.0,
+        "2024-01-10T12:01:00",
     )
     receipt_id = await _create_receipt(client, auth_headers)
 
@@ -248,7 +266,9 @@ async def test_ignore_transaction(
     test_expense_type_id: str,
     session: Session,
 ) -> None:
-    tx_id = await _create_transaction(client, auth_headers, str(test_account.id), test_expense_type_id)
+    tx_id = await _create_transaction(
+        client, auth_headers, str(test_account.id), test_expense_type_id
+    )
     resp = await client.post(
         "/api/v1/reconciliation/ignore",
         json={"transaction_id": tx_id},
@@ -279,7 +299,9 @@ async def test_ignore_transaction_with_receipt_is_rejected(
     has_match: bool,
 ) -> None:
     """Ignoring a transaction that already has a receipt linked must return 409."""
-    tx_id = await _create_transaction(client, auth_headers, str(test_account.id), test_expense_type_id)
+    tx_id = await _create_transaction(
+        client, auth_headers, str(test_account.id), test_expense_type_id
+    )
     receipt_id = await _create_receipt(client, auth_headers, fn=f"ignore-guard-{has_match}")
 
     if has_match:
@@ -312,10 +334,20 @@ async def test_collision_two_txs_one_amount(
     test_expense_type_id: str,
 ) -> None:
     await _create_transaction(
-        client, auth_headers, str(test_account.id), test_expense_type_id, -200.0, "2024-01-05T10:00:00"
+        client,
+        auth_headers,
+        str(test_account.id),
+        test_expense_type_id,
+        -200.0,
+        "2024-01-05T10:00:00",
     )
     await _create_transaction(
-        client, auth_headers, str(test_account.id), test_expense_type_id, -200.0, "2024-01-05T11:00:00"
+        client,
+        auth_headers,
+        str(test_account.id),
+        test_expense_type_id,
+        -200.0,
+        "2024-01-05T11:00:00",
     )
     await _create_receipt(client, auth_headers, 200.0, "2024-01-05T10:30:00")
 
@@ -354,12 +386,14 @@ async def test_reconciliation_unmatched_receipts_ignores_other_user_transaction_
     session.flush()
 
     scoped_et_id = scope_user_id(user_id=second_test_user.id, public_id="other-et")
-    session.add(ExpenseType(
-        id=scoped_et_id,
-        user_id=second_test_user.id,
-        name="Other ET",
-        receipt_required=False,
-    ))
+    session.add(
+        ExpenseType(
+            id=scoped_et_id,
+            user_id=second_test_user.id,
+            name="Other ET",
+            receipt_required=False,
+        )
+    )
     session.flush()
 
     session.add(
@@ -397,7 +431,9 @@ async def test_resolve_conflict(
     payload: dict[str, str],
     expected_status: str,
 ) -> None:
-    tx_id = await _create_transaction(client, auth_headers, str(test_account.id), test_expense_type_id)
+    tx_id = await _create_transaction(
+        client, auth_headers, str(test_account.id), test_expense_type_id
+    )
     tx = session.get(Transaction, UUID(tx_id))
     assert tx is not None
     tx.import_status = ImportStatus.CONFLICT
@@ -477,7 +513,9 @@ async def test_manual_match_rejects_invalid_transaction_or_receipt(
     tx_id = (
         str(uuid4())
         if match_case == "nonexistent_transaction"
-        else await _create_transaction(client, auth_headers, str(test_account.id), test_expense_type_id)
+        else await _create_transaction(
+            client, auth_headers, str(test_account.id), test_expense_type_id
+        )
     )
     receipt_id = (
         await _create_receipt(client, second_auth_headers)
@@ -501,7 +539,9 @@ async def test_reconciliation_transaction_no_matching_receipt_amount(
     test_account: Account,
     test_expense_type_id: str,
 ) -> None:
-    await _create_transaction(client, auth_headers, str(test_account.id), test_expense_type_id, -300.0)
+    await _create_transaction(
+        client, auth_headers, str(test_account.id), test_expense_type_id, -300.0
+    )
 
     run_resp = await client.post("/api/v1/reconciliation/run", headers=auth_headers)
     data = run_resp.json()
@@ -519,7 +559,12 @@ async def test_reconciliation_auto_match_by_time(
 ) -> None:
     # 1:1 within 30min: score = 40 (time) + 20 (single pair) = 60 ≥ 60 → auto-matched
     tx_id = await _create_transaction(
-        client, auth_headers, str(test_account.id), test_expense_type_id, -100.0, "2024-01-10T12:00:00"
+        client,
+        auth_headers,
+        str(test_account.id),
+        test_expense_type_id,
+        -100.0,
+        "2024-01-10T12:00:00",
     )
     await _create_receipt(client, auth_headers, 100.0, "2024-01-10T12:30:00")
 
@@ -545,7 +590,12 @@ async def test_reconciliation_outside_time_window(
 ) -> None:
     # tx occurred 9 days before receipt → outside the ±12h / +3d window
     await _create_transaction(
-        client, auth_headers, str(test_account.id), test_expense_type_id, -100.0, "2024-01-01T12:00:00"
+        client,
+        auth_headers,
+        str(test_account.id),
+        test_expense_type_id,
+        -100.0,
+        "2024-01-01T12:00:00",
     )
     await _create_receipt(client, auth_headers, 100.0, "2024-01-10T12:30:00")
 

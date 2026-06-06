@@ -24,11 +24,9 @@ _RECEIPT_FISCAL_UNIQUE_CONSTRAINT = "uq_receipt_user_fiscal"
 
 def upgrade() -> None:
     bind = op.get_bind()
-    duplicate_fiscal_rows = (
-        bind
-        .execute(
-            sa.text(
-                """
+    duplicate_fiscal_rows = bind.execute(
+        sa.text(
+            """
                 SELECT user_id, fn, fd, fpd, COUNT(*) AS duplicate_count
                 FROM receipts
                 WHERE user_id IS NOT NULL
@@ -38,10 +36,8 @@ def upgrade() -> None:
                 GROUP BY user_id, fn, fd, fpd
                 HAVING COUNT(*) > 1
                 """
-            )
         )
-        .fetchall()
-    )
+    ).fetchall()
     if duplicate_fiscal_rows:
         values = ", ".join(
             f"{row.user_id}:{row.fn}/{row.fd}/{row.fpd} ({row.duplicate_count})"

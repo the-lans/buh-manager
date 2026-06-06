@@ -93,6 +93,15 @@ class ApiKeyScope(StrEnum):
     WRITE_CLASSIFIER_RULES = "write:classifier_rules"
 
 
+class ClassifierOp(StrEnum):
+    EQ = "eq"
+    LT = "lt"
+    GT = "gt"
+    LTE = "lte"
+    GTE = "gte"
+    BETWEEN = "between"
+
+
 # Deduplication & algorithm constants
 TX_DEDUP_WINDOW_SECONDS: int = 60
 
