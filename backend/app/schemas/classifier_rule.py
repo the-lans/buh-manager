@@ -9,6 +9,7 @@ from app.constants import ClassifierOp, TransactionType
 from app.utils.dt import normalize_to_utc
 
 _VALID_OPS = {op.value for op in ClassifierOp}
+_VALID_OPS_STR = ", ".join(op.value for op in ClassifierOp)
 _VALID_TX_TYPES = {tx_type.value for tx_type in TransactionType}
 
 
@@ -76,20 +77,22 @@ def _validate_classifier_conditions(
         if not 1 <= cond_day_month <= 31:
             raise ValueError("cond_day_month must be between 1 and 31.")
         if cond_day_month_op not in _VALID_OPS:
-            raise ValueError("cond_day_month_op must be one of: eq, lt, gt, lte, gte, between.")
-        if cond_day_month_op == "between":
+            raise ValueError(f"cond_day_month_op must be one of: {_VALID_OPS_STR}.")
+        if cond_day_month_op == ClassifierOp.BETWEEN:
             if cond_day_month_to is None:
-                raise ValueError("cond_day_month_to is required when op is 'between'.")
+                raise ValueError(
+                    f"cond_day_month_to is required when op is '{ClassifierOp.BETWEEN}'."
+                )
             if not 1 <= cond_day_month_to <= 31:
                 raise ValueError("cond_day_month_to must be between 1 and 31.")
             if cond_day_month >= cond_day_month_to:
                 raise ValueError("cond_day_month must be less than cond_day_month_to for range.")
     if cond_amount is not None:
         if cond_amount_op not in _VALID_OPS:
-            raise ValueError("cond_amount_op must be one of: eq, lt, gt, lte, gte, between.")
-        if cond_amount_op == "between":
+            raise ValueError(f"cond_amount_op must be one of: {_VALID_OPS_STR}.")
+        if cond_amount_op == ClassifierOp.BETWEEN:
             if cond_amount_to is None:
-                raise ValueError("cond_amount_to is required when op is 'between'.")
+                raise ValueError(f"cond_amount_to is required when op is '{ClassifierOp.BETWEEN}'.")
             if cond_amount >= cond_amount_to:
                 raise ValueError("cond_amount must be less than cond_amount_to for range.")
     if require_at_least_one and not has_at_least_one_condition(
