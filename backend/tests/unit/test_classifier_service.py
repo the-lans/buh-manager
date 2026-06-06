@@ -301,11 +301,11 @@ def test_generate_representation_day_month_with_op() -> None:
 @pytest.mark.parametrize(
     "day, lo, hi, expected",
     [
-        (1, 1, 10, True),   # lo boundary inclusive
+        (1, 1, 10, True),  # lo boundary inclusive
         (10, 1, 10, True),  # hi boundary inclusive
-        (5, 1, 10, True),   # inside range
-        (11, 1, 10, False), # above range
-        (15, 1, 10, False), # well above range
+        (5, 1, 10, True),  # inside range
+        (11, 1, 10, False),  # above range
+        (15, 1, 10, False),  # well above range
     ],
 )
 def test_match_day_month_between(day: int, lo: int, hi: int, expected: bool) -> None:
@@ -317,16 +317,14 @@ def test_match_day_month_between(day: int, lo: int, hi: int, expected: bool) -> 
 @pytest.mark.parametrize(
     "amount, lo, hi, expected",
     [
-        (Decimal("-500"), Decimal("-1000"), Decimal("-100"), True),   # inside
+        (Decimal("-500"), Decimal("-1000"), Decimal("-100"), True),  # inside
         (Decimal("-1000"), Decimal("-1000"), Decimal("-100"), True),  # lo inclusive
-        (Decimal("-100"), Decimal("-1000"), Decimal("-100"), True),   # hi inclusive
-        (Decimal("-1001"), Decimal("-1000"), Decimal("-100"), False), # below lo
-        (Decimal("-99"), Decimal("-1000"), Decimal("-100"), False),   # above hi
+        (Decimal("-100"), Decimal("-1000"), Decimal("-100"), True),  # hi inclusive
+        (Decimal("-1001"), Decimal("-1000"), Decimal("-100"), False),  # below lo
+        (Decimal("-99"), Decimal("-1000"), Decimal("-100"), False),  # above hi
     ],
 )
-def test_match_amount_between(
-    amount: Decimal, lo: Decimal, hi: Decimal, expected: bool
-) -> None:
+def test_match_amount_between(amount: Decimal, lo: Decimal, hi: Decimal, expected: bool) -> None:
     tx = _tx(amount=amount)
     rule = _rule(cond_amount=lo, cond_amount_op="between", cond_amount_to=hi)
     assert match_transaction(tx, rule) is expected
@@ -356,10 +354,10 @@ def test_generate_representation_amount_between() -> None:
 @pytest.mark.parametrize(
     "tx_category, rule_category",
     [
-        ("продукты питания", "ПРОДУКТЫ"),       # rule upper, tx lower
-        ("ПРОДУКТЫ ПИТАНИЯ", "продукты"),        # rule lower, tx upper
-        ("Продукты Питания", "продукты питания"),# rule lower, tx mixed
-        ("Super MARKET", "market"),              # Latin mixed case
+        ("продукты питания", "ПРОДУКТЫ"),  # rule upper, tx lower
+        ("ПРОДУКТЫ ПИТАНИЯ", "продукты"),  # rule lower, tx upper
+        ("Продукты Питания", "продукты питания"),  # rule lower, tx mixed
+        ("Super MARKET", "market"),  # Latin mixed case
     ],
 )
 def test_match_bank_category_case_insensitive(tx_category: str, rule_category: str) -> None:
