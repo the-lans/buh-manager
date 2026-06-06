@@ -946,3 +946,97 @@ async def test_update_rule_remove_only_condition_returns_422(
         headers=auth_headers,
     )
     assert resp.status_code == 422
+
+
+# ── between operator ──────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_rule_with_between_day_month(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_expense_type_id: str,
+) -> None:
+    resp = await client.post(
+        "/api/v1/classifier-rules",
+        json={
+            "name": "Первая половина месяца",
+            "expense_type_id": test_expense_type_id,
+            "priority": 1,
+            "cond_day_month": 1,
+            "cond_day_month_op": "between",
+            "cond_day_month_to": 15,
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["cond_day_month"] == 1
+    assert data["cond_day_month_to"] == 15
+    assert "1" in data["representation"]
+    assert "15" in data["representation"]
+
+
+@pytest.mark.asyncio
+async def test_create_rule_between_day_month_invalid_range(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_expense_type_id: str,
+) -> None:
+    resp = await client.post(
+        "/api/v1/classifier-rules",
+        json={
+            "name": "Неверный диапазон",
+            "expense_type_id": test_expense_type_id,
+            "priority": 1,
+            "cond_day_month": 15,
+            "cond_day_month_op": "between",
+            "cond_day_month_to": 5,
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_rule_between_without_to_fails(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_expense_type_id: str,
+) -> None:
+    resp = await client.post(
+        "/api/v1/classifier-rules",
+        json={
+            "name": "Без верхней границы",
+            "expense_type_id": test_expense_type_id,
+            "priority": 1,
+            "cond_day_month": 1,
+            "cond_day_month_op": "between",
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_rule_with_between_amount(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_expense_type_id: str,
+) -> None:
+    resp = await client.post(
+        "/api/v1/classifier-rules",
+        json={
+            "name": "Средние расходы",
+            "expense_type_id": test_expense_type_id,
+            "priority": 1,
+            "cond_amount": -5000,
+            "cond_amount_op": "between",
+            "cond_amount_to": -1000,
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["cond_amount_to"] is not None
+    assert "≤" in data["representation"]

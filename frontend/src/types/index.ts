@@ -268,9 +268,11 @@ export interface ClassifierRule {
   cond_account_id: string | null
   cond_day_month: number | null
   cond_day_month_op: string | null
+  cond_day_month_to: number | null
   cond_day_week: string | null
   cond_amount: string | null
   cond_amount_op: string | null
+  cond_amount_to: string | null
   cond_type: string | null
   cond_bank_category: string | null
   cond_description: string | null
@@ -284,9 +286,11 @@ export interface ClassifierRuleCreate {
   cond_account_id?: string | null
   cond_day_month?: number | null
   cond_day_month_op?: string | null
+  cond_day_month_to?: number | null
   cond_day_week?: string | null
   cond_amount?: string | null
   cond_amount_op?: string | null
+  cond_amount_to?: string | null
   cond_type?: string | null
   cond_bank_category?: string | null
   cond_description?: string | null
@@ -300,9 +304,11 @@ export interface ClassifierRuleUpdate {
   cond_account_id?: string | null
   cond_day_month?: number | null
   cond_day_month_op?: string | null
+  cond_day_month_to?: number | null
   cond_day_week?: string | null
   cond_amount?: string | null
   cond_amount_op?: string | null
+  cond_amount_to?: string | null
   cond_type?: string | null
   cond_bank_category?: string | null
   cond_description?: string | null

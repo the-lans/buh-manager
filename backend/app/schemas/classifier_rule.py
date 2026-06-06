@@ -8,7 +8,7 @@ from pydantic import BaseModel, model_validator
 from app.constants import TransactionType
 from app.utils.dt import normalize_to_utc
 
-_VALID_OPS = {"eq", "lt", "gt", "lte", "gte"}
+_VALID_OPS = {"eq", "lt", "gt", "lte", "gte", "between"}
 _VALID_TX_TYPES = {tx_type.value for tx_type in TransactionType}
 
 
@@ -62,16 +62,36 @@ def _validate_classifier_conditions(
     cond_account_id: UUID | None,
     cond_day_month: int | None,
     cond_day_month_op: str | None,
+    cond_day_month_to: int | None,
     cond_day_week: str | None,
     cond_amount: Decimal | None,
     cond_amount_op: str | None,
+    cond_amount_to: Decimal | None,
     cond_type: str | None,
     cond_bank_category: str | None,
     cond_description: str | None,
     require_at_least_one: bool = True,
 ) -> None:
-    if cond_day_month is not None and not 1 <= cond_day_month <= 31:
-        raise ValueError("cond_day_month must be between 1 and 31.")
+    if cond_day_month is not None:
+        if not 1 <= cond_day_month <= 31:
+            raise ValueError("cond_day_month must be between 1 and 31.")
+        if cond_day_month_op not in _VALID_OPS:
+            raise ValueError("cond_day_month_op must be one of: eq, lt, gt, lte, gte, between.")
+        if cond_day_month_op == "between":
+            if cond_day_month_to is None:
+                raise ValueError("cond_day_month_to is required when op is 'between'.")
+            if not 1 <= cond_day_month_to <= 31:
+                raise ValueError("cond_day_month_to must be between 1 and 31.")
+            if cond_day_month >= cond_day_month_to:
+                raise ValueError("cond_day_month must be less than cond_day_month_to for range.")
+    if cond_amount is not None:
+        if cond_amount_op not in _VALID_OPS:
+            raise ValueError("cond_amount_op must be one of: eq, lt, gt, lte, gte, between.")
+        if cond_amount_op == "between":
+            if cond_amount_to is None:
+                raise ValueError("cond_amount_to is required when op is 'between'.")
+            if cond_amount >= cond_amount_to:
+                raise ValueError("cond_amount must be less than cond_amount_to for range.")
     if require_at_least_one and not has_at_least_one_condition(
         cond_account_id=cond_account_id,
         cond_day_month=cond_day_month,
@@ -82,10 +102,6 @@ def _validate_classifier_conditions(
         cond_description=cond_description,
     ):
         raise ValueError("Необходимо указать хотя бы одно условие.")
-    if cond_day_month is not None and cond_day_month_op not in _VALID_OPS:
-        raise ValueError("cond_day_month_op must be one of: eq, lt, gt, lte, gte.")
-    if cond_amount is not None and cond_amount_op not in _VALID_OPS:
-        raise ValueError("cond_amount_op must be one of: eq, lt, gt, lte, gte.")
     if cond_type is not None and cond_type not in _VALID_TX_TYPES:
         raise ValueError("cond_type must be one of: EXPENSE, INCOME, TRANSFER.")
     if cond_day_week is not None:
@@ -108,9 +124,11 @@ class ClassifierRuleCreate(BaseModel):
     cond_account_id: UUID | None = None
     cond_day_month: int | None = None
     cond_day_month_op: str | None = None
+    cond_day_month_to: int | None = None
     cond_day_week: str | None = None
     cond_amount: Decimal | None = None
     cond_amount_op: str | None = None
+    cond_amount_to: Decimal | None = None
     cond_type: str | None = None
     cond_bank_category: str | None = None
     cond_description: str | None = None
@@ -129,9 +147,11 @@ class ClassifierRuleCreate(BaseModel):
             cond_account_id=self.cond_account_id,
             cond_day_month=self.cond_day_month,
             cond_day_month_op=self.cond_day_month_op,
+            cond_day_month_to=self.cond_day_month_to,
             cond_day_week=self.cond_day_week,
             cond_amount=self.cond_amount,
             cond_amount_op=self.cond_amount_op,
+            cond_amount_to=self.cond_amount_to,
             cond_type=self.cond_type,
             cond_bank_category=self.cond_bank_category,
             cond_description=self.cond_description,
@@ -148,9 +168,11 @@ class ClassifierRuleUpdate(BaseModel):
     cond_account_id: UUID | None = None
     cond_day_month: int | None = None
     cond_day_month_op: str | None = None
+    cond_day_month_to: int | None = None
     cond_day_week: str | None = None
     cond_amount: Decimal | None = None
     cond_amount_op: str | None = None
+    cond_amount_to: Decimal | None = None
     cond_type: str | None = None
     cond_bank_category: str | None = None
     cond_description: str | None = None
@@ -168,9 +190,11 @@ class ClassifierRuleUpdate(BaseModel):
             "cond_account_id",
             "cond_day_month",
             "cond_day_month_op",
+            "cond_day_month_to",
             "cond_day_week",
             "cond_amount",
             "cond_amount_op",
+            "cond_amount_to",
             "cond_type",
             "cond_bank_category",
             "cond_description",
@@ -182,9 +206,11 @@ class ClassifierRuleUpdate(BaseModel):
             cond_account_id=data.get("cond_account_id"),  # type: ignore[arg-type]
             cond_day_month=data.get("cond_day_month"),  # type: ignore[arg-type]
             cond_day_month_op=data.get("cond_day_month_op"),  # type: ignore[arg-type]
+            cond_day_month_to=data.get("cond_day_month_to"),  # type: ignore[arg-type]
             cond_day_week=data.get("cond_day_week"),  # type: ignore[arg-type]
             cond_amount=data.get("cond_amount"),  # type: ignore[arg-type]
             cond_amount_op=data.get("cond_amount_op"),  # type: ignore[arg-type]
+            cond_amount_to=data.get("cond_amount_to"),  # type: ignore[arg-type]
             cond_type=data.get("cond_type"),  # type: ignore[arg-type]
             cond_bank_category=data.get("cond_bank_category"),  # type: ignore[arg-type]
             cond_description=data.get("cond_description"),  # type: ignore[arg-type]
@@ -204,9 +230,11 @@ class ClassifierRuleRead(BaseModel):
     cond_account_id: UUID | None
     cond_day_month: int | None
     cond_day_month_op: str | None
+    cond_day_month_to: int | None
     cond_day_week: str | None
     cond_amount: Decimal | None
     cond_amount_op: str | None
+    cond_amount_to: Decimal | None
     cond_type: str | None
     cond_bank_category: str | None
     cond_description: str | None
