@@ -9,6 +9,7 @@ Create Date: 2026-06-03 00:00:00.000000
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "n5o6p7q8r9s0"
@@ -22,9 +23,7 @@ def upgrade() -> None:
         batch_op.drop_column("counterparty_id")
 
     # Make expense_type_id NOT NULL — delete orphan rows that have no expense type
-    op.execute(
-        "DELETE FROM transactions WHERE expense_type_id IS NULL"
-    )
+    op.execute("DELETE FROM transactions WHERE expense_type_id IS NULL")
     with op.batch_alter_table("transactions") as batch_op:
         batch_op.alter_column(
             "expense_type_id",
@@ -42,6 +41,4 @@ def downgrade() -> None:
             existing_type=sa.String(),
             nullable=True,
         )
-        batch_op.add_column(
-            sa.Column("counterparty_id", sa.String(), nullable=True)
-        )
+        batch_op.add_column(sa.Column("counterparty_id", sa.String(), nullable=True))

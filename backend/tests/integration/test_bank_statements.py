@@ -29,7 +29,9 @@ def _stmt_payload(
     }
 
 
-def _tx(occurred: str, amount: float, expense_type_id: str, balance_after: float | None = None) -> dict:
+def _tx(
+    occurred: str, amount: float, expense_type_id: str, balance_after: float | None = None
+) -> dict:
     d: dict = {
         "occurred_at": occurred,
         "amount": amount,
@@ -193,7 +195,9 @@ async def test_import_conflict_detected(
         json=_stmt_payload(
             str(test_account.id),
             doc2,
-            [_tx("2024-01-05T10:00:30", -150.0, test_expense_type_id, 900.0)],  # same balance_after, different amount
+            [
+                _tx("2024-01-05T10:00:30", -150.0, test_expense_type_id, 900.0)
+            ],  # same balance_after, different amount
         ),
         headers=auth_headers,
     )
@@ -212,7 +216,9 @@ async def test_import_no_balance_after(
     payload = _stmt_payload(
         str(test_account.id),
         doc_id,
-        [_tx("2024-01-05T10:00:00", -100.0, test_expense_type_id, None)],  # No balance_after (TBank style)
+        [
+            _tx("2024-01-05T10:00:00", -100.0, test_expense_type_id, None)
+        ],  # No balance_after (TBank style)
         opening=None,
     )
     resp = await client.post("/api/v1/bank-statements", json=payload, headers=auth_headers)

@@ -166,7 +166,11 @@ class TestUserIdValidationInTransactions:
     """Tests for user_id validation in link_transactions_to_document."""
 
     def test_link_transactions_validates_user_ownership(
-        self, session: Session, second_test_user: User, test_account, test_expense_type_scoped_id: str
+        self,
+        session: Session,
+        second_test_user: User,
+        test_account,
+        test_expense_type_scoped_id: str,
     ) -> None:
         """Test that link_transactions_to_document validates user ownership."""
 

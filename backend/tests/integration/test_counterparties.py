@@ -239,5 +239,3 @@ async def test_delete_counterparty_used_in_receipt_returns_409(
     resp = await client.delete(f"/api/v1/counterparties/{cp_id}", headers=auth_headers)
     assert resp.status_code == 409
     assert "чеках" in resp.json()["detail"]
-
-

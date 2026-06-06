@@ -5,16 +5,18 @@ Revises: o6p7q8r9s0t1
 Create Date: 2026-06-04 21:31:38.853830
 
 """
-from typing import Sequence, Union
+
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 import sqlmodel
+
 from alembic import op
 
 revision: str = "c0ce34e1d510"
-down_revision: Union[str, None] = "o6p7q8r9s0t1"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "o6p7q8r9s0t1"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
