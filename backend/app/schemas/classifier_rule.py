@@ -5,10 +5,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, model_validator
 
-from app.constants import TransactionType
+from app.constants import ClassifierOp, TransactionType
 from app.utils.dt import normalize_to_utc
 
-_VALID_OPS = {"eq", "lt", "gt", "lte", "gte", "between"}
+_VALID_OPS = {op.value for op in ClassifierOp}
 _VALID_TX_TYPES = {tx_type.value for tx_type in TransactionType}
 
 
