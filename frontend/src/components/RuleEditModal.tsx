@@ -5,17 +5,21 @@ import { useCreateClassifierRule, useUpdateClassifierRule } from '../hooks/useCl
 import { useExpenseTypes } from '../hooks/useExpenseTypes'
 import type { ClassifierRule } from '../types'
 
+const OP_EQ = 'eq'
+const OP_BETWEEN = 'between'
+const TX_TYPE_EXPENSE = 'EXPENSE'
+
 const DAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 const OP_OPTIONS = [
-  { value: 'eq', label: '=' },
+  { value: OP_EQ, label: '=' },
   { value: 'lt', label: '<' },
   { value: 'gt', label: '>' },
   { value: 'lte', label: '≤' },
   { value: 'gte', label: '≥' },
-  { value: 'between', label: '≤…≤' },
+  { value: OP_BETWEEN, label: '≤…≤' },
 ]
 const TYPE_OPTIONS = [
-  { value: 'EXPENSE', label: 'Расход' },
+  { value: TX_TYPE_EXPENSE, label: 'Расход' },
   { value: 'INCOME', label: 'Доход' },
   { value: 'TRANSFER', label: 'Перевод' },
 ]
@@ -61,10 +65,10 @@ function initCond(rule: ClassifierRule | null): CondState {
   if (!rule) {
     return {
       account: false, account_id: '',
-      day_month: false, day_month_val: '', day_month_op: 'eq', day_month_val_to: '',
+      day_month: false, day_month_val: '', day_month_op: OP_EQ, day_month_val_to: '',
       day_week: false, day_week_days: Array(7).fill(false),
-      amount: false, amount_val: '', amount_op: 'eq', amount_val_to: '',
-      type: false, type_val: 'EXPENSE',
+      amount: false, amount_val: '', amount_op: OP_EQ, amount_val_to: '',
+      type: false, type_val: TX_TYPE_EXPENSE,
       bank_category: false, bank_category_val: '',
       description: false, description_val: '',
     }
@@ -74,16 +78,16 @@ function initCond(rule: ClassifierRule | null): CondState {
     account_id: rule.cond_account_id ?? '',
     day_month: rule.cond_day_month !== null,
     day_month_val: rule.cond_day_month !== null ? String(rule.cond_day_month) : '',
-    day_month_op: rule.cond_day_month_op ?? 'eq',
+    day_month_op: rule.cond_day_month_op ?? OP_EQ,
     day_month_val_to: rule.cond_day_month_to !== null ? String(rule.cond_day_month_to) : '',
     day_week: rule.cond_day_week !== null,
     day_week_days: parseWeekDays(rule.cond_day_week),
     amount: rule.cond_amount !== null,
     amount_val: rule.cond_amount ?? '',
-    amount_op: rule.cond_amount_op ?? 'eq',
+    amount_op: rule.cond_amount_op ?? OP_EQ,
     amount_val_to: rule.cond_amount_to ?? '',
     type: rule.cond_type !== null,
-    type_val: rule.cond_type ?? 'EXPENSE',
+    type_val: rule.cond_type ?? TX_TYPE_EXPENSE,
     bank_category: rule.cond_bank_category !== null,
     bank_category_val: rule.cond_bank_category ?? '',
     description: rule.cond_description !== null,
@@ -127,13 +131,13 @@ export default function RuleEditModal({ rule, mode, onClose }: Props) {
       cond_account_id: cond.account && cond.account_id ? cond.account_id : null,
       cond_day_month: cond.day_month && cond.day_month_val ? Number(cond.day_month_val) : null,
       cond_day_month_op: cond.day_month ? cond.day_month_op : null,
-      cond_day_month_to: cond.day_month && cond.day_month_op === 'between' && cond.day_month_val_to
+      cond_day_month_to: cond.day_month && cond.day_month_op === OP_BETWEEN && cond.day_month_val_to
         ? Number(cond.day_month_val_to)
         : null,
       cond_day_week: cond.day_week && selectedDays.length > 0 ? JSON.stringify(selectedDays) : null,
       cond_amount: cond.amount && cond.amount_val ? cond.amount_val : null,
       cond_amount_op: cond.amount ? cond.amount_op : null,
-      cond_amount_to: cond.amount && cond.amount_op === 'between' && cond.amount_val_to
+      cond_amount_to: cond.amount && cond.amount_op === OP_BETWEEN && cond.amount_val_to
         ? cond.amount_val_to
         : null,
       cond_type: cond.type ? cond.type_val : null,
@@ -279,7 +283,7 @@ export default function RuleEditModal({ rule, mode, onClose }: Props) {
                   placeholder="1–31"
                   className={inputCls + ' w-20 shrink-0'}
                 />
-                {cond.day_month_op === 'between' && (
+                {cond.day_month_op === OP_BETWEEN && (
                   <>
                     <span className="text-xs text-gray-400 shrink-0">и</span>
                     <input
@@ -343,7 +347,7 @@ export default function RuleEditModal({ rule, mode, onClose }: Props) {
                   placeholder="Сумма"
                   className={inputCls + ' min-w-[6rem] flex-1'}
                 />
-                {cond.amount_op === 'between' && (
+                {cond.amount_op === OP_BETWEEN && (
                   <>
                     <span className="text-xs text-gray-400 shrink-0">и</span>
                     <input
