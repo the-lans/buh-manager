@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 const NAV_ITEMS = [
   { to: '/', label: 'Дашборд', exact: true },
   { to: '/transactions', label: 'Транзакции' },
+  { to: '/rules', label: 'Правила' },
   { to: '/balances', label: 'Остатки' },
   { to: '/receipts', label: 'Чеки' },
   { to: '/documents', label: 'Документы' },
