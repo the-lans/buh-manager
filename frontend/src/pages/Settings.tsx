@@ -28,6 +28,8 @@ const ALL_SCOPES: { scope: string; label: string; group: string }[] = [
   { scope: 'write:counterparties', label: 'Запись контрагентов', group: 'Контрагенты' },
   { scope: 'read:exchange_rates', label: 'Чтение курсов валют', group: 'Курсы валют' },
   { scope: 'write:exchange_rates', label: 'Запись курсов валют', group: 'Курсы валют' },
+  { scope: 'read:app_constants', label: 'Чтение настроек', group: 'Настройки' },
+  { scope: 'write:app_constants', label: 'Запись настроек', group: 'Настройки' },
 ]
 
 export default function Settings() {

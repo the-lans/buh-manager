@@ -202,8 +202,8 @@ def try_claim_transaction_receipt_link(
         update(Transaction)
         .where(col(Transaction.id) == transaction.id)
         .where(col(Transaction.receipt_id).is_(None))
-        .where(Transaction.reconciled_status == ReconciledStatus.UNMATCHED)
-        .where(~exists().where(Transaction.receipt_id == receipt_id))
+        .where(col(Transaction.reconciled_status) == ReconciledStatus.UNMATCHED)
+        .where(~exists().where(col(Transaction.receipt_id) == receipt_id))
         .values(receipt_id=receipt_id, reconciled_status=reconciled_status)
     )
     cursor_result = result if isinstance(result, CursorResult) else None

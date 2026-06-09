@@ -349,3 +349,44 @@ async def test_calculate_balances_skips_account_without_balance(
     assert resp.status_code == 200
     # Should return empty list — no account had a starting balance
     assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_calculate_balances_uses_account_zero_balance_without_balance_records(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_expense_type_id: str,
+) -> None:
+    account_resp = await client.post(
+        "/api/v1/accounts",
+        json={
+            "bank": "Zero Bank",
+            "account_number": "0001",
+            "currency": "RUB",
+            "zero_balance": "1000.00",
+        },
+        headers=auth_headers,
+    )
+    assert account_resp.status_code == 201
+    account_id = account_resp.json()["id"]
+
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": account_id,
+            "occurred_at": "2024-05-01T12:00:00",
+            "amount": "-150.00",
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+        },
+        headers=auth_headers,
+    )
+    assert tx_resp.status_code == 201
+
+    resp = await client.post("/api/v1/balances/calculate", headers=auth_headers)
+    assert resp.status_code == 200
+    results = [row for row in resp.json() if row["account_id"] == account_id]
+
+    assert len(results) == 1
+    assert results[0]["source"] == "MANUAL"
+    assert float(results[0]["amount"]) == pytest.approx(850.0)

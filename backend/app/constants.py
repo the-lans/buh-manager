@@ -92,6 +92,8 @@ class ApiKeyScope(StrEnum):
     READ_AUDIT_LOG = "read:audit_log"
     READ_CLASSIFIER_RULES = "read:classifier_rules"
     WRITE_CLASSIFIER_RULES = "write:classifier_rules"
+    READ_APP_CONSTANTS = "read:app_constants"
+    WRITE_APP_CONSTANTS = "write:app_constants"
 
 
 class ClassifierOp(StrEnum):

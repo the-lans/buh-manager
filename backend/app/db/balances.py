@@ -127,18 +127,16 @@ def calculate_balances_for_user(*, session: Session, user_id: UUID) -> list[Bala
         latest: Balance | None = get_latest_balance_for_account(
             session=session, account_id=account.id
         )
-        if latest is None:
-            continue
+        base_amount = latest.amount if latest is not None else account.zero_balance
 
-        tx_sum: Decimal | None = session.exec(
-            select(func.sum(Transaction.amount))
-            .where(Transaction.account_id == account.id)
-            .where(Transaction.occurred_at > latest.recorded_at)
-        ).one()
+        tx_query = select(func.sum(Transaction.amount)).where(Transaction.account_id == account.id)
+        if latest is not None:
+            tx_query = tx_query.where(Transaction.occurred_at > latest.recorded_at)
+        tx_sum: Decimal | None = session.exec(tx_query).one()
 
-        new_amount: Decimal = latest.amount + (tx_sum or Decimal(0))
+        new_amount: Decimal = base_amount + (tx_sum or Decimal(0))
 
-        if new_amount == latest.amount:
+        if new_amount == base_amount:
             continue
 
         balance: Balance = upsert_balance(
