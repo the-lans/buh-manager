@@ -33,6 +33,7 @@ export const handlers = [
         currency: 'RUB',
         is_active: true,
         has_balances: true,
+        zero_balance: '0',
       },
     ]),
   ),
@@ -48,6 +49,7 @@ export const handlers = [
         currency: body.currency ?? 'RUB',
         is_active: true,
         has_balances: false,
+        zero_balance: body.zero_balance ?? '0',
       },
       { status: 201 },
     )
@@ -63,6 +65,7 @@ export const handlers = [
       currency: body.currency ?? 'RUB',
       is_active: body.is_active ?? true,
       has_balances: true,
+      zero_balance: body.zero_balance ?? '0',
     })
   }),
 

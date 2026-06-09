@@ -1,4 +1,4 @@
-"""Unit tests for the reconciliation scoring and time-window logic."""
+"""Unit tests for the reconciliation time-window and auto-match logic."""
 
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -7,18 +7,14 @@ from uuid import uuid4
 import pytest
 
 from app.constants import (
-    SCORE_SINGLE_PAIR_BONUS,
-    SCORE_THRESHOLD_AUTO,
-    SCORE_TIME_UNDER_1H,
-    SCORE_TIME_UNDER_3D,
-    SCORE_TIME_UNDER_12H,
+    RECONCILE_AUTO_MATCH_MAX_HOURS,
     ImportStatus,
     ReconciledStatus,
     TransactionType,
 )
 from app.models.receipt import Receipt
 from app.models.transaction import Transaction
-from app.services.reconciliation import _in_time_window, _score_pair
+from app.services.reconciliation import _in_time_window
 
 BASE = datetime(2024, 6, 15, 12, 0)
 
@@ -45,42 +41,22 @@ def _receipt(paid_at: datetime, total: Decimal = Decimal("100")) -> Receipt:
     )
 
 
-# ── Time scoring ─────────────────────────────────────────────────────────────
+# ── Auto-match time condition ─────────────────────────────────────────────────
 
 
 @pytest.mark.parametrize(
-    "delta_seconds, expected_time_score",
+    "delta_hours, expected_auto_match",
     [
-        (600, SCORE_TIME_UNDER_1H),  # 10 min → <1h
-        (3599, SCORE_TIME_UNDER_1H),  # just under 1h
-        (3601, SCORE_TIME_UNDER_12H),  # just over 1h → <12h
-        (43199, SCORE_TIME_UNDER_12H),  # just under 12h
-        (43201, SCORE_TIME_UNDER_3D),  # just over 12h → <3d
-        (259199, SCORE_TIME_UNDER_3D),  # just under 3d
-        (259201, 0),  # over 3d → 0 time score
+        (0, True),
+        (1, True),
+        (11, True),   # just under limit
+        (12, False),  # exactly at limit — not matched (strict less-than)
+        (13, False),
     ],
 )
-def test_time_score_brackets(delta_seconds: int, expected_time_score: int) -> None:
-    tx = _tx(BASE)
-    receipt = _receipt(BASE + timedelta(seconds=delta_seconds))
-    score = _score_pair(tx=tx, receipt=receipt, is_single_pair=False)
-    assert score == expected_time_score
-
-
-def test_single_pair_bonus_added() -> None:
-    tx = _tx(BASE)
-    receipt = _receipt(BASE + timedelta(minutes=5))
-    score_single = _score_pair(tx=tx, receipt=receipt, is_single_pair=True)
-    score_multi = _score_pair(tx=tx, receipt=receipt, is_single_pair=False)
-    assert score_single - score_multi == SCORE_SINGLE_PAIR_BONUS
-
-
-def test_auto_match_threshold_reached() -> None:
-    # <1h (40) + single pair bonus (20) = 60 ≥ 60 (threshold) → auto-matched
-    tx = _tx(BASE)
-    receipt = _receipt(BASE + timedelta(minutes=5))
-    score = _score_pair(tx=tx, receipt=receipt, is_single_pair=True)
-    assert score >= SCORE_THRESHOLD_AUTO
+def test_auto_match_time_condition(delta_hours: int, expected_auto_match: bool) -> None:
+    time_diff_seconds = delta_hours * 3600
+    assert (time_diff_seconds < RECONCILE_AUTO_MATCH_MAX_HOURS * 3600) is expected_auto_match
 
 
 # ── Time window ───────────────────────────────────────────────────────────────
@@ -89,11 +65,11 @@ def test_auto_match_threshold_reached() -> None:
 @pytest.mark.parametrize(
     "offset_hours, expected_in_window",
     [
-        (-11, True),  # 11h before paid_at → within PRE window (12h)
+        (-11, True),   # 11h before paid_at → within PRE window (12h)
         (-13, False),  # 13h before → outside
-        (0, True),  # same time
-        (71, True),  # 71h after → within POST window (3 days = 72h)
-        (73, False),  # 73h after → outside
+        (0, True),     # same time
+        (71, True),    # 71h after → within POST window (3 days = 72h)
+        (73, False),   # 73h after → outside
     ],
 )
 def test_time_window(offset_hours: int, expected_in_window: bool) -> None:

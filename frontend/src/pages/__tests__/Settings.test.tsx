@@ -176,7 +176,7 @@ describe('Settings — AccountsTab edit modal', () => {
         captured = (await request.json()) as Record<string, unknown>
         return HttpResponse.json<Account>({
           id: 'acc-1', user_id: 'user-1', bank: 'Тинькофф', account_number: '40817810',
-          currency: 'RUB', is_active: true, has_balances: true,
+          currency: 'RUB', is_active: true, has_balances: true, zero_balance: '0',
         })
       }),
     )
