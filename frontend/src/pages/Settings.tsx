@@ -653,6 +653,7 @@ function ConstantsTab() {
   const updateConstant = useUpdateAppConstant()
   const [values, setValues] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState<Record<string, boolean>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const getValue = (key: string) => {
     if (key in values) return values[key]
@@ -661,9 +662,18 @@ function ConstantsTab() {
   }
 
   const handleSave = async (key: string) => {
-    await updateConstant.mutateAsync({ key, value: getValue(key) })
-    setSaved((s) => ({ ...s, [key]: true }))
-    setTimeout(() => setSaved((s) => ({ ...s, [key]: false })), 2000)
+    setErrors((e) => ({ ...e, [key]: '' }))
+    try {
+      await updateConstant.mutateAsync({ key, value: getValue(key) })
+      setSaved((s) => ({ ...s, [key]: true }))
+      setTimeout(() => setSaved((s) => ({ ...s, [key]: false })), 2000)
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+      setErrors((prev) => ({
+        ...prev,
+        [key]: typeof detail === 'string' ? detail : 'Не удалось сохранить значение',
+      }))
+    }
   }
 
   return (
@@ -679,6 +689,7 @@ function ConstantsTab() {
               value={getValue(key)}
               onChange={(e) => {
                 setSaved((s) => ({ ...s, [key]: false }))
+                setErrors((er) => ({ ...er, [key]: '' }))
                 setValues((v) => ({ ...v, [key]: e.target.value }))
               }}
             />
@@ -691,6 +702,7 @@ function ConstantsTab() {
               {saved[key] ? 'Сохранено' : 'Сохранить'}
             </button>
           </div>
+          {errors[key] && <p className="text-sm text-red-500">{errors[key]}</p>}
         </div>
       ))}
     </div>

@@ -29,8 +29,11 @@ class _ConstantSpec:
     def validate(self, value: str) -> None:
         if self.kind == "int_positive":
             try:
-                v = int(value)
-            except ValueError:
+                parsed = Decimal(value)
+                if parsed % 1 != 0:
+                    raise ValueError
+                v = int(parsed)
+            except (ValueError, InvalidOperation):
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=f"{self.label}: значение должно быть целым числом",

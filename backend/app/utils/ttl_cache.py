@@ -22,7 +22,7 @@ class TTLCache(Generic[KT, VT]):
             return False, None
         value, expires_at = entry  # type: ignore[misc]
         if time.monotonic() > expires_at:
-            del self._store[key]
+            self._store.pop(key, None)
             return False, None
         return True, value
 
