@@ -12,6 +12,7 @@ from app.db.app_constants import (
     get_constant_decimal,
     get_constant_int,
     get_constant_value,
+    invalidate_constant_cache,
     upsert_constant,
 )
 from app.models.user import User
@@ -112,15 +113,26 @@ def test_cache_expires_after_ttl(
     assert result == "old"  # value from DB is the same; confirms DB was re-queried (no error)
 
 
-def test_upsert_invalidates_cache(session: Session, test_user: User) -> None:
+def test_upsert_alone_does_not_invalidate_cache(session: Session, test_user: User) -> None:
+    # upsert_constant must NOT touch the cache — invalidation belongs to the caller
+    # (router) after commit, to avoid caching stale pre-commit reads.
     upsert_constant(session=session, user_id=test_user.id, key="C", value="1")
-    # Warm the cache
     get_constant_value(session=session, user_id=test_user.id, key="C")
     cache_key = (str(test_user.id), "C")
-    assert _cache.get(cache_key)[0] is True  # cache hit
-    # Update — must evict cache
+    assert _cache.get(cache_key)[0] is True  # still warm after upsert
     upsert_constant(session=session, user_id=test_user.id, key="C", value="2")
-    assert _cache.get(cache_key)[0] is False  # cache miss after invalidation
+    assert _cache.get(cache_key)[0] is True  # still warm — upsert does not evict
+
+
+def test_invalidate_constant_cache_evicts_entry(session: Session, test_user: User) -> None:
+    upsert_constant(session=session, user_id=test_user.id, key="C", value="1")
+    get_constant_value(session=session, user_id=test_user.id, key="C")
+    cache_key = (str(test_user.id), "C")
+    assert _cache.get(cache_key)[0] is True
+    # Explicit invalidation (called by router after commit)
+    invalidate_constant_cache(test_user.id, "C")
+    assert _cache.get(cache_key)[0] is False
+    upsert_constant(session=session, user_id=test_user.id, key="C", value="2")
     assert get_constant_value(session=session, user_id=test_user.id, key="C") == "2"
 
 
