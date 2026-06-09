@@ -12,6 +12,7 @@ class AccountCreate(BaseModel):
     bank: str
     account_number: str
     currency: str = "RUB"
+    zero_balance: Decimal = Decimal("0")
 
 
 class AccountUpdate(BaseModel):
@@ -19,6 +20,7 @@ class AccountUpdate(BaseModel):
     account_number: str | None = None
     currency: str | None = None
     is_active: bool | None = None
+    zero_balance: Decimal | None = None
 
 
 class AccountRead(BaseModel):
@@ -29,6 +31,7 @@ class AccountRead(BaseModel):
     currency: str
     is_active: bool
     has_balances: bool = False
+    zero_balance: Decimal = Decimal("0")
 
     model_config = {"from_attributes": True}
 

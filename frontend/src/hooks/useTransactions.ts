@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { transactionsApi, type TransactionFilters, type TransactionCreatePayload } from '../api/transactions'
-import type { Transaction } from '../types'
+import { transactionsApi, type TransactionFilters, type TransactionCreatePayload, type TransactionUpdatePayload } from '../api/transactions'
 
 export function useTransactions(filters?: TransactionFilters) {
   return useQuery({
@@ -20,7 +19,7 @@ export function useCreateTransaction() {
 export function useUpdateTransaction() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Transaction> }) =>
+    mutationFn: ({ id, data }: { id: string; data: TransactionUpdatePayload }) =>
       transactionsApi.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
   })

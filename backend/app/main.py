@@ -10,6 +10,7 @@ from app.constants import MEDIA_PATH
 from app.dependencies.auth import get_current_user
 from app.routers import (
     api_keys,
+    app_constants,
     audit_log,
     auth,
     bank_statements,
@@ -47,3 +48,4 @@ app.include_router(reconciliation.router, prefix="/api/v1", **_protected)
 app.include_router(references.router, prefix="/api/v1", **_protected)
 app.include_router(audit_log.router, prefix="/api/v1", **_protected)
 app.include_router(classifier_rules.router, prefix="/api/v1", **_protected)
+app.include_router(app_constants.router, prefix="/api/v1", **_protected)

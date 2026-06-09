@@ -33,6 +33,7 @@ def create_account(*, session: Session, user_id: UUID, data: AccountCreate) -> A
         bank=data.bank,
         account_number=data.account_number,
         currency=data.currency,
+        zero_balance=data.zero_balance,
     )
     session.add(account)
     session.flush()

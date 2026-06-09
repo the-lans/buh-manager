@@ -14,12 +14,14 @@ export interface Account {
   currency: string
   is_active: boolean
   has_balances: boolean
+  zero_balance: string
 }
 
 export interface AccountCreate {
   bank: string
   account_number: string
   currency?: string
+  zero_balance?: string
 }
 
 export interface AccountUpdate {
@@ -27,6 +29,12 @@ export interface AccountUpdate {
   account_number?: string
   currency?: string
   is_active?: boolean
+  zero_balance?: string
+}
+
+export interface AppConstant {
+  key: string
+  value: string
 }
 
 export interface Document {

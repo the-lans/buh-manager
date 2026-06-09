@@ -1,24 +1,18 @@
 from __future__ import annotations
 
-from collections import defaultdict
 from datetime import timedelta
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from app.constants import (
+    RECONCILE_AMOUNT_TOLERANCE,
+    RECONCILE_AUTO_MATCH_MAX_HOURS,
     RECONCILE_POST_WINDOW_DAYS,
     RECONCILE_PRE_WINDOW_HOURS,
-    SCORE_SINGLE_PAIR_BONUS,
-    SCORE_THRESHOLD_AUTO,
-    SCORE_TIME_UNDER_1H,
-    SCORE_TIME_UNDER_1H_MAX_SECONDS,
-    SCORE_TIME_UNDER_3D,
-    SCORE_TIME_UNDER_3D_MAX_SECONDS,
-    SCORE_TIME_UNDER_12H,
-    SCORE_TIME_UNDER_12H_MAX_SECONDS,
     ChangedBy,
     ReconciledStatus,
 )
+from app.db.app_constants import get_constant_decimal, get_constant_int
 from app.db.receipts import get_unmatched_receipts
 from app.db.reconciliation_reports import save_report
 from app.db.transactions import (
@@ -47,28 +41,6 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
-def _score_pair(
-    *,
-    tx: Transaction,
-    receipt: Receipt,
-    is_single_pair: bool,
-) -> int:
-    score = 0
-    time_diff = abs((tx.occurred_at - receipt.paid_at).total_seconds())
-
-    if time_diff < SCORE_TIME_UNDER_1H_MAX_SECONDS:
-        score += SCORE_TIME_UNDER_1H
-    elif time_diff < SCORE_TIME_UNDER_12H_MAX_SECONDS:
-        score += SCORE_TIME_UNDER_12H
-    elif time_diff < SCORE_TIME_UNDER_3D_MAX_SECONDS:
-        score += SCORE_TIME_UNDER_3D
-
-    if is_single_pair:
-        score += SCORE_SINGLE_PAIR_BONUS
-
-    return score
-
-
 def _in_time_window(*, tx: Transaction, receipt: Receipt) -> bool:
     pre = timedelta(hours=RECONCILE_PRE_WINDOW_HOURS)
     post = timedelta(days=RECONCILE_POST_WINDOW_DAYS)
@@ -77,36 +49,82 @@ def _in_time_window(*, tx: Transaction, receipt: Receipt) -> bool:
     return lower <= tx.occurred_at <= upper
 
 
+def _amounts_match(tx: Transaction, receipt: Receipt, *, tolerance: Decimal) -> bool:
+    return abs(abs(tx.amount) - abs(receipt.total_amount)) <= tolerance
+
+
+def _build_amount_groups(
+    transactions: list[Transaction],
+    receipts: list[Receipt],
+    *,
+    tolerance: Decimal,
+) -> list[tuple[list[Transaction], list[Receipt]]]:
+    """
+    Group transactions and receipts into amount-compatible clusters using union-find.
+    Supports arbitrary tolerance: items are in the same cluster if their amounts
+    are within tolerance of each other.
+    """
+    n_tx = len(transactions)
+    parent = list(range(n_tx + len(receipts)))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(x: int, y: int) -> None:
+        parent[find(x)] = find(y)
+
+    for i, tx in enumerate(transactions):
+        for j, receipt in enumerate(receipts):
+            if _amounts_match(tx, receipt, tolerance=tolerance):
+                union(i, n_tx + j)
+
+    groups: dict[int, tuple[list[Transaction], list[Receipt]]] = {}
+    for i, tx in enumerate(transactions):
+        root = find(i)
+        if root not in groups:
+            groups[root] = ([], [])
+        groups[root][0].append(tx)
+    for j, receipt in enumerate(receipts):
+        root = find(n_tx + j)
+        if root not in groups:
+            groups[root] = ([], [])
+        groups[root][1].append(receipt)
+
+    return list(groups.values())
+
+
 def run_reconciliation(
     *,
     session: Session,
     current_user: User,
 ) -> ReconciliationReport:
+    tolerance = get_constant_decimal(
+        session=session,
+        user_id=current_user.id,
+        key="RECONCILE_AMOUNT_TOLERANCE",
+        default=RECONCILE_AMOUNT_TOLERANCE,
+    )
+    auto_match_hours = get_constant_int(
+        session=session,
+        user_id=current_user.id,
+        key="RECONCILE_AUTO_MATCH_MAX_HOURS",
+        default=RECONCILE_AUTO_MATCH_MAX_HOURS,
+    )
+
     transactions = get_unmatched_transactions_requiring_receipt(
         session=session, user_id=current_user.id
     )
     receipts = get_unmatched_receipts(session=session, user_id=current_user.id)
-
-    # Partition by amount (absolute value for expenses)
-    tx_buckets: dict[Decimal, list[Transaction]] = defaultdict(list)
-    for tx in transactions:
-        tx_buckets[abs(tx.amount)].append(tx)
-
-    receipt_buckets: dict[Decimal, list[Receipt]] = defaultdict(list)
-    for receipt in receipts:
-        receipt_buckets[abs(receipt.total_amount)].append(receipt)
 
     auto_matched = 0
     collisions: list[CollisionGroup] = []
     missing_receipts: list[MissingReceiptItem] = []
     unmatched_receipts: list[UnmatchedReceiptItem] = []
 
-    all_amounts = set(tx_buckets.keys()) | set(receipt_buckets.keys())
-
-    for amount in all_amounts:
-        bucket_txs = tx_buckets.get(amount, [])
-        bucket_receipts = receipt_buckets.get(amount, [])
-
+    for bucket_txs, bucket_receipts in _build_amount_groups(transactions, receipts, tolerance=tolerance):
         if not bucket_txs:
             for r in bucket_receipts:
                 unmatched_receipts.append(
@@ -171,12 +189,11 @@ def run_reconciliation(
             continue
 
         if len(txs_in_window) > 1 or len(receipts_in_window) > 1:
-            # N:M collision — only among items that actually fall within the time window
             collision_id = str(uuid4())
             collisions.append(
                 CollisionGroup(
                     collision_id=collision_id,
-                    amount=amount,
+                    amount=bucket_txs[0].amount,
                     reason="MULTIPLE_MATCHES",
                     message=(
                         f"Найдено {len(txs_in_window)} транзакции и "
@@ -208,12 +225,8 @@ def run_reconciliation(
         tx = txs_in_window[0]
         receipt = receipts_in_window[0]
 
-        score = _score_pair(
-            tx=tx,
-            receipt=receipt,
-            is_single_pair=True,
-        )
-        if score >= SCORE_THRESHOLD_AUTO:
+        time_diff = abs((tx.occurred_at - receipt.paid_at).total_seconds())
+        if time_diff < auto_match_hours * 3600:
             update_transaction_receipt_link(
                 session=session,
                 transaction=tx,

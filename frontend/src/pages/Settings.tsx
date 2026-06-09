@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useAccounts, useCreateAccount, useDeleteAccount, useUpdateAccount } from '../hooks/useAccounts'
 import { useExpenseTypes, useCreateExpenseType, useUpdateExpenseType, useDeleteExpenseType } from '../hooks/useExpenseTypes'
 import { useApiKeys, useCreateApiKey, useUpdateApiKey, useDeleteApiKey } from '../hooks/useApiKeys'
+import { useAppConstants, useUpdateAppConstant } from '../hooks/useAppConstants'
 import { accountsApi } from '../api/accounts'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Account, ApiKeyCreated, ExpenseType } from '../types'
 import { formatDate, localInputToUtcIso } from '../utils/date'
 
-type Tab = 'accounts' | 'expense-types' | 'api-keys'
+type Tab = 'accounts' | 'expense-types' | 'api-keys' | 'constants'
 
 const ALL_SCOPES: { scope: string; label: string; group: string }[] = [
   { scope: 'read:documents', label: 'Чтение документов', group: 'Документы' },
@@ -36,7 +37,7 @@ export default function Settings() {
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold text-gray-900">Настройки</h1>
       <div className="border-b border-gray-200 flex gap-6">
-        {(['accounts', 'expense-types', 'api-keys'] as Tab[]).map((t) => (
+        {(['accounts', 'expense-types', 'api-keys', 'constants'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -44,13 +45,14 @@ export default function Settings() {
               tab === t ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {t === 'accounts' ? 'Счета' : t === 'expense-types' ? 'Типы расходов' : 'API ключи'}
+            {t === 'accounts' ? 'Счета' : t === 'expense-types' ? 'Типы расходов' : t === 'api-keys' ? 'API ключи' : 'Константы'}
           </button>
         ))}
       </div>
       {tab === 'accounts' && <AccountsTab />}
       {tab === 'expense-types' && <ExpenseTypesTab />}
       {tab === 'api-keys' && <ApiKeysTab />}
+      {tab === 'constants' && <ConstantsTab />}
     </div>
   )
 }
@@ -61,19 +63,19 @@ function AccountsTab() {
   const updateAccount = useUpdateAccount()
   const deleteAccount = useDeleteAccount()
   const qc = useQueryClient()
-  const [form, setForm] = useState({ bank: '', account_number: '', currency: 'RUB' })
+  const [form, setForm] = useState({ bank: '', account_number: '', currency: 'RUB', zero_balance: '0' })
   const [initForm, setInitForm] = useState<{ id: string; amount: string; recorded_at: string; source: 'OPENING' | 'CLOSING' } | null>(null)
   const [initError, setInitError] = useState<string | null>(null)
   const [initPending, setInitPending] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [editAccount, setEditAccount] = useState<Account | null>(null)
-  const [editForm, setEditForm] = useState({ bank: '', account_number: '', currency: '', is_active: true })
+  const [editForm, setEditForm] = useState({ bank: '', account_number: '', currency: '', is_active: true, zero_balance: '0' })
   const [editError, setEditError] = useState<string | null>(null)
 
   const handleCreate = async () => {
     await createAccount.mutateAsync(form)
-    setForm({ bank: '', account_number: '', currency: 'RUB' })
+    setForm({ bank: '', account_number: '', currency: 'RUB', zero_balance: '0' })
   }
 
   const handleInitBalance = async () => {
@@ -109,7 +111,7 @@ function AccountsTab() {
 
   const openEdit = (acc: Account) => {
     setEditAccount(acc)
-    setEditForm({ bank: acc.bank, account_number: acc.account_number, currency: acc.currency, is_active: acc.is_active })
+    setEditForm({ bank: acc.bank, account_number: acc.account_number, currency: acc.currency, is_active: acc.is_active, zero_balance: acc.zero_balance ?? '0' })
     setEditError(null)
   }
 
@@ -145,6 +147,13 @@ function AccountsTab() {
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
           value={form.currency}
           onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
+        />
+        <input
+          type="number"
+          placeholder="Нулевой остаток (0)"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          value={form.zero_balance}
+          onChange={(e) => setForm((f) => ({ ...f, zero_balance: e.target.value }))}
         />
         <button
           onClick={handleCreate}
@@ -225,6 +234,13 @@ function AccountsTab() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
               value={editForm.currency}
               onChange={(e) => setEditForm((f) => ({ ...f, currency: e.target.value }))}
+            />
+            <input
+              type="number"
+              placeholder="Нулевой остаток"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              value={editForm.zero_balance}
+              onChange={(e) => setEditForm((f) => ({ ...f, zero_balance: e.target.value }))}
             />
             <label className="flex items-center gap-2 text-sm text-gray-700">
               <input
@@ -623,6 +639,60 @@ function ExpenseTypesTab() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+const CONSTANT_LABELS: Record<string, { label: string; hint: string }> = {
+  RECONCILE_AUTO_MATCH_MAX_HOURS: { label: 'Макс. часов для автосверки', hint: 'часов' },
+  RECONCILE_AMOUNT_TOLERANCE: { label: 'Допустимое отклонение суммы', hint: '₽' },
+}
+
+function ConstantsTab() {
+  const { data: constants = [] } = useAppConstants()
+  const updateConstant = useUpdateAppConstant()
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [saved, setSaved] = useState<Record<string, boolean>>({})
+
+  const getValue = (key: string) => {
+    if (key in values) return values[key]
+    const found = constants.find((c) => c.key === key)
+    return found ? found.value : ''
+  }
+
+  const handleSave = async (key: string) => {
+    await updateConstant.mutateAsync({ key, value: getValue(key) })
+    setSaved((s) => ({ ...s, [key]: true }))
+    setTimeout(() => setSaved((s) => ({ ...s, [key]: false })), 2000)
+  }
+
+  return (
+    <div className="space-y-4 max-w-md">
+      <p className="text-sm text-gray-500">Параметры алгоритмов сверки. Изменения вступают в силу при следующем запуске.</p>
+      {Object.entries(CONSTANT_LABELS).map(([key, { label, hint }]) => (
+        <div key={key} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
+          <label className="block text-sm font-medium text-gray-900">{label}</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              className="w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              value={getValue(key)}
+              onChange={(e) => {
+                setSaved((s) => ({ ...s, [key]: false }))
+                setValues((v) => ({ ...v, [key]: e.target.value }))
+              }}
+            />
+            <span className="text-sm text-gray-500">{hint}</span>
+            <button
+              onClick={() => handleSave(key)}
+              disabled={updateConstant.isPending}
+              className="px-3 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {saved[key] ? 'Сохранено' : 'Сохранить'}
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

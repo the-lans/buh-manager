@@ -68,7 +68,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 items-center">
+      <div className="flex flex-col gap-2 sm:grid sm:grid-cols-3 sm:items-center sm:gap-0">
         <h1 className="text-2xl font-semibold text-gray-900">Дашборд</h1>
         <div className="flex items-center justify-center gap-1">
           <button
@@ -90,7 +90,7 @@ export default function Dashboard() {
             ›
           </button>
         </div>
-        <div />
+        <div className="hidden sm:block" />
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -115,12 +115,13 @@ export default function Dashboard() {
           {latestBalances.map((b) => {
             const acc = accountMap.get(b.account_id)
             const accLabel = acc ? `${acc.bank} ···${acc.account_number.slice(-4)}` : b.account_id
+            const adjusted = Number(b.amount) - Number(acc?.zero_balance ?? '0')
             return (
               <tr key={b.id}>
                 <td className="px-4 py-2 text-gray-800">{accLabel}</td>
                 <td className="px-4 py-2 text-gray-600">{formatDate(b.recorded_at)}</td>
-                <td className="px-4 py-2 text-right tabular-nums font-medium text-gray-900">
-                  {Number(b.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+                <td className={`px-4 py-2 text-right tabular-nums font-medium ${adjusted < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                  {adjusted.toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
                 </td>
                 <td className="px-4 py-2 text-gray-600 text-sm">
                   {SOURCE_LABELS[b.source] ?? b.source}
@@ -128,6 +129,22 @@ export default function Dashboard() {
               </tr>
             )
           })}
+          {latestBalances.length > 0 && (() => {
+            const total = latestBalances.reduce((sum, b) => {
+              const acc = accountMap.get(b.account_id)
+              return sum + Number(b.amount) - Number(acc?.zero_balance ?? '0')
+            }, 0)
+            return (
+              <tr className="bg-gray-50 border-t-2 border-gray-200">
+                <td className="px-4 py-2 font-semibold text-gray-900">Итого</td>
+                <td className="px-4 py-2" />
+                <td className={`px-4 py-2 text-right tabular-nums font-semibold ${total < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                  {total.toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+                </td>
+                <td className="px-4 py-2" />
+              </tr>
+            )
+          })()}
         </DataTable>
       </section>
 
