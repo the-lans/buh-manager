@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from app.constants import ClassifierOp, TransactionType
 from app.utils.dt import normalize_to_utc
@@ -181,6 +181,22 @@ class ClassifierRuleUpdate(BaseModel):
     cond_description: str | None = None
 
     model_config = {"extra": "forbid"}
+
+    @field_validator("name", "expense_type_id")
+    @classmethod
+    def required_strings_must_not_be_empty_or_null(cls, v: str | None) -> str | None:
+        if v is None:
+            raise ValueError("Field cannot be null.")
+        if not v.strip():
+            raise ValueError("Field cannot be empty.")
+        return v
+
+    @field_validator("priority", "is_active")
+    @classmethod
+    def required_scalars_must_not_be_null(cls, v: object) -> object:
+        if v is None:
+            raise ValueError("Field cannot be null.")
+        return v
 
     @model_validator(mode="before")
     @classmethod

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from fastapi import HTTPException, status
 
 from app.constants import BalanceSource, DocumentStatus, DocumentType, ImportStatus
-from app.db.accounts import get_account_by_id
+from app.db.accounts import get_account_by_id_for_update
 from app.db.balances import has_any_balance, upsert_balance
 from app.db.classifier_rules import list_rules_for_user
 from app.db.documents import claim_document_for_processing, get_document_by_id
@@ -35,7 +35,7 @@ def import_bank_statement(
     statement: BankStatementCreate,
     current_user: User,
 ) -> ImportReport:
-    account = get_account_by_id(
+    account = get_account_by_id_for_update(
         session=session,
         account_id=statement.account_id,
         user_id=current_user.id,

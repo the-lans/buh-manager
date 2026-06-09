@@ -53,6 +53,13 @@ class TransactionUpdate(BaseModel):
             raise ValueError("expense_type_id must not be empty.")
         return v
 
+    @field_validator("occurred_at", "amount", "type")
+    @classmethod
+    def required_fields_must_not_be_null(cls, v: object) -> object:
+        if v is None:
+            raise ValueError("Field cannot be null.")
+        return v
+
     @field_validator("occurred_at", mode="after")
     @classmethod
     def normalize_occurred_at(cls, v: datetime | None) -> datetime | None:

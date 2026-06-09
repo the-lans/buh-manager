@@ -17,7 +17,7 @@ from app.db.receipts import get_unmatched_receipts
 from app.db.reconciliation_reports import save_report
 from app.db.transactions import (
     get_unmatched_transactions_requiring_receipt,
-    update_transaction_receipt_link,
+    try_claim_transaction_receipt_link,
 )
 from app.schemas.reconciliation import (
     CollisionGroup,
@@ -227,12 +227,13 @@ def run_reconciliation(
 
         time_diff = abs((tx.occurred_at - receipt.paid_at).total_seconds())
         if time_diff < auto_match_hours * 3600:
-            update_transaction_receipt_link(
+            if not try_claim_transaction_receipt_link(
                 session=session,
                 transaction=tx,
                 receipt_id=receipt.id,
                 reconciled_status=ReconciledStatus.MATCHED,
-            )
+            ):
+                continue
             audit_match(
                 session=session,
                 transaction_id=tx.id,

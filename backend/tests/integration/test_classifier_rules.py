@@ -948,6 +948,30 @@ async def test_update_rule_remove_only_condition_returns_422(
     assert resp.status_code == 422
 
 
+@pytest.mark.parametrize("field", ["name", "expense_type_id", "priority", "is_active"])
+@pytest.mark.asyncio
+async def test_update_rule_rejects_null_required_fields(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_expense_type_id: str,
+    field: str,
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/classifier-rules",
+        json=_rule_payload(expense_type_id=test_expense_type_id),
+        headers=auth_headers,
+    )
+    rule_id = create_resp.json()["id"]
+
+    resp = await client.put(
+        f"/api/v1/classifier-rules/{rule_id}",
+        json={field: None},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 422
+
+
 # ── between operator ──────────────────────────────────────────────────────────
 
 

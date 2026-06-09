@@ -292,6 +292,31 @@ async def test_update_transaction_rejects_null_expense_type(
     assert update_resp.status_code == 422
 
 
+@pytest.mark.parametrize("field", ["occurred_at", "amount", "type"])
+@pytest.mark.asyncio
+async def test_update_transaction_rejects_null_required_fields(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+    field: str,
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
+        headers=auth_headers,
+    )
+    tx_id = create_resp.json()["id"]
+
+    update_resp = await client.put(
+        f"/api/v1/transactions/{tx_id}",
+        json={field: None},
+        headers=auth_headers,
+    )
+
+    assert update_resp.status_code == 422
+
+
 @pytest.mark.asyncio
 async def test_delete_transaction(
     client: AsyncClient,
