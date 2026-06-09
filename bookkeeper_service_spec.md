@@ -97,6 +97,7 @@ YANDEX_SECRET_KEY=
 | `account_number` | VARCHAR | Номер счёта или карты |
 | `currency` | VARCHAR | Валюта (ISO 4217: RUB, USD, EUR) |
 | `is_active` | BOOLEAN | Активен ли счёт (default: true) |
+| `zero_balance` | NUMERIC | Базовый остаток счёта до первой записи `balances`; используется как стартовая точка для ручного расчёта остатков |
 
 ### 4.3 documents
 | Поле | Тип | Описание |
@@ -190,7 +191,20 @@ YANDEX_SECRET_KEY=
 | `source` | VARCHAR | OPENING (начало) или CLOSING (конец периода) |
 | `document_id` | UUID (FK → documents.id, NULL) | Источник (выписка) |
 
-### 4.10 exchange_rates
+`POST /balances/calculate` берёт последний записанный остаток как базу. Если у счёта ещё нет записей `balances`, базой считается `accounts.zero_balance`; поверх неё суммируются все транзакции счёта и создаётся запись `MANUAL`, если сумма изменилась.
+
+### 4.10 app_constants
+| Поле | Тип | Описание |
+|---|---|---|
+| `id` | UUID (PK) | Уникальный ID записи |
+| `user_id` | UUID (FK → users.id) | Владелец настройки |
+| `key` | VARCHAR | Ключ настройки |
+| `value` | VARCHAR | Значение настройки в строковом виде |
+
+> **Уникальность:** `UNIQUE(user_id, key)`.
+> Поддерживаемые ключи: `RECONCILE_AUTO_MATCH_MAX_HOURS`, `RECONCILE_AMOUNT_TOLERANCE`.
+
+### 4.11 exchange_rates
 | Поле | Тип | Описание |
 |---|---|---|
 | `id` | UUID (PK) | Уникальный ID |
@@ -199,7 +213,7 @@ YANDEX_SECRET_KEY=
 | `rate` | NUMERIC | Курс обмена |
 | `recorded_at` | TIMESTAMP | Дата фиксации курса |
 
-### 4.11 audit_log
+### 4.12 audit_log
 | Поле | Тип | Описание |
 |---|---|---|
 | `id` | UUID (PK) | Уникальный ID записи |
@@ -368,6 +382,21 @@ YANDEX_SECRET_KEY=
 | `GET/POST` | `/counterparties` | Управление контрагентами |
 | `POST` | `/exchange-rates` | Добавление курса валют |
 | `GET` | `/exchange-rates/latest` | Последние курсы всех валют |
+
+### 5.7 Настройки приложения
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/app-constants` | Список поддерживаемых пользовательских настроек с текущими или дефолтными значениями. Требует scope `read:app_constants` для API-key. |
+| `PUT` | `/app-constants/{key}` | Обновить значение настройки. Поддерживаются только известные ключи; значение валидируется по типу и диапазону. Требует scope `write:app_constants` для API-key. |
+
+### 5.8 API keys и scopes
+
+API-key доступ ограничивается scopes. Для настроек приложения используются:
+
+| Scope | Назначение |
+|---|---|
+| `read:app_constants` | Чтение `/app-constants` |
+| `write:app_constants` | Изменение `/app-constants/{key}` |
 
 ---
 
@@ -877,6 +906,7 @@ app.include_router(bank_statements_router, **protected)
 app.include_router(reconciliation_router, **protected)
 app.include_router(references_router, **protected)
 app.include_router(documents_router, **protected)
+app.include_router(app_constants_router, **protected)
 ```
 
 ### Изоляция данных пользователей

@@ -5,14 +5,18 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from app.constants import RECONCILE_AMOUNT_TOLERANCE, RECONCILE_AUTO_MATCH_MAX_HOURS
+from app.constants import (
+    RECONCILE_AMOUNT_TOLERANCE,
+    RECONCILE_AUTO_MATCH_MAX_HOURS,
+    ApiKeyScope,
+)
 from app.database import get_session
 from app.db.app_constants import (
     get_all_constants,
     invalidate_constant_cache,
     upsert_constant,
 )
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_scope
 from app.models.app_constant import AppConstant
 from app.models.user import User
 from app.schemas.app_constant import AppConstantRead, AppConstantUpdate
@@ -32,26 +36,26 @@ class _ConstantSpec:
                 parsed = Decimal(value)
                 if parsed % 1 != 0:
                     raise ValueError
-                v = int(parsed)
+                int_value = int(parsed)
             except (ValueError, InvalidOperation):
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=f"{self.label}: значение должно быть целым числом",
-                )
-            if v <= 0:
+                ) from None
+            if int_value <= 0:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=f"{self.label}: значение должно быть положительным целым числом",
                 )
         elif self.kind == "decimal_nonneg":
             try:
-                v = Decimal(value)
+                decimal_value = Decimal(value)
             except InvalidOperation:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=f"{self.label}: значение должно быть числом",
-                )
-            if v < 0:
+                ) from None
+            if decimal_value < 0:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=f"{self.label}: значение не может быть отрицательным",
@@ -72,7 +76,11 @@ _KNOWN_CONSTANTS: dict[str, _ConstantSpec] = {
 }
 
 
-@router.get("/app-constants", response_model=list[AppConstantRead])
+@router.get(
+    "/app-constants",
+    response_model=list[AppConstantRead],
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_APP_CONSTANTS))],
+)
 def list_constants(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -86,7 +94,11 @@ def list_constants(
     ]
 
 
-@router.put("/app-constants/{key}", response_model=AppConstantRead)
+@router.put(
+    "/app-constants/{key}",
+    response_model=AppConstantRead,
+    dependencies=[Depends(require_scope(ApiKeyScope.WRITE_APP_CONSTANTS))],
+)
 def update_constant(
     key: str,
     body: AppConstantUpdate,

@@ -16,9 +16,9 @@ from app.models.user import User
 __all__ = [
     "Account",
     "AppConstant",
-    "ClassifierRule",
     "AuditLog",
     "Balance",
+    "ClassifierRule",
     "Counterparty",
     "Document",
     "ExchangeRate",

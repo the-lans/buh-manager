@@ -56,6 +56,41 @@ async def test_write_scope_required_for_mutation(
 
 
 @pytest.mark.asyncio
+async def test_app_constants_api_key_scopes_are_enforced(
+    client: AsyncClient, test_user: User, make_api_key_in_db: Callable[..., str]
+) -> None:
+    wrong_key = make_api_key_in_db(test_user.id, [ApiKeyScope.READ_RECEIPTS])
+    read_key = make_api_key_in_db(test_user.id, [ApiKeyScope.READ_APP_CONSTANTS])
+    write_key = make_api_key_in_db(test_user.id, [ApiKeyScope.WRITE_APP_CONSTANTS])
+
+    wrong_resp = await client.get(
+        "/api/v1/app-constants",
+        headers={"Authorization": f"Bearer {wrong_key}"},
+    )
+    assert wrong_resp.status_code == 403
+
+    read_resp = await client.get(
+        "/api/v1/app-constants",
+        headers={"Authorization": f"Bearer {read_key}"},
+    )
+    assert read_resp.status_code == 200
+
+    read_only_write_resp = await client.put(
+        "/api/v1/app-constants/RECONCILE_AUTO_MATCH_MAX_HOURS",
+        json={"value": "24"},
+        headers={"Authorization": f"Bearer {read_key}"},
+    )
+    assert read_only_write_resp.status_code == 403
+
+    write_resp = await client.put(
+        "/api/v1/app-constants/RECONCILE_AUTO_MATCH_MAX_HOURS",
+        json={"value": "24"},
+        headers={"Authorization": f"Bearer {write_key}"},
+    )
+    assert write_resp.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_inactive_api_key_returns_401(
     client: AsyncClient, test_user: User, make_api_key_in_db: Callable[..., str]
 ) -> None:
