@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session
 
 from app.constants import DEFAULT_AUDIT_LOG_LIMIT, ApiKeyScope
@@ -18,8 +18,8 @@ router = APIRouter(prefix="/audit-log", tags=["audit-log"])
 )
 def list_audit_log_endpoint(
     entity_type: str | None = None,
-    skip: int = 0,
-    limit: int = DEFAULT_AUDIT_LOG_LIMIT,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=DEFAULT_AUDIT_LOG_LIMIT, ge=1, le=1000),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[AuditLogRead]:

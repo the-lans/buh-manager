@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
+from sqlalchemy import exists, update
+from sqlalchemy.engine import CursorResult
 from sqlmodel import Session, col, select
 
 from app.constants import TX_DEDUP_WINDOW_SECONDS, ImportStatus, ReconciledStatus
@@ -187,6 +189,29 @@ def update_transaction_receipt_link(
     transaction.receipt_id = receipt_id
     transaction.reconciled_status = reconciled_status
     session.add(transaction)
+
+
+def try_claim_transaction_receipt_link(
+    *,
+    session: Session,
+    transaction: Transaction,
+    receipt_id: UUID,
+    reconciled_status: str,
+) -> bool:
+    result = session.execute(
+        update(Transaction)
+        .where(col(Transaction.id) == transaction.id)
+        .where(col(Transaction.receipt_id).is_(None))
+        .where(Transaction.reconciled_status == ReconciledStatus.UNMATCHED)
+        .where(~exists().where(Transaction.receipt_id == receipt_id))
+        .values(receipt_id=receipt_id, reconciled_status=reconciled_status)
+    )
+    cursor_result = result if isinstance(result, CursorResult) else None
+    if cursor_result is None or cursor_result.rowcount != 1:
+        return False
+    transaction.receipt_id = receipt_id
+    transaction.reconciled_status = reconciled_status
+    return True
 
 
 def link_transactions_to_document(

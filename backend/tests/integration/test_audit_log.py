@@ -116,3 +116,15 @@ async def test_list_audit_log_pagination(
     ids_page1 = {e["id"] for e in resp.json()}
     ids_page2 = {e["id"] for e in resp2.json()}
     assert ids_page1.isdisjoint(ids_page2)
+
+
+@pytest.mark.parametrize("params", [{"skip": -1}, {"limit": 0}, {"limit": 1001}])
+@pytest.mark.asyncio
+async def test_list_audit_log_rejects_invalid_pagination(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    params: dict[str, int],
+) -> None:
+    resp = await client.get("/api/v1/audit-log", params=params, headers=auth_headers)
+
+    assert resp.status_code == 422

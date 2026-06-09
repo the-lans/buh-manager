@@ -22,6 +22,20 @@ def get_account_by_id(
     ).first()
 
 
+def get_account_by_id_for_update(
+    *,
+    session: Session,
+    account_id: UUID,
+    user_id: UUID,
+) -> Account | None:
+    return session.exec(
+        select(Account)
+        .where(Account.id == account_id)
+        .where(Account.user_id == user_id)
+        .with_for_update()
+    ).first()
+
+
 def has_balances_for_account(*, session: Session, account_id: UUID) -> bool:
     count = session.exec(select(func.count()).where(Balance.account_id == account_id)).one()
     return count > 0
