@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 from sqlmodel import Session
 
-import app.db.app_constants as _mod
+import app.utils.ttl_cache as _ttl_mod
 from app.db.app_constants import (
     CONSTANTS_CACHE_TTL,
     _cache,
@@ -105,9 +105,9 @@ def test_cache_expires_after_ttl(
 ) -> None:
     upsert_constant(session=session, user_id=test_user.id, key="C", value="old")
     get_constant_value(session=session, user_id=test_user.id, key="C")
-    # Simulate TTL expiry: freeze monotonic well past the expiry point
-    real_monotonic = _mod.time.monotonic
-    monkeypatch.setattr(_mod.time, "monotonic", lambda: real_monotonic() + CONSTANTS_CACHE_TTL + 1)
+    # Simulate TTL expiry: advance monotonic past the expiry point
+    real_monotonic = _ttl_mod.time.monotonic
+    monkeypatch.setattr(_ttl_mod.time, "monotonic", lambda: real_monotonic() + CONSTANTS_CACHE_TTL + 1)
     result = get_constant_value(session=session, user_id=test_user.id, key="C")
     assert result == "old"  # value from DB is the same; confirms DB was re-queried (no error)
 
@@ -117,16 +117,16 @@ def test_upsert_invalidates_cache(session: Session, test_user: User) -> None:
     # Warm the cache
     get_constant_value(session=session, user_id=test_user.id, key="C")
     cache_key = (str(test_user.id), "C")
-    assert cache_key in _cache
+    assert _cache.get(cache_key)[0] is True  # cache hit
     # Update — must evict cache
     upsert_constant(session=session, user_id=test_user.id, key="C", value="2")
-    assert cache_key not in _cache
+    assert _cache.get(cache_key)[0] is False  # cache miss after invalidation
     assert get_constant_value(session=session, user_id=test_user.id, key="C") == "2"
 
 
 def test_cache_stores_none_for_missing_key(session: Session, test_user: User) -> None:
     get_constant_value(session=session, user_id=test_user.id, key="NO")
     cache_key = (str(test_user.id), "NO")
-    assert cache_key in _cache
-    cached_value, _ = _cache[cache_key]
-    assert cached_value is None
+    hit, value = _cache.get(cache_key)
+    assert hit is True
+    assert value is None
