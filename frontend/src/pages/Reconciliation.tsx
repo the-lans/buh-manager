@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import {
   useIgnoreTransaction,
@@ -15,6 +15,19 @@ import { extractApiError } from '../utils/errors'
 import { DataTable } from '../components/DataTable'
 
 const RECON_PAGE = 20
+const RECON_LOOKUP_LIMIT = 1000
+
+interface ReceiptOption {
+  id: string
+  paid_at: string
+  total_amount: string
+}
+
+interface TransactionOption {
+  id: string
+  occurred_at: string
+  amount: string
+}
 
 export default function Reconciliation() {
   const { data: report } = useReconciliationReport()
@@ -22,8 +35,11 @@ export default function Reconciliation() {
   const ignoreTx = useIgnoreTransaction()
   const manualMatch = useManualMatch()
 
-  const { data: availableReceipts = [] } = useReceipts({ unmatched: true, max_age_days: 60, limit: 500 })
-  const { data: availableTxs = [] } = useTransactions({ reconciled_status: 'UNMATCHED', limit: 200 })
+  const { data: availableReceipts = [] } = useReceipts({ unmatched: true, limit: RECON_LOOKUP_LIMIT })
+  const { data: availableTxs = [] } = useTransactions({
+    reconciled_status: 'UNMATCHED',
+    limit: RECON_LOOKUP_LIMIT,
+  })
   const { data: expenseTypes = [] } = useExpenseTypes()
   const counterpartyMap = useCounterpartyMap()
 
@@ -47,6 +63,36 @@ export default function Reconciliation() {
 
   const missingPage = report?.missing_receipts.slice(missingSkip, missingSkip + RECON_PAGE) ?? []
   const unmatchedPage = report?.unmatched_receipts.slice(unmatchedSkip, unmatchedSkip + RECON_PAGE) ?? []
+  const receiptOptions = useMemo<ReceiptOption[]>(() => {
+    const byId = new Map<string, ReceiptOption>()
+    for (const r of availableReceipts) {
+      byId.set(r.id, { id: r.id, paid_at: r.paid_at, total_amount: r.total_amount })
+    }
+    for (const r of report?.unmatched_receipts ?? []) {
+      byId.set(r.receipt_id, {
+        id: r.receipt_id,
+        paid_at: r.paid_at,
+        total_amount: r.total_amount,
+      })
+    }
+    return Array.from(byId.values())
+      .sort((a, b) => Date.parse(b.paid_at) - Date.parse(a.paid_at))
+  }, [availableReceipts, report?.unmatched_receipts])
+  const transactionOptions = useMemo<TransactionOption[]>(() => {
+    const byId = new Map<string, TransactionOption>()
+    for (const tx of availableTxs) {
+      byId.set(tx.id, { id: tx.id, occurred_at: tx.occurred_at, amount: tx.amount })
+    }
+    for (const tx of report?.missing_receipts ?? []) {
+      byId.set(tx.transaction_id, {
+        id: tx.transaction_id,
+        occurred_at: tx.occurred_at,
+        amount: tx.amount,
+      })
+    }
+    return Array.from(byId.values())
+      .sort((a, b) => Date.parse(b.occurred_at) - Date.parse(a.occurred_at))
+  }, [availableTxs, report?.missing_receipts])
 
   return (
     <div className="space-y-6">
@@ -102,7 +148,7 @@ export default function Reconciliation() {
                         className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 max-w-[200px]"
                       >
                         <option value="">— выбрать —</option>
-                        {availableReceipts.map((r) => (
+                        {receiptOptions.map((r) => (
                           <option key={r.id} value={r.id}>
                             {formatDate(r.paid_at)} —{' '}
                             {Number(r.total_amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
@@ -202,7 +248,7 @@ export default function Reconciliation() {
                         className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 max-w-[200px]"
                       >
                         <option value="">— выбрать —</option>
-                        {availableTxs.map((tx) => (
+                        {transactionOptions.map((tx) => (
                           <option key={tx.id} value={tx.id}>
                             {formatDate(tx.occurred_at)} —{' '}
                             {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽

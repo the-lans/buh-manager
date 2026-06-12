@@ -15,8 +15,8 @@ from app.db.transactions import (
     delete_transaction,
     get_transaction_by_id,
     get_transactions_for_user,
+    try_update_transaction_receipt_link,
     update_transaction,
-    update_transaction_receipt_link,
 )
 from app.dependencies.auth import get_current_user, require_scope
 from app.models.user import User
@@ -148,6 +148,7 @@ def update_transaction_endpoint(
         data = data.model_copy(update={"expense_type_id": et.id})
 
     before = {"amount": str(tx.amount), "occurred_at": str(tx.occurred_at)}
+    expected_receipt_id = tx.receipt_id
     tx = update_transaction(session=session, transaction=tx, data=data)
     if data.apply_rules:
         rules = list_rules_for_user(session=session, user_id=current_user.id)
@@ -170,16 +171,21 @@ def update_transaction_endpoint(
                     status_code=status.HTTP_409_CONFLICT,
                     detail="Receipt is already matched to another transaction.",
                 )
-            update_transaction_receipt_link(
+            if not try_update_transaction_receipt_link(
                 session=session,
                 transaction=tx,
                 receipt_id=receipt.id,
                 reconciled_status=ReconciledStatus.MATCHED,
-            )
+                expected_receipt_id=expected_receipt_id,
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Transaction or receipt is already matched.",
+                )
             receipt_being_linked = receipt.id
         else:
             prev_status = tx.reconciled_status
-            update_transaction_receipt_link(
+            if not try_update_transaction_receipt_link(
                 session=session,
                 transaction=tx,
                 receipt_id=None,
@@ -188,7 +194,12 @@ def update_transaction_endpoint(
                     if prev_status == ReconciledStatus.MATCHED
                     else prev_status
                 ),
-            )
+                expected_receipt_id=expected_receipt_id,
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Transaction receipt link was changed by another request.",
+                )
     after = {"amount": str(tx.amount), "occurred_at": str(tx.occurred_at)}
 
     audit_update(
