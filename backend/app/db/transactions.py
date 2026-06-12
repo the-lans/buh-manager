@@ -191,6 +191,40 @@ def update_transaction_receipt_link(
     session.add(transaction)
 
 
+def try_update_transaction_receipt_link(
+    *,
+    session: Session,
+    transaction: Transaction,
+    receipt_id: UUID | None,
+    reconciled_status: str,
+    expected_receipt_id: UUID | None,
+    expected_reconciled_status: str | None = None,
+) -> bool:
+    statement = update(Transaction).where(col(Transaction.id) == transaction.id)
+    if expected_receipt_id is None:
+        statement = statement.where(col(Transaction.receipt_id).is_(None))
+    else:
+        statement = statement.where(col(Transaction.receipt_id) == expected_receipt_id)
+    if expected_reconciled_status is not None:
+        statement = statement.where(col(Transaction.reconciled_status) == expected_reconciled_status)
+    if receipt_id is not None:
+        statement = statement.where(
+            ~exists()
+            .where(col(Transaction.receipt_id) == receipt_id)
+            .where(col(Transaction.id) != transaction.id)
+        )
+
+    result = session.execute(
+        statement.values(receipt_id=receipt_id, reconciled_status=reconciled_status)
+    )
+    cursor_result = result if isinstance(result, CursorResult) else None
+    if cursor_result is None or cursor_result.rowcount != 1:
+        return False
+    transaction.receipt_id = receipt_id
+    transaction.reconciled_status = reconciled_status
+    return True
+
+
 def try_claim_transaction_receipt_link(
     *,
     session: Session,

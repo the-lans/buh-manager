@@ -23,14 +23,16 @@ export function useRunReconciliation() {
 export function useManualMatch() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ transactionId, receiptId }: { transactionId: string; receiptId: string }) => {
-      await reconciliationApi.match(transactionId, receiptId)
-      return reconciliationApi.run()
-    },
+    mutationFn: ({ transactionId, receiptId }: { transactionId: string; receiptId: string }) =>
+      reconciliationApi.match(transactionId, receiptId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['reconciliationReport'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['receipts'] })
+      void reconciliationApi.run()
+        .catch(() => undefined)
+        .finally(() => {
+          qc.invalidateQueries({ queryKey: ['reconciliationReport'] })
+        })
     },
   })
 }
@@ -38,14 +40,15 @@ export function useManualMatch() {
 export function useIgnoreTransaction() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (transactionId: string) => {
-      await reconciliationApi.ignore(transactionId)
-      return reconciliationApi.run()
-    },
+    mutationFn: (transactionId: string) => reconciliationApi.ignore(transactionId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['reconciliationReport'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['receipts'] })
+      void reconciliationApi.run()
+        .catch(() => undefined)
+        .finally(() => {
+          qc.invalidateQueries({ queryKey: ['reconciliationReport'] })
+        })
     },
   })
 }

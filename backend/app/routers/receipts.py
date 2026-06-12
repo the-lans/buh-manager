@@ -132,7 +132,7 @@ def list_receipts(
     pagination: PaginationParams = Depends(),
     document_id: UUID | None = Query(default=None),
     unmatched: bool = Query(default=False),
-    max_age_days: int | None = Query(default=None),
+    max_age_days: int | None = Query(default=None, ge=0, le=3650),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[ReceiptListItem]:

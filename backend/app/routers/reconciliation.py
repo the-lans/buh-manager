@@ -13,7 +13,7 @@ from app.constants import (
 from app.database import get_session
 from app.db.receipts import get_receipt_by_id, get_receipt_linked_transaction
 from app.db.reconciliation_reports import get_last_report
-from app.db.transactions import get_transaction_by_id, update_transaction_receipt_link
+from app.db.transactions import get_transaction_by_id, try_update_transaction_receipt_link
 from app.dependencies.auth import get_current_user, require_scope
 from app.models.user import User
 from app.schemas.reconciliation import (
@@ -95,12 +95,18 @@ def manual_match(
             detail="Receipt is already matched to another transaction.",
         )
 
-    update_transaction_receipt_link(
+    if not try_update_transaction_receipt_link(
         session=session,
         transaction=tx,
         receipt_id=receipt.id,
         reconciled_status=ReconciledStatus.MATCHED,
-    )
+        expected_receipt_id=None,
+        expected_reconciled_status=ReconciledStatus.UNMATCHED,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Transaction or receipt is already matched.",
+        )
     audit_match(
         session=session,
         transaction_id=tx.id,

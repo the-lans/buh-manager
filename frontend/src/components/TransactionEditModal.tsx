@@ -8,6 +8,7 @@ import { formatDate, localInputToUtcIso, utcIsoToLocalInput } from '../utils/dat
 import type { Transaction } from '../types'
 
 const ID_PREVIEW_LEN = 8
+const RECEIPT_LOOKUP_LIMIT = 1000
 
 function fmtAmount(v: string | null): string {
   return v ? `${Number(v).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽` : '—'
@@ -34,7 +35,10 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
   const update = useUpdateTransaction()
   const { data: expenseTypes = [] } = useExpenseTypes()
   const { data: accounts = [] } = useAccounts()
-  const { data: unmatchedReceipts = [] } = useReceipts({ unmatched: true, max_age_days: 60, limit: 500 })
+  const { data: unmatchedReceipts = [] } = useReceipts({
+    unmatched: true,
+    limit: RECEIPT_LOOKUP_LIMIT,
+  })
 
   const [form, setForm] = useState(() =>
     transaction
