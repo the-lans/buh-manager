@@ -43,6 +43,7 @@ class TransactionUpdate(BaseModel):
     expense_type_id: str | None = None
     description: str | None = None
     apply_rules: bool = False
+    receipt_id: UUID | None = None
 
     model_config = {"extra": "forbid"}
 

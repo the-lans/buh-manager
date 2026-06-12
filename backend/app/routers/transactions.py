@@ -3,17 +3,19 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from app.constants import ApiKeyScope, AuditEntityType, ChangedBy
+from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, ReconciledStatus
 from app.database import get_session
 from app.db.accounts import get_account_by_id
 from app.db.classifier_rules import list_rules_for_user
 from app.db.expense_types import get_expense_type_by_id
+from app.db.receipts import get_receipt_by_id, get_receipt_linked_transaction
 from app.db.transactions import (
     create_transaction,
     delete_transaction,
     get_transaction_by_id,
     get_transactions_for_user,
     update_transaction,
+    update_transaction_receipt_link,
 )
 from app.dependencies.auth import get_current_user, require_scope
 from app.models.user import User
@@ -152,6 +154,33 @@ def update_transaction_endpoint(
         if matched_et_id is not None:
             tx.expense_type_id = matched_et_id
             session.add(tx)
+    if "receipt_id" in data.model_fields_set:
+        if data.receipt_id is not None:
+            receipt = get_receipt_by_id(
+                session=session, receipt_id=data.receipt_id, user_id=current_user.id
+            )
+            receipt = get_or_404(receipt, "Receipt not found.")
+            linked = get_receipt_linked_transaction(
+                session=session, receipt_id=receipt.id, user_id=current_user.id
+            )
+            if linked is not None and linked.id != tx.id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Receipt is already matched to another transaction.",
+                )
+            update_transaction_receipt_link(
+                session=session,
+                transaction=tx,
+                receipt_id=receipt.id,
+                reconciled_status=ReconciledStatus.MATCHED,
+            )
+        else:
+            update_transaction_receipt_link(
+                session=session,
+                transaction=tx,
+                receipt_id=None,
+                reconciled_status=ReconciledStatus.UNMATCHED,
+            )
     after = {"amount": str(tx.amount), "occurred_at": str(tx.occurred_at)}
 
     audit_update(

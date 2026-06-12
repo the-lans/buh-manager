@@ -23,9 +23,12 @@ export function useRunReconciliation() {
 export function useManualMatch() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ transactionId, receiptId }: { transactionId: string; receiptId: string }) =>
-      reconciliationApi.match(transactionId, receiptId),
+    mutationFn: async ({ transactionId, receiptId }: { transactionId: string; receiptId: string }) => {
+      await reconciliationApi.match(transactionId, receiptId)
+      return reconciliationApi.run()
+    },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliationReport'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['receipts'] })
     },
@@ -35,10 +38,14 @@ export function useManualMatch() {
 export function useIgnoreTransaction() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (transactionId: string) => reconciliationApi.ignore(transactionId),
+    mutationFn: async (transactionId: string) => {
+      await reconciliationApi.ignore(transactionId)
+      return reconciliationApi.run()
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reconciliationReport'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['receipts'] })
     },
   })
 }

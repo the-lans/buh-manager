@@ -34,6 +34,7 @@ export interface TransactionUpdatePayload {
   expense_type_id?: string
   description?: string | null
   apply_rules?: boolean
+  receipt_id?: string | null
 }
 
 export const transactionsApi = {

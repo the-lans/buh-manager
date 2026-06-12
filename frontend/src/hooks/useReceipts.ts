@@ -5,6 +5,8 @@ export function useReceipts(params?: {
   skip?: number
   limit?: number
   document_id?: string
+  unmatched?: boolean
+  max_age_days?: number
   enabled?: boolean
 }) {
   const { enabled = true, ...queryParams } = params ?? {}
