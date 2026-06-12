@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 from typing import cast
 from uuid import UUID
 
@@ -70,6 +71,8 @@ def get_receipts_for_user(
     skip: int = 0,
     limit: int = 100,
     document_id: UUID | None = None,
+    unmatched: bool = False,
+    max_age_days: int | None = None,
 ) -> list[Receipt]:
     query = (
         select(Receipt)
@@ -78,6 +81,17 @@ def get_receipts_for_user(
     )
     if document_id is not None:
         query = query.where(Receipt.document_id == document_id)
+    if unmatched:
+        matched_receipts = (
+            select(Transaction.receipt_id)
+            .join(Account)
+            .where(Account.user_id == user_id)
+            .where(col(Transaction.receipt_id).is_not(None))
+        )
+        query = query.where(col(Receipt.id).not_in(matched_receipts))
+    if max_age_days is not None:
+        cutoff = datetime.now(tz=timezone.utc) - timedelta(days=max_age_days)
+        query = query.where(Receipt.paid_at >= cutoff)
     query = query.order_by(col(Receipt.paid_at).desc()).offset(skip).limit(limit)
     return list(session.exec(query).all())
 

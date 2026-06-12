@@ -33,10 +33,10 @@ describe('Rules page', () => {
     await waitFor(() => expect(screen.getByText('Продукты')).toBeInTheDocument())
     // name
     expect(screen.getByText('Продукты')).toBeInTheDocument()
-    // expense type (from mock: id='food' → name='Питание')
-    await waitFor(() => expect(screen.getByText('Питание')).toBeInTheDocument())
-    // priority
-    expect(screen.getByText('1')).toBeInTheDocument()
+    // expense type (from mock: id='food' → name='Питание') — appears in filter dropdown and table row
+    await waitFor(() => expect(screen.getAllByText('Питание').length).toBeGreaterThanOrEqual(1))
+    // priority — appears in filter dropdown and table row
+    expect(screen.getAllByText('1').length).toBeGreaterThanOrEqual(1)
     // representation
     expect(screen.getByText(/Тип: Расход/)).toBeInTheDocument()
     // is_active → ✓

@@ -36,6 +36,7 @@ export default function Receipts() {
           { label: 'Дата' },
           { label: 'Контрагент' },
           { label: 'Сумма', align: 'right' },
+          { label: 'Транзакция', align: 'center' },
           { label: 'Документ', align: 'center' },
           { label: '' },
         ]}
@@ -55,6 +56,11 @@ export default function Receipts() {
             </td>
             <td className="px-4 py-2 text-right tabular-nums font-medium text-gray-900">
               {Number(r.total_amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+            </td>
+            <td className="px-4 py-2 text-center">
+              {r.transaction_id
+                ? <span className="text-green-600 font-medium">✓</span>
+                : <span className="text-gray-300">—</span>}
             </td>
             <td className="px-4 py-2 text-center">
               {r.document_id

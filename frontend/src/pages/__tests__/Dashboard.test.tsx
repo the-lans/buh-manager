@@ -185,7 +185,7 @@ describe('Dashboard page', () => {
     )
     renderWithProviders(<Dashboard />)
     await waitFor(() => expect(screen.getByText('Питание')).toBeInTheDocument())
-    // Total should be 500 ₽ (300 + 200)
-    expect(screen.getByText(/500,00\s*₽/)).toBeInTheDocument()
+    // Total should be 500 ₽ (300 + 200) — appears in both the row and the "Итого" totals row
+    expect(screen.getAllByText(/500,00\s*₽/).length).toBeGreaterThanOrEqual(1)
   })
 })

@@ -168,6 +168,19 @@ export default function Dashboard() {
               </td>
             </tr>
           ))}
+          {expenseTypeRows.length > 0 && (() => {
+            const totalCount = expenseTypeRows.reduce((s, r) => s + r.count, 0)
+            const totalSum = expenseTypeRows.reduce((s, r) => s + r.total, 0)
+            return (
+              <tr className="bg-gray-50 border-t-2 border-gray-200">
+                <td className="px-4 py-2 font-semibold text-gray-900">Итого</td>
+                <td className="px-4 py-2 text-right tabular-nums font-semibold text-gray-900">{totalCount}</td>
+                <td className="px-4 py-2 text-right tabular-nums font-semibold text-gray-900">
+                  {totalSum.toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+                </td>
+              </tr>
+            )
+          })()}
         </DataTable>
       </section>
     </div>

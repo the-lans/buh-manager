@@ -115,8 +115,7 @@ class ReceiptListItem(BaseModel):
     total_amount: Decimal
     counterparty_id: str | None
     document_id: UUID | None
-
-    model_config = {"from_attributes": True}
+    transaction_id: UUID | None = None
 
     @field_serializer("counterparty_id")
     def serialize_counterparty_id(self, value: str | None) -> str | None:

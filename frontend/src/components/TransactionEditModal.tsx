@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { useAccounts } from '../hooks/useAccounts'
 import { useExpenseTypes } from '../hooks/useExpenseTypes'
+import { useReceipts } from '../hooks/useReceipts'
 import { useUpdateTransaction } from '../hooks/useTransactions'
 import { formatDate, localInputToUtcIso, utcIsoToLocalInput } from '../utils/date'
 import type { Transaction } from '../types'
@@ -33,6 +34,7 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
   const update = useUpdateTransaction()
   const { data: expenseTypes = [] } = useExpenseTypes()
   const { data: accounts = [] } = useAccounts()
+  const { data: unmatchedReceipts = [] } = useReceipts({ unmatched: true, max_age_days: 60 })
 
   const [form, setForm] = useState(() =>
     transaction
@@ -43,6 +45,7 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
           bank_category: transaction.bank_category ?? '',
           expense_type_id: transaction.expense_type_id ?? '',
           description: transaction.description ?? '',
+          receipt_id: transaction.receipt_id ?? '',
         }
       : {
           occurred_at: '',
@@ -51,6 +54,7 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
           bank_category: '',
           expense_type_id: '',
           description: '',
+          receipt_id: '',
         },
   )
   const [applyRules, setApplyRules] = useState(false)
@@ -81,6 +85,7 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
           expense_type_id: form.expense_type_id,
           description: form.description || null,
           apply_rules: applyRules,
+          receipt_id: form.receipt_id || null,
         },
       })
       onClose()
@@ -129,10 +134,6 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
             </dd>
             <dt className="text-gray-500">Статус импорта</dt>
             <dd className="text-gray-700">{IMPORT_STATUS_LABELS[transaction.import_status] ?? transaction.import_status}</dd>
-            <dt className="text-gray-500">Чек</dt>
-            <dd className="text-gray-700 font-mono text-xs truncate" title={transaction.receipt_id ?? ''}>
-              {transaction.receipt_id ? `${transaction.receipt_id.slice(0, ID_PREVIEW_LEN)}…` : '—'}
-            </dd>
             <dt className="text-gray-500">Документ</dt>
             <dd className="text-gray-700 font-mono text-xs truncate" title={transaction.document_id ?? ''}>
               {transaction.document_id ? `${transaction.document_id.slice(0, ID_PREVIEW_LEN)}…` : '—'}
@@ -203,6 +204,26 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
               placeholder="Необязательно"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />
+          </Field>
+
+          <Field label="Чек">
+            <select
+              value={form.receipt_id}
+              onChange={(e) => setForm((f) => ({ ...f, receipt_id: e.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">— Без чека —</option>
+              {transaction.receipt_id && !unmatchedReceipts.find((r) => r.id === transaction.receipt_id) && (
+                <option value={transaction.receipt_id}>
+                  {transaction.receipt_id.slice(0, ID_PREVIEW_LEN)}… (текущий)
+                </option>
+              )}
+              {unmatchedReceipts.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {formatDate(r.paid_at)} — {Number(r.total_amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+                </option>
+              ))}
+            </select>
           </Field>
         </div>
 

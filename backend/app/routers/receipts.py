@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session
+from sqlmodel import Session, col, select
 
 from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, DocumentStatus, DocumentType
 from app.database import get_session
@@ -21,9 +21,11 @@ from app.db.receipts import (
     update_receipt,
 )
 from app.dependencies.auth import get_current_user, require_scope
+from app.models.account import Account
 from app.models.document import Document
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
+from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.common import PaginationParams
 from app.schemas.receipt import (
@@ -35,6 +37,7 @@ from app.schemas.receipt import (
 )
 from app.services.audit import audit_create, audit_delete, audit_update
 from app.utils.http import get_or_404
+from app.utils.ids import unscope_user_id
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
 
@@ -128,6 +131,8 @@ def create_receipt_endpoint(
 def list_receipts(
     pagination: PaginationParams = Depends(),
     document_id: UUID | None = Query(default=None),
+    unmatched: bool = Query(default=False),
+    max_age_days: int | None = Query(default=None),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[ReceiptListItem]:
@@ -137,8 +142,31 @@ def list_receipts(
         skip=pagination.skip,
         limit=pagination.limit,
         document_id=document_id,
+        unmatched=unmatched,
+        max_age_days=max_age_days,
     )
-    return [ReceiptListItem.model_validate(r) for r in receipts]
+    receipt_ids = [r.id for r in receipts]
+    if receipt_ids:
+        tx_links = session.exec(
+            select(Transaction.receipt_id, Transaction.id)
+            .join(Account)
+            .where(Account.user_id == current_user.id)
+            .where(col(Transaction.receipt_id).in_(receipt_ids))
+        ).all()
+        receipt_to_tx: dict[UUID, UUID] = {r_id: tx_id for r_id, tx_id in tx_links}
+    else:
+        receipt_to_tx = {}
+    return [
+        ReceiptListItem(
+            id=r.id,
+            paid_at=r.paid_at,
+            total_amount=r.total_amount,
+            counterparty_id=unscope_user_id(r.counterparty_id),
+            document_id=r.document_id,
+            transaction_id=receipt_to_tx.get(r.id),
+        )
+        for r in receipts
+    ]
 
 
 @router.get(
