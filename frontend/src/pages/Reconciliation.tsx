@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 import {
   useIgnoreTransaction,
@@ -22,7 +22,7 @@ export default function Reconciliation() {
   const ignoreTx = useIgnoreTransaction()
   const manualMatch = useManualMatch()
 
-  const { data: availableReceipts = [] } = useReceipts({ unmatched: true, max_age_days: 60 })
+  const { data: availableReceipts = [] } = useReceipts({ unmatched: true, max_age_days: 60, limit: 500 })
   const { data: availableTxs = [] } = useTransactions({ reconciled_status: 'UNMATCHED', limit: 200 })
   const { data: expenseTypes = [] } = useExpenseTypes()
   const counterpartyMap = useCounterpartyMap()
@@ -34,6 +34,11 @@ export default function Reconciliation() {
 
   const [missingSkip, setMissingSkip] = useState(0)
   const [unmatchedSkip, setUnmatchedSkip] = useState(0)
+
+  useEffect(() => {
+    setMissingSkip(0)
+    setUnmatchedSkip(0)
+  }, [report?.report_generated_at])
 
   // Per-row selection state: transaction_id → receipt_id
   const [receiptForTx, setReceiptForTx] = useState<Record<string, string>>({})

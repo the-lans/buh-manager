@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, ReconciledStatus
@@ -27,7 +28,7 @@ from app.schemas.transaction import (
     TransactionRead,
     TransactionUpdate,
 )
-from app.services.audit import audit_create, audit_delete, audit_update
+from app.services.audit import audit_create, audit_delete, audit_match, audit_update
 from app.services.classifier import apply_rules
 from app.utils.http import get_or_404
 
@@ -154,6 +155,7 @@ def update_transaction_endpoint(
         if matched_et_id is not None:
             tx.expense_type_id = matched_et_id
             session.add(tx)
+    receipt_being_linked: UUID | None = None
     if "receipt_id" in data.model_fields_set:
         if data.receipt_id is not None:
             receipt = get_receipt_by_id(
@@ -174,12 +176,18 @@ def update_transaction_endpoint(
                 receipt_id=receipt.id,
                 reconciled_status=ReconciledStatus.MATCHED,
             )
+            receipt_being_linked = receipt.id
         else:
+            prev_status = tx.reconciled_status
             update_transaction_receipt_link(
                 session=session,
                 transaction=tx,
                 receipt_id=None,
-                reconciled_status=ReconciledStatus.UNMATCHED,
+                reconciled_status=(
+                    ReconciledStatus.UNMATCHED
+                    if prev_status == ReconciledStatus.MATCHED
+                    else prev_status
+                ),
             )
     after = {"amount": str(tx.amount), "occurred_at": str(tx.occurred_at)}
 
@@ -192,7 +200,22 @@ def update_transaction_endpoint(
         before=before,
         after=after,
     )
-    session.commit()
+    if receipt_being_linked is not None:
+        audit_match(
+            session=session,
+            transaction_id=tx.id,
+            receipt_id=receipt_being_linked,
+            changed_by=ChangedBy.USER,
+            user_id=current_user.id,
+        )
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Receipt is already matched to another transaction.",
+        )
     return TransactionRead.model_validate(tx)
 
 
