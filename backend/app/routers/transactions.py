@@ -221,12 +221,12 @@ def update_transaction_endpoint(
         )
     try:
         session.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Receipt is already matched to another transaction.",
-        )
+        ) from exc
     return TransactionRead.model_validate(tx)
 
 

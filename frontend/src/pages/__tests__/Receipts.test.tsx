@@ -43,6 +43,7 @@ describe('Receipts page', () => {
             total_amount: '250.00',
             counterparty_id: null,
             document_id: 'doc-1',
+            transaction_id: null,
           },
         ]),
       ),
