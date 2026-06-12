@@ -34,7 +34,7 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
   const update = useUpdateTransaction()
   const { data: expenseTypes = [] } = useExpenseTypes()
   const { data: accounts = [] } = useAccounts()
-  const { data: unmatchedReceipts = [] } = useReceipts({ unmatched: true, max_age_days: 60 })
+  const { data: unmatchedReceipts = [] } = useReceipts({ unmatched: true, max_age_days: 60, limit: 500 })
 
   const [form, setForm] = useState(() =>
     transaction
@@ -75,6 +75,7 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
       return
     }
     try {
+      const receiptChanged = form.receipt_id !== (transaction.receipt_id ?? '')
       await update.mutateAsync({
         id: transaction.id,
         data: {
@@ -85,7 +86,7 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
           expense_type_id: form.expense_type_id,
           description: form.description || null,
           apply_rules: applyRules,
-          receipt_id: form.receipt_id || null,
+          ...(receiptChanged ? { receipt_id: form.receipt_id || null } : {}),
         },
       })
       onClose()

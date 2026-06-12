@@ -117,6 +117,8 @@ class ReceiptListItem(BaseModel):
     document_id: UUID | None
     transaction_id: UUID | None = None
 
+    model_config = {"from_attributes": True}
+
     @field_serializer("counterparty_id")
     def serialize_counterparty_id(self, value: str | None) -> str | None:
         return unscope_user_id(value)
