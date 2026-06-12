@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
+from sqlmodel import Session
 
 from app.models.account import Account
 from app.routers import transactions as transactions_router
@@ -434,3 +435,140 @@ async def test_create_transaction_returns_valid_id(
     )
     assert resp.status_code == 201
     UUID(resp.json()["id"])
+
+
+# ── PUT /transactions/{id} — receipt_id linking ───────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_update_transaction_links_receipt(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
+        headers=auth_headers,
+    )
+    tx_id = tx_resp.json()["id"]
+    receipt_id = await _create_receipt(client, auth_headers)
+
+    update_resp = await client.put(
+        f"/api/v1/transactions/{tx_id}",
+        json={"receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200
+    data = update_resp.json()
+    assert data["receipt_id"] == receipt_id
+    assert data["reconciled_status"] == "MATCHED"
+
+
+@pytest.mark.asyncio
+async def test_update_transaction_clears_receipt_resets_to_unmatched(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
+        headers=auth_headers,
+    )
+    tx_id = tx_resp.json()["id"]
+    receipt_id = await _create_receipt(client, auth_headers)
+
+    await client.put(
+        f"/api/v1/transactions/{tx_id}",
+        json={"receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+
+    clear_resp = await client.put(
+        f"/api/v1/transactions/{tx_id}",
+        json={"receipt_id": None},
+        headers=auth_headers,
+    )
+    assert clear_resp.status_code == 200
+    data = clear_resp.json()
+    assert data["receipt_id"] is None
+    assert data["reconciled_status"] == "UNMATCHED"
+
+
+@pytest.mark.asyncio
+async def test_update_transaction_clear_receipt_preserves_ignored_status(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+    session: Session,
+) -> None:
+    from app.constants import ReconciledStatus
+    from app.models.transaction import Transaction as TxModel
+
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
+        headers=auth_headers,
+    )
+    tx_id = tx_resp.json()["id"]
+
+    # Mark as IGNORED_BY_USER via reconciliation/ignore
+    await client.post(
+        "/api/v1/reconciliation/ignore",
+        json={"transaction_id": tx_id},
+        headers=auth_headers,
+    )
+
+    # Sending receipt_id=null should NOT reset IGNORED_BY_USER → UNMATCHED
+    clear_resp = await client.put(
+        f"/api/v1/transactions/{tx_id}",
+        json={"receipt_id": None},
+        headers=auth_headers,
+    )
+    assert clear_resp.status_code == 200
+    session.expire_all()
+    tx = session.get(TxModel, UUID(tx_id))
+    assert tx is not None
+    assert tx.reconciled_status == ReconciledStatus.IGNORED_BY_USER
+
+
+@pytest.mark.asyncio
+async def test_update_transaction_link_receipt_already_linked_to_other_returns_409(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    receipt_id = await _create_receipt(client, auth_headers)
+
+    tx1_resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
+        headers=auth_headers,
+    )
+    tx1_id = tx1_resp.json()["id"]
+
+    tx2_resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id), amount=-200.0, expense_type_id=test_expense_type_id),
+        headers=auth_headers,
+    )
+    tx2_id = tx2_resp.json()["id"]
+
+    link_resp = await client.put(
+        f"/api/v1/transactions/{tx1_id}",
+        json={"receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+    assert link_resp.status_code == 200
+
+    conflict_resp = await client.put(
+        f"/api/v1/transactions/{tx2_id}",
+        json={"receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+    assert conflict_resp.status_code == 409

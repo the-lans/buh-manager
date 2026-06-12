@@ -766,3 +766,147 @@ async def test_update_receipt_stores_scoped_counterparty_id(
     r = session.get(Receipt, UUID(receipt_id))
     assert r is not None
     assert r.counterparty_id == scope_user_id(user_id=test_user.id, public_id="fix-cp")
+
+
+# ── GET /receipts — transaction_id field and new filters ─────────────────────
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_returns_transaction_id_when_matched(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    receipt_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="tx-id-r1", fd="100001", fpd="100001"),
+        headers=auth_headers,
+    )
+    assert receipt_resp.status_code == 201
+    receipt_id = receipt_resp.json()["id"]
+
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2024-05-01T10:00:00",
+            "amount": -100.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+        },
+        headers=auth_headers,
+    )
+    assert tx_resp.status_code == 201
+    tx_id = tx_resp.json()["id"]
+
+    match_resp = await client.post(
+        "/api/v1/reconciliation/match",
+        json={"transaction_id": tx_id, "receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+    assert match_resp.status_code == 200
+
+    list_resp = await client.get("/api/v1/receipts", headers=auth_headers)
+    assert list_resp.status_code == 200
+    items = list_resp.json()
+    matched = next((r for r in items if r["id"] == receipt_id), None)
+    assert matched is not None
+    assert matched["transaction_id"] == tx_id
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_transaction_id_is_null_when_unmatched(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    receipt_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="tx-id-r2", fd="100002", fpd="100002"),
+        headers=auth_headers,
+    )
+    assert receipt_resp.status_code == 201
+    receipt_id = receipt_resp.json()["id"]
+
+    list_resp = await client.get("/api/v1/receipts", headers=auth_headers)
+    assert list_resp.status_code == 200
+    items = list_resp.json()
+    item = next((r for r in items if r["id"] == receipt_id), None)
+    assert item is not None
+    assert item["transaction_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_unmatched_filter_excludes_matched(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    unmatched_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="unmatch-r1", fd="200001", fpd="200001"),
+        headers=auth_headers,
+    )
+    unmatched_id = unmatched_resp.json()["id"]
+
+    matched_receipt_resp = await client.post(
+        "/api/v1/receipts",
+        json=_receipt_payload(fn="unmatch-r2", fd="200002", fpd="200002"),
+        headers=auth_headers,
+    )
+    matched_receipt_id = matched_receipt_resp.json()["id"]
+
+    tx_resp = await client.post(
+        "/api/v1/transactions",
+        json={
+            "account_id": str(test_account.id),
+            "occurred_at": "2024-05-01T10:00:00",
+            "amount": -100.0,
+            "type": "EXPENSE",
+            "expense_type_id": test_expense_type_id,
+        },
+        headers=auth_headers,
+    )
+    tx_id = tx_resp.json()["id"]
+    await client.post(
+        "/api/v1/reconciliation/match",
+        json={"transaction_id": tx_id, "receipt_id": matched_receipt_id},
+        headers=auth_headers,
+    )
+
+    list_resp = await client.get(
+        "/api/v1/receipts",
+        params={"unmatched": "true"},
+        headers=auth_headers,
+    )
+    assert list_resp.status_code == 200
+    ids = [r["id"] for r in list_resp.json()]
+    assert unmatched_id in ids
+    assert matched_receipt_id not in ids
+
+
+@pytest.mark.asyncio
+async def test_list_receipts_max_age_days_filter(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    resp = await client.post(
+        "/api/v1/receipts",
+        json={
+            "paid_at": "2020-01-01T12:00:00",
+            "total_amount": 50.0,
+            "items": [{"name": "Old item", "quantity": "1", "price": "50", "amount": "50"}],
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+
+    list_resp = await client.get(
+        "/api/v1/receipts",
+        params={"max_age_days": 30},
+        headers=auth_headers,
+    )
+    assert list_resp.status_code == 200
+    for item in list_resp.json():
+        assert item["paid_at"] > "2020-01-02"
