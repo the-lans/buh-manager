@@ -283,6 +283,7 @@ export const handlers = [
         total_amount: '500.00',
         counterparty_id: 'cp-1',
         document_id: null,
+        transaction_id: null,
       },
     ]),
   ),

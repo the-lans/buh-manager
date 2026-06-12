@@ -88,6 +88,7 @@ describe('DocumentDetailModal', () => {
             total_amount: '750.00',
             counterparty_id: 'cp-1',
             document_id: 'doc-1',
+            transaction_id: null,
           },
         ]),
       ),

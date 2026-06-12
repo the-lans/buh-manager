@@ -241,7 +241,7 @@ YANDEX_SECRET_KEY=
 | Метод | Путь | Описание |
 |---|---|---|
 | `POST` | `/receipts` | Агент передаёт распознанный чек. Бэкенд создаёт запись в `receipts`, позиции в `receipt_items`, находит или создаёт контрагента. Обновляет статус документа на PROCESSED. |
-| `GET` | `/receipts` | Список чеков с пагинацией. Фильтры: `?document_id=`, `?unmatched=true` (только чеки без привязанной транзакции), `?max_age_days=N` (только чеки не старше N дней). Ответ включает поле `transaction_id` (ID привязанной транзакции или null). |
+| `GET` | `/receipts` | Список чеков с пагинацией. Фильтры: `?document_id=`, `?unmatched=true` (только чеки без привязанной транзакции), `?max_age_days=N` (только чеки не старше N дней, `0..3650`). Ответ включает поле `transaction_id` (ID привязанной транзакции или null). |
 | `GET` | `/receipts/{id}` | Детали чека с позициями. |
 | `PUT` | `/receipts/{id}` | Ручное редактирование чека. |
 | `DELETE` | `/receipts/{id}` | Удаление чека. |
@@ -357,19 +357,19 @@ YANDEX_SECRET_KEY=
       "reason": "MULTIPLE_MATCHES",
       "message": "Найдено 2 транзакции и 2 чека на одинаковую сумму. Требуется ручное сопоставление.",
       "involved_transactions": [
-        {"id": "uuid", "occurred_at": "...", "counterparty_name": "..."}
+        {"id": "uuid", "occurred_at": "...", "amount": -150.00}
       ],
       "involved_receipts": [
-        {"id": "uuid", "paid_at": "...", "store_name": "..."}
+        {"id": "uuid", "paid_at": "...", "counterparty_id": "store", "total_amount": 150.00}
       ]
     }
   ],
   "missing_receipts": [
     {"transaction_id": "uuid", "occurred_at": "...", "amount": -500.00,
-     "counterparty_name": "...", "expense_type": "grocery"}
+     "expense_type_id": "grocery"}
   ],
   "unmatched_receipts": [
-    {"receipt_id": "uuid", "paid_at": "...", "total_amount": 300.00, "store_name": "..."}
+    {"receipt_id": "uuid", "paid_at": "...", "total_amount": 300.00, "counterparty_id": "store"}
   ]
 }
 ```
@@ -649,7 +649,7 @@ bookkeeper/
 - Таблица с фильтрами (тип, статус сверки, счёт) и пагинацией.
 - Визуальная индикация `reconciled_status` (бейдж) и наличия чека/документа (галочка).
 - **Форма создания транзакции** (inline): `occurred_at`, `amount`, `type`, `account`, `expense_type`, `description`, флаг «Применить правила».
-- **Форма редактирования** (модальное окно): те же поля + поле **«Чек»** — выпадающий список незасматченных чеков не старше 60 дней с возможностью прикрепить/открепить чек вручную.
+- **Форма редактирования** (модальное окно): те же поля + поле **«Чек»** — выпадающий список незасматченных чеков с возможностью прикрепить/открепить чек вручную.
 
 ### 9.3 Чеки (`/receipts`)
 - Таблица с пагинацией и колонками: Дата, Контрагент, Сумма, **Транзакция** (✓ если привязан), Документ (✓ если привязан).

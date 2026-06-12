@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import cast
 from uuid import UUID
 
@@ -90,7 +90,7 @@ def get_receipts_for_user(
         )
         query = query.where(col(Receipt.id).not_in(matched_receipts))
     if max_age_days is not None:
-        cutoff = datetime.now(tz=timezone.utc) - timedelta(days=max_age_days)
+        cutoff = datetime.now(tz=UTC) - timedelta(days=max_age_days)
         query = query.where(Receipt.paid_at >= cutoff)
     query = query.order_by(col(Receipt.paid_at).desc()).offset(skip).limit(limit)
     return list(session.exec(query).all())

@@ -12,6 +12,7 @@ from app.models.account import Account
 from app.models.expense_type import ExpenseType
 from app.models.transaction import Transaction
 from app.models.user import User
+from app.routers import reconciliation as reconciliation_router
 from app.utils.ids import scope_user_id
 
 
@@ -157,6 +158,35 @@ async def test_manual_match_returns_409_on_commit_race(
         json={"transaction_id": tx_id, "receipt_id": receipt_id},
         headers=auth_headers,
     )
+    assert resp.status_code == 409
+    assert "already matched" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_manual_match_returns_409_when_transaction_link_changed_concurrently(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tx_id = await _create_transaction(
+        client, auth_headers, str(test_account.id), test_expense_type_id
+    )
+    receipt_id = await _create_receipt(client, auth_headers)
+
+    monkeypatch.setattr(
+        reconciliation_router,
+        "try_update_transaction_receipt_link",
+        lambda **_kwargs: False,
+    )
+
+    resp = await client.post(
+        "/api/v1/reconciliation/match",
+        json={"transaction_id": tx_id, "receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+
     assert resp.status_code == 409
     assert "already matched" in resp.json()["detail"]
 

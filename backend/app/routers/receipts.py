@@ -153,7 +153,10 @@ def list_receipts(
             .where(Account.user_id == current_user.id)
             .where(col(Transaction.receipt_id).in_(receipt_ids))
         ).all()
-        receipt_to_tx: dict[UUID, UUID] = {r_id: tx_id for r_id, tx_id in tx_links}
+        receipt_to_tx: dict[UUID, UUID] = {}
+        for receipt_id, transaction_id in tx_links:
+            if receipt_id is not None:
+                receipt_to_tx[receipt_id] = transaction_id
     else:
         receipt_to_tx = {}
     return [

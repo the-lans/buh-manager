@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import {
   useIgnoreTransaction,
@@ -29,6 +29,12 @@ interface TransactionOption {
   amount: string
 }
 
+interface ReconciliationPagination {
+  reportGeneratedAt: string
+  missingSkip: number
+  unmatchedSkip: number
+}
+
 export default function Reconciliation() {
   const { data: report } = useReconciliationReport()
   const runRecon = useRunReconciliation()
@@ -48,13 +54,30 @@ export default function Reconciliation() {
   const [ignoreError, setIgnoreError] = useState<string | null>(null)
   const [matchError, setMatchError] = useState<string | null>(null)
 
-  const [missingSkip, setMissingSkip] = useState(0)
-  const [unmatchedSkip, setUnmatchedSkip] = useState(0)
+  const reportGeneratedAt = report?.report_generated_at ?? ''
+  const [pagination, setPagination] = useState<ReconciliationPagination>({
+    reportGeneratedAt: '',
+    missingSkip: 0,
+    unmatchedSkip: 0,
+  })
+  const missingSkip = pagination.reportGeneratedAt === reportGeneratedAt ? pagination.missingSkip : 0
+  const unmatchedSkip = pagination.reportGeneratedAt === reportGeneratedAt ? pagination.unmatchedSkip : 0
 
-  useEffect(() => {
-    setMissingSkip(0)
-    setUnmatchedSkip(0)
-  }, [report?.report_generated_at])
+  function updateMissingSkip(updater: (value: number) => number) {
+    setPagination((state) => ({
+      reportGeneratedAt,
+      missingSkip: updater(state.reportGeneratedAt === reportGeneratedAt ? state.missingSkip : 0),
+      unmatchedSkip: state.reportGeneratedAt === reportGeneratedAt ? state.unmatchedSkip : 0,
+    }))
+  }
+
+  function updateUnmatchedSkip(updater: (value: number) => number) {
+    setPagination((state) => ({
+      reportGeneratedAt,
+      missingSkip: state.reportGeneratedAt === reportGeneratedAt ? state.missingSkip : 0,
+      unmatchedSkip: updater(state.reportGeneratedAt === reportGeneratedAt ? state.unmatchedSkip : 0),
+    }))
+  }
 
   // Per-row selection state: transaction_id → receipt_id
   const [receiptForTx, setReceiptForTx] = useState<Record<string, string>>({})
@@ -198,14 +221,14 @@ export default function Reconciliation() {
               {report.missing_receipts.length > RECON_PAGE && (
                 <div className="flex items-center gap-3 mt-2">
                   <button
-                    onClick={() => setMissingSkip((s) => Math.max(0, s - RECON_PAGE))}
+                    onClick={() => updateMissingSkip((s) => Math.max(0, s - RECON_PAGE))}
                     disabled={missingSkip === 0}
                     className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
                   >
                     ← Назад
                   </button>
                   <button
-                    onClick={() => setMissingSkip((s) => s + RECON_PAGE)}
+                    onClick={() => updateMissingSkip((s) => s + RECON_PAGE)}
                     disabled={missingPage.length < RECON_PAGE}
                     className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
                   >
@@ -283,14 +306,14 @@ export default function Reconciliation() {
               {report.unmatched_receipts.length > RECON_PAGE && (
                 <div className="flex items-center gap-3 mt-2">
                   <button
-                    onClick={() => setUnmatchedSkip((s) => Math.max(0, s - RECON_PAGE))}
+                    onClick={() => updateUnmatchedSkip((s) => Math.max(0, s - RECON_PAGE))}
                     disabled={unmatchedSkip === 0}
                     className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
                   >
                     ← Назад
                   </button>
                   <button
-                    onClick={() => setUnmatchedSkip((s) => s + RECON_PAGE)}
+                    onClick={() => updateUnmatchedSkip((s) => s + RECON_PAGE)}
                     disabled={unmatchedPage.length < RECON_PAGE}
                     className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
                   >

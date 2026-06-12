@@ -7,6 +7,7 @@ import pytest
 from httpx import AsyncClient
 
 from app.models.account import Account
+from app.routers import transactions as transactions_router
 
 
 def _tx_payload(account_id: str, amount: float = -100.0, expense_type_id: str = "test-et") -> dict:
@@ -17,6 +18,20 @@ def _tx_payload(account_id: str, amount: float = -100.0, expense_type_id: str = 
         "type": "DEBIT",
         "expense_type_id": expense_type_id,
     }
+
+
+async def _create_receipt(client: AsyncClient, headers: dict[str, str]) -> str:
+    resp = await client.post(
+        "/api/v1/receipts",
+        json={
+            "paid_at": "2024-01-10T12:30:00",
+            "total_amount": 100,
+            "items": [{"name": "Item", "quantity": "1", "price": "100", "amount": "100"}],
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    return resp.json()["id"]
 
 
 @pytest.mark.asyncio
@@ -124,6 +139,38 @@ async def test_update_transaction(
     )
     assert update_resp.status_code == 200
     assert float(update_resp.json()["amount"]) == -200.0
+
+
+@pytest.mark.asyncio
+async def test_update_transaction_returns_409_when_receipt_link_changed_concurrently(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    create_resp = await client.post(
+        "/api/v1/transactions",
+        json=_tx_payload(str(test_account.id), expense_type_id=test_expense_type_id),
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    receipt_id = await _create_receipt(client, auth_headers)
+
+    monkeypatch.setattr(
+        transactions_router,
+        "try_update_transaction_receipt_link",
+        lambda **_kwargs: False,
+    )
+
+    update_resp = await client.put(
+        f"/api/v1/transactions/{create_resp.json()['id']}",
+        json={"receipt_id": receipt_id},
+        headers=auth_headers,
+    )
+
+    assert update_resp.status_code == 409
+    assert "already matched" in update_resp.json()["detail"]
 
 
 @pytest.mark.asyncio

@@ -91,6 +91,22 @@ async def test_create_duplicate_fiscal_returns_409(
     assert "receipt_id" in resp.json()["detail"]
 
 
+@pytest.mark.parametrize("max_age_days", ["-1", "3651"])
+@pytest.mark.asyncio
+async def test_list_receipts_rejects_invalid_max_age_days(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    max_age_days: str,
+) -> None:
+    resp = await client.get(
+        "/api/v1/receipts",
+        params={"max_age_days": max_age_days},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 422
+
+
 @pytest.mark.asyncio
 async def test_create_duplicate_fiscal_race_returns_409_from_db_constraint(
     client: AsyncClient,
