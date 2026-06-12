@@ -3,15 +3,16 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, col, select
+from sqlmodel import Session
 
-from app.constants import ApiKeyScope, AuditEntityType, ChangedBy, DocumentStatus, DocumentType
+from app.constants import RECEIPT_MAX_AGE_DAYS, ApiKeyScope, AuditEntityType, ChangedBy, DocumentStatus, DocumentType
 from app.database import get_session
 from app.db.counterparties import get_counterparty_by_id, get_or_create_counterparty
 from app.db.documents import claim_document_for_processing, get_document_by_id
 from app.db.receipts import (
     create_receipt,
     delete_receipt,
+    get_linked_transaction_ids,
     get_receipt_by_document_id,
     get_receipt_by_fiscal,
     get_receipt_by_id,
@@ -21,11 +22,9 @@ from app.db.receipts import (
     update_receipt,
 )
 from app.dependencies.auth import get_current_user, require_scope
-from app.models.account import Account
 from app.models.document import Document
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
-from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.common import PaginationParams
 from app.schemas.receipt import (
@@ -132,7 +131,7 @@ def list_receipts(
     pagination: PaginationParams = Depends(),
     document_id: UUID | None = Query(default=None),
     unmatched: bool = Query(default=False),
-    max_age_days: int | None = Query(default=None, ge=0, le=3650),
+    max_age_days: int | None = Query(default=None, ge=0, le=RECEIPT_MAX_AGE_DAYS),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[ReceiptListItem]:
@@ -145,20 +144,11 @@ def list_receipts(
         unmatched=unmatched,
         max_age_days=max_age_days,
     )
-    receipt_ids = [r.id for r in receipts]
-    if receipt_ids:
-        tx_links = session.exec(
-            select(Transaction.receipt_id, Transaction.id)
-            .join(Account)
-            .where(Account.user_id == current_user.id)
-            .where(col(Transaction.receipt_id).in_(receipt_ids))
-        ).all()
-        receipt_to_tx: dict[UUID, UUID] = {}
-        for receipt_id, transaction_id in tx_links:
-            if receipt_id is not None:
-                receipt_to_tx[receipt_id] = transaction_id
-    else:
-        receipt_to_tx = {}
+    receipt_to_tx = get_linked_transaction_ids(
+        session=session,
+        receipt_ids=[r.id for r in receipts],
+        user_id=current_user.id,
+    )
     return [
         ReceiptListItem(
             id=r.id,

@@ -96,6 +96,28 @@ def get_receipts_for_user(
     return list(session.exec(query).all())
 
 
+def get_linked_transaction_ids(
+    *,
+    session: Session,
+    receipt_ids: list[UUID],
+    user_id: UUID,
+) -> dict[UUID, UUID]:
+    """Return a mapping of receipt_id → transaction_id for the given receipt IDs."""
+    if not receipt_ids:
+        return {}
+    rows = session.exec(
+        select(Transaction.receipt_id, Transaction.id)
+        .join(Account)
+        .where(Account.user_id == user_id)
+        .where(col(Transaction.receipt_id).in_(receipt_ids))
+    ).all()
+    return {
+        receipt_id: transaction_id
+        for receipt_id, transaction_id in rows
+        if receipt_id is not None
+    }
+
+
 def get_unmatched_receipts(*, session: Session, user_id: UUID) -> list[Receipt]:
     matched_receipts = (
         select(Transaction.receipt_id)
