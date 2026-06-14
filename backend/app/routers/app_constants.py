@@ -8,6 +8,7 @@ from sqlmodel import Session
 from app.constants import (
     RECONCILE_AMOUNT_TOLERANCE,
     RECONCILE_AUTO_MATCH_MAX_HOURS,
+    RECONCILE_POST_WINDOW_DAYS,
     ApiKeyScope,
 )
 from app.database import get_session
@@ -67,6 +68,11 @@ _KNOWN_CONSTANTS: dict[str, _ConstantSpec] = {
         default=str(RECONCILE_AUTO_MATCH_MAX_HOURS),
         kind="int_positive",
         label="Макс. часов для автосверки",
+    ),
+    "RECONCILE_POST_WINDOW_DAYS": _ConstantSpec(
+        default=str(RECONCILE_POST_WINDOW_DAYS),
+        kind="int_positive",
+        label="Поисковое окно (дни)",
     ),
     "RECONCILE_AMOUNT_TOLERANCE": _ConstantSpec(
         default=str(RECONCILE_AMOUNT_TOLERANCE),

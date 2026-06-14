@@ -10,9 +10,11 @@ import { useReceipts } from '../hooks/useReceipts'
 import { useTransactions } from '../hooks/useTransactions'
 import { useExpenseTypes } from '../hooks/useExpenseTypes'
 import { useCounterpartyMap } from '../hooks/useCounterparties'
+import { useAppConstants } from '../hooks/useAppConstants'
 import { formatDate } from '../utils/date'
 import { extractApiError } from '../utils/errors'
 import { DataTable } from '../components/DataTable'
+import type { MissingReceiptItem, UnmatchedReceiptItem } from '../types'
 
 const RECON_PAGE = 20
 const RECON_LOOKUP_LIMIT = 1000
@@ -27,6 +29,44 @@ interface TransactionOption {
   id: string
   occurred_at: string
   amount: string
+}
+
+function filterReceiptsForTx(
+  item: MissingReceiptItem,
+  options: ReceiptOption[],
+  tol: number,
+  preHours: number,
+  postDays: number,
+): ReceiptOption[] {
+  const txMs = Date.parse(item.occurred_at)
+  return options.filter((r) => {
+    const rMs = Date.parse(r.paid_at)
+    const diffH = (txMs - rMs) / 3_600_000
+    return (
+      diffH >= -preHours &&
+      diffH <= postDays * 24 &&
+      Math.abs(Math.abs(Number(item.amount)) - Number(r.total_amount)) <= tol
+    )
+  })
+}
+
+function filterTxsForReceipt(
+  item: UnmatchedReceiptItem,
+  options: TransactionOption[],
+  tol: number,
+  preHours: number,
+  postDays: number,
+): TransactionOption[] {
+  const rMs = Date.parse(item.paid_at)
+  return options.filter((tx) => {
+    const tMs = Date.parse(tx.occurred_at)
+    const diffH = (tMs - rMs) / 3_600_000
+    return (
+      diffH >= -preHours &&
+      diffH <= postDays * 24 &&
+      Math.abs(Math.abs(Number(tx.amount)) - Number(item.total_amount)) <= tol
+    )
+  })
 }
 
 interface ReconciliationPagination {
@@ -48,8 +88,21 @@ export default function Reconciliation() {
   })
   const { data: expenseTypes = [] } = useExpenseTypes()
   const counterpartyMap = useCounterpartyMap()
+  const { data: appConstants = [] } = useAppConstants()
 
   const expenseTypeMap = new Map(expenseTypes.map((et) => [et.id, et.name]))
+
+  const tolerance = parseFloat(
+    appConstants.find((c) => c.key === 'RECONCILE_AMOUNT_TOLERANCE')?.value ?? '0',
+  )
+  const preWindowHours = parseInt(
+    appConstants.find((c) => c.key === 'RECONCILE_AUTO_MATCH_MAX_HOURS')?.value ?? '12',
+    10,
+  )
+  const postWindowDays = parseInt(
+    appConstants.find((c) => c.key === 'RECONCILE_POST_WINDOW_DAYS')?.value ?? '3',
+    10,
+  )
 
   const [ignoreError, setIgnoreError] = useState<string | null>(null)
   const [matchError, setMatchError] = useState<string | null>(null)
@@ -199,21 +252,34 @@ export default function Reconciliation() {
                       {Number(item.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
                     </td>
                     <td className="px-4 py-2">
-                      <select
-                        value={receiptForTx[item.transaction_id] ?? ''}
-                        onChange={(e) =>
-                          setReceiptForTx((s) => ({ ...s, [item.transaction_id]: e.target.value }))
-                        }
-                        className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 max-w-[200px]"
-                      >
-                        <option value="">— выбрать —</option>
-                        {receiptOptions.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {formatDate(r.paid_at)} —{' '}
-                            {Number(r.total_amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
-                          </option>
-                        ))}
-                      </select>
+                      {(() => {
+                        const filtered = filterReceiptsForTx(
+                          item, receiptOptions, tolerance, preWindowHours, postWindowDays,
+                        )
+                        return (
+                          <select
+                            value={receiptForTx[item.transaction_id] ?? ''}
+                            onChange={(e) =>
+                              setReceiptForTx((s) => ({ ...s, [item.transaction_id]: e.target.value }))
+                            }
+                            className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 max-w-[200px]"
+                          >
+                            {filtered.length > 0 ? (
+                              <>
+                                <option value="">— выбрать —</option>
+                                {filtered.map((r) => (
+                                  <option key={r.id} value={r.id}>
+                                    {formatDate(r.paid_at)} —{' '}
+                                    {Number(r.total_amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+                                  </option>
+                                ))}
+                              </>
+                            ) : (
+                              <option value="" disabled>Нет подходящих вариантов</option>
+                            )}
+                          </select>
+                        )
+                      })()}
                     </td>
                     <td className="px-4 py-2">
                       <button
@@ -277,21 +343,34 @@ export default function Reconciliation() {
                       {Number(item.total_amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
                     </td>
                     <td className="px-4 py-2">
-                      <select
-                        value={txForReceipt[item.receipt_id] ?? ''}
-                        onChange={(e) =>
-                          setTxForReceipt((s) => ({ ...s, [item.receipt_id]: e.target.value }))
-                        }
-                        className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 max-w-[200px]"
-                      >
-                        <option value="">— выбрать —</option>
-                        {transactionOptions.map((tx) => (
-                          <option key={tx.id} value={tx.id}>
-                            {formatDate(tx.occurred_at)} —{' '}
-                            {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
-                          </option>
-                        ))}
-                      </select>
+                      {(() => {
+                        const filtered = filterTxsForReceipt(
+                          item, transactionOptions, tolerance, preWindowHours, postWindowDays,
+                        )
+                        return (
+                          <select
+                            value={txForReceipt[item.receipt_id] ?? ''}
+                            onChange={(e) =>
+                              setTxForReceipt((s) => ({ ...s, [item.receipt_id]: e.target.value }))
+                            }
+                            className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 max-w-[200px]"
+                          >
+                            {filtered.length > 0 ? (
+                              <>
+                                <option value="">— выбрать —</option>
+                                {filtered.map((tx) => (
+                                  <option key={tx.id} value={tx.id}>
+                                    {formatDate(tx.occurred_at)} —{' '}
+                                    {Number(tx.amount).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+                                  </option>
+                                ))}
+                              </>
+                            ) : (
+                              <option value="" disabled>Нет подходящих вариантов</option>
+                            )}
+                          </select>
+                        )
+                      })()}
                     </td>
                   </tr>
                 ))}
