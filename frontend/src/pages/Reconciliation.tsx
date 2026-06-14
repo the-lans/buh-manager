@@ -18,6 +18,8 @@ import type { MissingReceiptItem, UnmatchedReceiptItem } from '../types'
 
 const RECON_PAGE = 20
 const RECON_LOOKUP_LIMIT = 1000
+// Mirrors backend RECONCILE_PRE_WINDOW_HOURS — how many hours after a tx a receipt may have been paid
+const RECON_PRE_WINDOW_HOURS = 12
 
 interface ReceiptOption {
   id: string
@@ -29,6 +31,15 @@ interface TransactionOption {
   id: string
   occurred_at: string
   amount: string
+}
+
+/** Convert a decimal money string to an integer number of kopecks to avoid IEEE 754 drift. */
+function toKopecks(value: string): number {
+  return Math.round(Math.abs(Number(value)) * 100)
+}
+
+function amountWithinTolerance(a: string, b: string, tol: number): boolean {
+  return Math.abs(toKopecks(a) - toKopecks(b)) <= Math.round(tol * 100)
 }
 
 function filterReceiptsForTx(
@@ -45,7 +56,7 @@ function filterReceiptsForTx(
     return (
       diffH >= -preHours &&
       diffH <= postDays * 24 &&
-      Math.abs(Math.abs(Number(item.amount)) - Number(r.total_amount)) <= tol
+      amountWithinTolerance(item.amount, r.total_amount, tol)
     )
   })
 }
@@ -64,7 +75,7 @@ function filterTxsForReceipt(
     return (
       diffH >= -preHours &&
       diffH <= postDays * 24 &&
-      Math.abs(Math.abs(Number(tx.amount)) - Number(item.total_amount)) <= tol
+      amountWithinTolerance(tx.amount, item.total_amount, tol)
     )
   })
 }
@@ -94,10 +105,6 @@ export default function Reconciliation() {
 
   const tolerance = parseFloat(
     appConstants.find((c) => c.key === 'RECONCILE_AMOUNT_TOLERANCE')?.value ?? '0',
-  )
-  const preWindowHours = parseInt(
-    appConstants.find((c) => c.key === 'RECONCILE_AUTO_MATCH_MAX_HOURS')?.value ?? '12',
-    10,
   )
   const postWindowDays = parseInt(
     appConstants.find((c) => c.key === 'RECONCILE_POST_WINDOW_DAYS')?.value ?? '3',
@@ -254,7 +261,7 @@ export default function Reconciliation() {
                     <td className="px-4 py-2">
                       {(() => {
                         const filtered = filterReceiptsForTx(
-                          item, receiptOptions, tolerance, preWindowHours, postWindowDays,
+                          item, receiptOptions, tolerance, RECON_PRE_WINDOW_HOURS, postWindowDays,
                         )
                         return (
                           <select
@@ -345,7 +352,7 @@ export default function Reconciliation() {
                     <td className="px-4 py-2">
                       {(() => {
                         const filtered = filterTxsForReceipt(
-                          item, transactionOptions, tolerance, preWindowHours, postWindowDays,
+                          item, transactionOptions, tolerance, RECON_PRE_WINDOW_HOURS, postWindowDays,
                         )
                         return (
                           <select
