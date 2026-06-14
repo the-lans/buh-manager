@@ -646,6 +646,8 @@ function ExpenseTypesTab() {
   )
 }
 
+const SAVE_BADGE_DURATION_MS = 2000
+
 const CONSTANT_LABELS: Record<string, { label: string; hint: string }> = {
   RECONCILE_AUTO_MATCH_MAX_HOURS: { label: 'Макс. часов для автосверки', hint: 'часов' },
   RECONCILE_POST_WINDOW_DAYS: { label: 'Поисковое окно', hint: 'дн.' },
@@ -671,7 +673,7 @@ function ConstantsTab() {
     try {
       await updateConstant.mutateAsync({ key, value: getValue(key) })
       setSaved((s) => ({ ...s, [key]: true }))
-      setTimeout(() => setSaved((s) => ({ ...s, [key]: false })), 2000)
+      setTimeout(() => setSaved((s) => ({ ...s, [key]: false })), SAVE_BADGE_DURATION_MS)
       void reconciliationApi.run()
         .catch(() => undefined)
         .finally(() => {

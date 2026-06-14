@@ -13,72 +13,17 @@ import { useCounterpartyMap } from '../hooks/useCounterparties'
 import { useAppConstants } from '../hooks/useAppConstants'
 import { formatDate } from '../utils/date'
 import { extractApiError } from '../utils/errors'
+import {
+  filterReceiptsForTx,
+  filterTxsForReceipt,
+} from '../utils/reconciliation'
+import type { ReceiptOption, TransactionOption } from '../utils/reconciliation'
 import { DataTable } from '../components/DataTable'
-import type { MissingReceiptItem, UnmatchedReceiptItem } from '../types'
 
 const RECON_PAGE = 20
 const RECON_LOOKUP_LIMIT = 1000
-// Mirrors backend RECONCILE_PRE_WINDOW_HOURS — how many hours after a tx a receipt may have been paid
+// Mirrors backend RECONCILE_PRE_WINDOW_HOURS — receipt may be paid up to this many hours after a tx
 const RECON_PRE_WINDOW_HOURS = 12
-
-interface ReceiptOption {
-  id: string
-  paid_at: string
-  total_amount: string
-}
-
-interface TransactionOption {
-  id: string
-  occurred_at: string
-  amount: string
-}
-
-/** Convert a decimal money string to an integer number of kopecks to avoid IEEE 754 drift. */
-function toKopecks(value: string): number {
-  return Math.round(Math.abs(Number(value)) * 100)
-}
-
-function amountWithinTolerance(a: string, b: string, tol: number): boolean {
-  return Math.abs(toKopecks(a) - toKopecks(b)) <= Math.round(tol * 100)
-}
-
-function filterReceiptsForTx(
-  item: MissingReceiptItem,
-  options: ReceiptOption[],
-  tol: number,
-  preHours: number,
-  postDays: number,
-): ReceiptOption[] {
-  const txMs = Date.parse(item.occurred_at)
-  return options.filter((r) => {
-    const rMs = Date.parse(r.paid_at)
-    const diffH = (txMs - rMs) / 3_600_000
-    return (
-      diffH >= -preHours &&
-      diffH <= postDays * 24 &&
-      amountWithinTolerance(item.amount, r.total_amount, tol)
-    )
-  })
-}
-
-function filterTxsForReceipt(
-  item: UnmatchedReceiptItem,
-  options: TransactionOption[],
-  tol: number,
-  preHours: number,
-  postDays: number,
-): TransactionOption[] {
-  const rMs = Date.parse(item.paid_at)
-  return options.filter((tx) => {
-    const tMs = Date.parse(tx.occurred_at)
-    const diffH = (tMs - rMs) / 3_600_000
-    return (
-      diffH >= -preHours &&
-      diffH <= postDays * 24 &&
-      amountWithinTolerance(tx.amount, item.total_amount, tol)
-    )
-  })
-}
 
 interface ReconciliationPagination {
   reportGeneratedAt: string
