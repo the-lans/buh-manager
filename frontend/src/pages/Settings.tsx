@@ -4,6 +4,7 @@ import { useExpenseTypes, useCreateExpenseType, useUpdateExpenseType, useDeleteE
 import { useApiKeys, useCreateApiKey, useUpdateApiKey, useDeleteApiKey } from '../hooks/useApiKeys'
 import { useAppConstants, useUpdateAppConstant } from '../hooks/useAppConstants'
 import { accountsApi } from '../api/accounts'
+import { reconciliationApi } from '../api/reconciliation'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Account, ApiKeyCreated, ExpenseType } from '../types'
 import { formatDate, localInputToUtcIso } from '../utils/date'
@@ -653,6 +654,7 @@ const CONSTANT_LABELS: Record<string, { label: string; hint: string }> = {
 function ConstantsTab() {
   const { data: constants = [] } = useAppConstants()
   const updateConstant = useUpdateAppConstant()
+  const qc = useQueryClient()
   const [values, setValues] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState<Record<string, boolean>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -669,6 +671,11 @@ function ConstantsTab() {
       await updateConstant.mutateAsync({ key, value: getValue(key) })
       setSaved((s) => ({ ...s, [key]: true }))
       setTimeout(() => setSaved((s) => ({ ...s, [key]: false })), 2000)
+      void reconciliationApi.run()
+        .catch(() => undefined)
+        .finally(() => {
+          void qc.invalidateQueries({ queryKey: ['reconciliationReport'] })
+        })
     } catch (e: unknown) {
       const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
       setErrors((prev) => ({
@@ -680,7 +687,7 @@ function ConstantsTab() {
 
   return (
     <div className="space-y-4 max-w-md">
-      <p className="text-sm text-gray-500">Параметры алгоритмов сверки. Изменения вступают в силу при следующем запуске.</p>
+      <p className="text-sm text-gray-500">Параметры алгоритмов сверки. Изменения применяются немедленно.</p>
       {Object.entries(CONSTANT_LABELS).map(([key, { label, hint }]) => (
         <div key={key} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
           <label className="block text-sm font-medium text-gray-900">{label}</label>
