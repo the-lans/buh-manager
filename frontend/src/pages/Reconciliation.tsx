@@ -84,6 +84,31 @@ export default function Reconciliation() {
   // Per-row selection state: receipt_id → transaction_id
   const [txForReceipt, setTxForReceipt] = useState<Record<string, string>>({})
 
+  const pendingMatchCount =
+    Object.values(receiptForTx).filter(Boolean).length +
+    Object.values(txForReceipt).filter(Boolean).length
+
+  async function handleMatchAll() {
+    setMatchError(null)
+    const pairs = new Map<string, { transactionId: string; receiptId: string }>()
+    for (const [txId, rId] of Object.entries(receiptForTx)) {
+      if (rId) pairs.set(`${txId}:${rId}`, { transactionId: txId, receiptId: rId })
+    }
+    for (const [rId, txId] of Object.entries(txForReceipt)) {
+      if (txId) pairs.set(`${txId}:${rId}`, { transactionId: txId, receiptId: rId })
+    }
+    for (const pair of pairs.values()) {
+      try {
+        await manualMatch.mutateAsync(pair)
+      } catch (e: unknown) {
+        setMatchError(extractApiError(e, 'Не удалось сопоставить.'))
+        return
+      }
+    }
+    setReceiptForTx({})
+    setTxForReceipt({})
+  }
+
   const missingPage = report?.missing_receipts.slice(missingSkip, missingSkip + RECON_PAGE) ?? []
   const unmatchedPage = report?.unmatched_receipts.slice(unmatchedSkip, unmatchedSkip + RECON_PAGE) ?? []
   const receiptOptions = useMemo<ReceiptOption[]>(() => {
@@ -121,13 +146,24 @@ export default function Reconciliation() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">Сверка</h1>
-        <button
-          onClick={() => runRecon.mutate()}
-          disabled={runRecon.isPending}
-          className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {runRecon.isPending ? 'Выполняется...' : 'Запустить сверку'}
-        </button>
+        <div className="flex gap-2">
+          {pendingMatchCount > 0 && (
+            <button
+              onClick={() => { void handleMatchAll() }}
+              disabled={manualMatch.isPending}
+              className="px-4 py-2 border border-indigo-600 text-indigo-600 text-sm rounded-lg hover:bg-indigo-50 disabled:opacity-50"
+            >
+              {manualMatch.isPending ? 'Сопоставление...' : `Сопоставить (${pendingMatchCount})`}
+            </button>
+          )}
+          <button
+            onClick={() => runRecon.mutate()}
+            disabled={runRecon.isPending}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {runRecon.isPending ? 'Выполняется...' : 'Запустить сверку'}
+          </button>
+        </div>
       </div>
 
       {report && (
@@ -180,40 +216,19 @@ export default function Reconciliation() {
                       </select>
                     </td>
                     <td className="px-4 py-2">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() =>
-                            manualMatch
-                              .mutateAsync({
-                                transactionId: item.transaction_id,
-                                receiptId: receiptForTx[item.transaction_id],
-                              })
-                              .then(() =>
-                                setReceiptForTx((s) => { const n = { ...s }; delete n[item.transaction_id]; return n })
-                              )
-                              .catch((e: unknown) =>
-                                setMatchError(extractApiError(e, 'Не удалось сопоставить.'))
-                              )
-                          }
-                          disabled={!receiptForTx[item.transaction_id] || manualMatch.isPending}
-                          className="text-xs text-indigo-600 hover:underline disabled:opacity-40"
-                        >
-                          Сопоставить
-                        </button>
-                        <button
-                          onClick={() =>
-                            ignoreTx
-                              .mutateAsync(item.transaction_id)
-                              .catch((e: unknown) =>
-                                setIgnoreError(extractApiError(e, 'Не удалось игнорировать транзакцию.'))
-                              )
-                          }
-                          disabled={ignoreTx.isPending}
-                          className="text-xs text-gray-500 hover:underline disabled:opacity-50"
-                        >
-                          Игнорировать
-                        </button>
-                      </div>
+                      <button
+                        onClick={() =>
+                          ignoreTx
+                            .mutateAsync(item.transaction_id)
+                            .catch((e: unknown) =>
+                              setIgnoreError(extractApiError(e, 'Не удалось игнорировать транзакцию.'))
+                            )
+                        }
+                        disabled={ignoreTx.isPending}
+                        className="text-xs text-gray-500 hover:underline disabled:opacity-50"
+                      >
+                        Игнорировать
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -248,7 +263,6 @@ export default function Reconciliation() {
                   { label: 'Контрагент' },
                   { label: 'Сумма', align: 'right' },
                   { label: 'Транзакция' },
-                  { label: '' },
                 ]}
               >
                 {unmatchedPage.map((item) => (
@@ -278,27 +292,6 @@ export default function Reconciliation() {
                           </option>
                         ))}
                       </select>
-                    </td>
-                    <td className="px-4 py-2">
-                      <button
-                        onClick={() =>
-                          manualMatch
-                            .mutateAsync({
-                              transactionId: txForReceipt[item.receipt_id],
-                              receiptId: item.receipt_id,
-                            })
-                            .then(() =>
-                              setTxForReceipt((s) => { const n = { ...s }; delete n[item.receipt_id]; return n })
-                            )
-                            .catch((e: unknown) =>
-                              setMatchError(extractApiError(e, 'Не удалось сопоставить.'))
-                            )
-                        }
-                        disabled={!txForReceipt[item.receipt_id] || manualMatch.isPending}
-                        className="text-xs text-indigo-600 hover:underline disabled:opacity-40"
-                      >
-                        Сопоставить
-                      </button>
                     </td>
                   </tr>
                 ))}
