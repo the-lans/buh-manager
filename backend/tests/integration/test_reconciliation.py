@@ -576,28 +576,32 @@ async def test_post_window_days_constant_returned_by_api(
     assert "RECONCILE_POST_WINDOW_DAYS" in keys
 
 
+@pytest.mark.parametrize("value", ["1", "3", "30"])
 @pytest.mark.asyncio
-async def test_post_window_days_can_be_updated(
+async def test_post_window_days_accepts_valid_values(
     client: AsyncClient,
     auth_headers: dict[str, str],
+    value: str,
 ) -> None:
     resp = await client.put(
         "/api/v1/app-constants/RECONCILE_POST_WINDOW_DAYS",
-        json={"value": "5"},
+        json={"value": value},
         headers=auth_headers,
     )
     assert resp.status_code == 200
-    assert resp.json()["value"] == "5"
+    assert resp.json()["value"] == value
 
 
+@pytest.mark.parametrize("value", ["0", "-1", "abc", "1.5"])
 @pytest.mark.asyncio
-async def test_post_window_days_rejects_zero(
+async def test_post_window_days_rejects_invalid_values(
     client: AsyncClient,
     auth_headers: dict[str, str],
+    value: str,
 ) -> None:
     resp = await client.put(
         "/api/v1/app-constants/RECONCILE_POST_WINDOW_DAYS",
-        json={"value": "0"},
+        json={"value": value},
         headers=auth_headers,
     )
     assert resp.status_code == 422
