@@ -648,6 +648,7 @@ function ExpenseTypesTab() {
 
 const CONSTANT_LABELS: Record<string, { label: string; hint: string }> = {
   RECONCILE_AUTO_MATCH_MAX_HOURS: { label: 'Макс. часов для автосверки', hint: 'часов' },
+  RECONCILE_POST_WINDOW_DAYS: { label: 'Поисковое окно', hint: 'дн.' },
   RECONCILE_AMOUNT_TOLERANCE: { label: 'Допустимое отклонение суммы', hint: '₽' },
 }
 
