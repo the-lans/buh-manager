@@ -562,6 +562,78 @@ async def test_manual_match_rejects_invalid_transaction_or_receipt(
     assert resp.status_code == 404
 
 
+# ── RECONCILE_POST_WINDOW_DAYS constant ───────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_post_window_days_constant_returned_by_api(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    resp = await client.get("/api/v1/app-constants", headers=auth_headers)
+    assert resp.status_code == 200
+    keys = [c["key"] for c in resp.json()]
+    assert "RECONCILE_POST_WINDOW_DAYS" in keys
+
+
+@pytest.mark.asyncio
+async def test_post_window_days_can_be_updated(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    resp = await client.put(
+        "/api/v1/app-constants/RECONCILE_POST_WINDOW_DAYS",
+        json={"value": "5"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["value"] == "5"
+
+
+@pytest.mark.asyncio
+async def test_post_window_days_rejects_zero(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    resp = await client.put(
+        "/api/v1/app-constants/RECONCILE_POST_WINDOW_DAYS",
+        json={"value": "0"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_post_window_days_controls_time_window(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_account: Account,
+    test_expense_type_id: str,
+) -> None:
+    # Transaction at day 0, receipt paid 2 days later — within default 3-day window
+    tx_id = await _create_transaction(
+        client,
+        auth_headers,
+        str(test_account.id),
+        test_expense_type_id,
+        occurred="2024-03-01T12:00:00",
+    )
+    await _create_receipt(client, auth_headers, 100.0, paid="2024-03-03T12:00:00")
+
+    # Shrink window to 1 day — receipt should now fall outside the window
+    await client.put(
+        "/api/v1/app-constants/RECONCILE_POST_WINDOW_DAYS",
+        json={"value": "1"},
+        headers=auth_headers,
+    )
+
+    run_resp = await client.post("/api/v1/reconciliation/run", headers=auth_headers)
+    assert run_resp.status_code == 200
+    data = run_resp.json()
+    assert data["summary"]["auto_matched_count"] == 0
+    assert any(item["transaction_id"] == tx_id for item in data["missing_receipts"])
+
+
 @pytest.mark.asyncio
 async def test_reconciliation_transaction_no_matching_receipt_amount(
     client: AsyncClient,
