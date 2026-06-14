@@ -41,11 +41,15 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
-def _in_time_window(*, tx: Transaction, receipt: Receipt) -> bool:
-    pre = timedelta(hours=RECONCILE_PRE_WINDOW_HOURS)
-    post = timedelta(days=RECONCILE_POST_WINDOW_DAYS)
-    lower = receipt.paid_at - pre
-    upper = receipt.paid_at + post
+def _in_time_window(
+    *,
+    tx: Transaction,
+    receipt: Receipt,
+    pre_hours: int,
+    post_days: int,
+) -> bool:
+    lower = receipt.paid_at - timedelta(hours=pre_hours)
+    upper = receipt.paid_at + timedelta(days=post_days)
     return lower <= tx.occurred_at <= upper
 
 
@@ -113,6 +117,12 @@ def run_reconciliation(
         key="RECONCILE_AUTO_MATCH_MAX_HOURS",
         default=RECONCILE_AUTO_MATCH_MAX_HOURS,
     )
+    post_window_days = get_constant_int(
+        session=session,
+        user_id=current_user.id,
+        key="RECONCILE_POST_WINDOW_DAYS",
+        default=RECONCILE_POST_WINDOW_DAYS,
+    )
 
     transactions = get_unmatched_transactions_requiring_receipt(
         session=session, user_id=current_user.id
@@ -154,7 +164,12 @@ def run_reconciliation(
             (tx, r)
             for tx in bucket_txs
             for r in bucket_receipts
-            if _in_time_window(tx=tx, receipt=r)
+            if _in_time_window(
+                tx=tx,
+                receipt=r,
+                pre_hours=RECONCILE_PRE_WINDOW_HOURS,
+                post_days=post_window_days,
+            )
         ]
 
         # Separate items that have at least one valid partner from those that don't

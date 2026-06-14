@@ -8,6 +8,8 @@ import pytest
 
 from app.constants import (
     RECONCILE_AUTO_MATCH_MAX_HOURS,
+    RECONCILE_POST_WINDOW_DAYS,
+    RECONCILE_PRE_WINDOW_HOURS,
     ImportStatus,
     ReconciledStatus,
     TransactionType,
@@ -76,4 +78,9 @@ def test_time_window(offset_hours: int, expected_in_window: bool) -> None:
     paid_at = BASE
     tx = _tx(paid_at + timedelta(hours=offset_hours))
     receipt = _receipt(paid_at)
-    assert _in_time_window(tx=tx, receipt=receipt) is expected_in_window
+    assert _in_time_window(
+        tx=tx,
+        receipt=receipt,
+        pre_hours=RECONCILE_PRE_WINDOW_HOURS,
+        post_days=RECONCILE_POST_WINDOW_DAYS,
+    ) is expected_in_window
