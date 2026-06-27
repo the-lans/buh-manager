@@ -18,12 +18,24 @@ export function formatMonthYear(ym: string): string {
   return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${y}`
 }
 
+/**
+ * Convert a "YYYY-MM-DD" local date to a UTC ISO string at the very start (00:00:00)
+ * or very end (23:59:59) of that day in APP_TIMEZONE.
+ */
+export function localDayBoundaryToUtcIso(date: string, boundary: 'start' | 'end'): string {
+  const localHM = `${date}T${boundary === 'start' ? '00:00' : '23:59'}`
+  const utcMs = new Date(localInputToUtcIso(localHM)).getTime()
+  const secOffset = boundary === 'end' ? 59 * 1000 : 0
+  return new Date(utcMs + secOffset).toISOString()
+}
+
 export function monthDateRange(ym: string): { start_date: string; end_date: string } {
   const [y, m] = ym.split('-').map(Number)
   const lastDay = new Date(y, m, 0).getDate()
+  const pad = (n: number) => String(n).padStart(2, '0')
   return {
-    start_date: `${ym}-01T00:00:00`,
-    end_date: `${ym}-${String(lastDay).padStart(2, '0')}T23:59:59`,
+    start_date: localDayBoundaryToUtcIso(`${ym}-01`, 'start'),
+    end_date: localDayBoundaryToUtcIso(`${ym}-${pad(lastDay)}`, 'end'),
   }
 }
 

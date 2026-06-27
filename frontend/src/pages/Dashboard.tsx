@@ -4,7 +4,7 @@ import { useAccounts } from '../hooks/useAccounts'
 import { useBalances } from '../hooks/useBalances'
 import { useExpenseTypes } from '../hooks/useExpenseTypes'
 import { useReconciliationReport } from '../hooks/useReconciliation'
-import { useTransactions } from '../hooks/useTransactions'
+import { useExpenseTypeSummary } from '../hooks/useTransactions'
 import {
   currentYearMonth,
   formatDate,
@@ -26,22 +26,20 @@ export default function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState(currentYearMonth)
   const { start_date, end_date } = monthDateRange(selectedMonth)
 
-  const { data: transactions = [] } = useTransactions({ start_date, end_date, limit: 500 })
   const { data: accounts = [] } = useAccounts()
   const { data: report } = useReconciliationReport()
   const { data: balances = [] } = useBalances({ limit: 200 })
   const { data: expenseTypes = [] } = useExpenseTypes()
+  const { data: summary } = useExpenseTypeSummary({ start_date, end_date })
 
-  const unmatched = transactions.filter((t) => t.reconciled_status === 'UNMATCHED').length
+  const unmatched = summary?.unmatched_count ?? 0
   const conflicts = report?.summary.collisions_count ?? 0
 
-  const monthlyExpenses = transactions
-    .filter((t) => t.type === 'EXPENSE')
-    .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0)
+  const monthlyExpenses = (summary?.expenses ?? []).reduce((sum, item) => sum + Number(item.total), 0)
 
   // Latest balance per account as of end of selected month.
   // Use numeric Date comparison to avoid lexicographic issues with UTC suffix ("Z").
-  const endMs = new Date(end_date + 'Z').getTime()
+  const endMs = new Date(end_date).getTime()
   const latestByAccount = new Map<string, Balance>()
   for (const b of balances) {
     if (new Date(b.recorded_at).getTime() <= endMs && !latestByAccount.has(b.account_id)) {
@@ -52,16 +50,14 @@ export default function Dashboard() {
 
   const accountMap = new Map(accounts.map((a) => [a.id, a]))
 
-  // Expense types table: group EXPENSE transactions by expense_type_id
   const expenseTypeMap = new Map(expenseTypes.map((et) => [et.id, et.name]))
-  const expenseByType = new Map<string, { count: number; total: number }>()
-  for (const t of transactions) {
-    if (t.type !== 'EXPENSE' || !t.expense_type_id) continue
-    const cur = expenseByType.get(t.expense_type_id) ?? { count: 0, total: 0 }
-    expenseByType.set(t.expense_type_id, { count: cur.count + 1, total: cur.total + Math.abs(Number(t.amount)) })
-  }
-  const expenseTypeRows = Array.from(expenseByType.entries())
-    .map(([id, { count, total }]) => ({ id, name: expenseTypeMap.get(id) ?? id, count, total }))
+
+  const expenseTypeRows = (summary?.expenses ?? [])
+    .map((item) => ({ id: item.expense_type_id, name: expenseTypeMap.get(item.expense_type_id) ?? item.expense_type_id, count: item.count, total: Number(item.total) }))
+    .sort((a, b) => b.total - a.total)
+
+  const turnoverRows = (summary?.turnover ?? [])
+    .map((item) => ({ id: item.expense_type_id, name: expenseTypeMap.get(item.expense_type_id) ?? item.expense_type_id, count: item.count, total: Number(item.total) }))
     .sort((a, b) => b.total - a.total)
 
   const canGoNext = selectedMonth < currentYearMonth()
@@ -163,7 +159,7 @@ export default function Dashboard() {
             <tr key={row.id}>
               <td className="px-4 py-2 text-gray-800">{row.name}</td>
               <td className="px-4 py-2 text-right tabular-nums text-gray-600">{row.count}</td>
-              <td className="px-4 py-2 text-right tabular-nums font-medium text-gray-900">
+              <td className={`px-4 py-2 text-right tabular-nums font-medium ${row.total < 0 ? 'text-red-600' : 'text-gray-900'}`}>
                 {row.total.toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
               </td>
             </tr>
@@ -175,7 +171,43 @@ export default function Dashboard() {
               <tr className="bg-gray-50 border-t-2 border-gray-200">
                 <td className="px-4 py-2 font-semibold text-gray-900">Итого</td>
                 <td className="px-4 py-2 text-right tabular-nums font-semibold text-gray-900">{totalCount}</td>
-                <td className="px-4 py-2 text-right tabular-nums font-semibold text-gray-900">
+                <td className={`px-4 py-2 text-right tabular-nums font-semibold ${totalSum < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                  {totalSum.toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+                </td>
+              </tr>
+            )
+          })()}
+        </DataTable>
+      </section>
+
+      <section>
+        <h2 className="text-base font-medium text-gray-700 mb-3">Обороты по типам расходов</h2>
+        <DataTable
+          columns={[
+            { label: 'Вид расхода' },
+            { label: 'Операций', align: 'right' },
+            { label: 'Сумма', align: 'right' },
+          ]}
+          isEmpty={turnoverRows.length === 0}
+          emptyMessage="Нет операций за период"
+        >
+          {turnoverRows.map((row) => (
+            <tr key={row.id}>
+              <td className="px-4 py-2 text-gray-800">{row.name}</td>
+              <td className="px-4 py-2 text-right tabular-nums text-gray-600">{row.count}</td>
+              <td className={`px-4 py-2 text-right tabular-nums font-medium ${row.total < 0 ? 'text-red-600' : 'text-green-700'}`}>
+                {row.total.toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+              </td>
+            </tr>
+          ))}
+          {turnoverRows.length > 0 && (() => {
+            const totalCount = turnoverRows.reduce((s, r) => s + r.count, 0)
+            const totalSum = turnoverRows.reduce((s, r) => s + r.total, 0)
+            return (
+              <tr className="bg-gray-50 border-t-2 border-gray-200">
+                <td className="px-4 py-2 font-semibold text-gray-900">Итого</td>
+                <td className="px-4 py-2 text-right tabular-nums font-semibold text-gray-900">{totalCount}</td>
+                <td className={`px-4 py-2 text-right tabular-nums font-semibold ${totalSum < 0 ? 'text-red-600' : 'text-green-700'}`}>
                   {totalSum.toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
                 </td>
               </tr>

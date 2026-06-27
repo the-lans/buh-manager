@@ -1,6 +1,9 @@
+from datetime import datetime
+from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
@@ -13,6 +16,7 @@ from app.db.receipts import get_receipt_by_id, get_receipt_linked_transaction
 from app.db.transactions import (
     create_transaction,
     delete_transaction,
+    get_expense_type_summary,
     get_transaction_by_id,
     get_transactions_for_user,
     try_update_transaction_receipt_link,
@@ -22,6 +26,8 @@ from app.dependencies.auth import get_current_user, require_scope
 from app.models.user import User
 from app.schemas.common import PaginationParams
 from app.schemas.transaction import (
+    ExpenseTypeSummaryItem,
+    ExpenseTypeSummaryResponse,
     TransactionCreate,
     TransactionFilters,
     TransactionListItem,
@@ -33,6 +39,17 @@ from app.services.classifier import apply_rules
 from app.utils.http import get_or_404
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
+
+
+def _rows_to_summary_items(rows: list[Any]) -> list[ExpenseTypeSummaryItem]:
+    return [
+        ExpenseTypeSummaryItem(
+            expense_type_id=row[0],
+            count=row[1],
+            total=row[2] if row[2] is not None else Decimal(0),
+        )
+        for row in rows
+    ]
 
 
 @router.get(
@@ -114,6 +131,31 @@ def create_transaction_endpoint(
     session.commit()
     session.refresh(tx)
     return TransactionRead.model_validate(tx)
+
+
+@router.get(
+    "/expense-type-summary",
+    response_model=ExpenseTypeSummaryResponse,
+    dependencies=[Depends(require_scope(ApiKeyScope.READ_TRANSACTIONS))],
+)
+def expense_type_summary_endpoint(
+    start_date: datetime | None = Query(default=None),
+    end_date: datetime | None = Query(default=None),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> ExpenseTypeSummaryResponse:
+    unmatched_count, expense_rows, income_rows, turnover_rows = get_expense_type_summary(
+        session=session,
+        user_id=current_user.id,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return ExpenseTypeSummaryResponse(
+        unmatched_count=unmatched_count,
+        expenses=_rows_to_summary_items(expense_rows),
+        income=_rows_to_summary_items(income_rows),
+        turnover=_rows_to_summary_items(turnover_rows),
+    )
 
 
 @router.put(
