@@ -20,7 +20,7 @@ describe('Settings — ExpenseTypesTab', () => {
     server.use(
       http.get('/api/v1/expense-types', () =>
         HttpResponse.json<ExpenseType[]>([
-          { id: 'food', name: 'Питание', description: 'Продукты и еда', receipt_required: true },
+          { id: 'food', name: 'Питание', description: 'Продукты и еда', receipt_required: true, exclude_from_expenses: false },
         ]),
       ),
     )
@@ -126,7 +126,7 @@ describe('Settings — ExpenseTypesTab edit modal', () => {
     server.use(
       http.put('/api/v1/expense-types/:id', async ({ request }) => {
         captured = (await request.json()) as Record<string, unknown>
-        return HttpResponse.json<ExpenseType>({ id: 'food', name: 'Новое название', description: null, receipt_required: true })
+        return HttpResponse.json<ExpenseType>({ id: 'food', name: 'Новое название', description: null, receipt_required: true, exclude_from_expenses: false })
       }),
     )
 
