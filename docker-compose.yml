@@ -3,12 +3,24 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: prod
     restart: unless-stopped
     env_file: ./backend/.env
     environment:
       ENVIRONMENT: production
     extra_hosts:
       - 'host.docker.internal:host-gateway'
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   frontend:
     build:
@@ -18,4 +30,10 @@ services:
     ports:
       - "127.0.0.1:8080:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

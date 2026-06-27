@@ -24,6 +24,12 @@ from app.routers import (
 
 app = FastAPI(title="buh-manager", version="1.0.0")
 
+
+@app.get("/health", include_in_schema=False)
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 app.add_middleware(
     CORSMiddleware,

@@ -54,7 +54,7 @@ export default function Dashboard() {
 
   const expenseTypeRows = (summary?.expenses ?? [])
     .map((item) => ({ id: item.expense_type_id, name: expenseTypeMap.get(item.expense_type_id) ?? item.expense_type_id, count: item.count, total: Number(item.total) }))
-    .sort((a, b) => b.total - a.total)
+    .sort((a, b) => a.total - b.total)
 
   const turnoverRows = (summary?.turnover ?? [])
     .map((item) => ({ id: item.expense_type_id, name: expenseTypeMap.get(item.expense_type_id) ?? item.expense_type_id, count: item.count, total: Number(item.total) }))
