@@ -31,6 +31,7 @@ export default function Dashboard() {
   const { data: balances = [] } = useBalances({ limit: 200 })
   const { data: expenseTypes = [] } = useExpenseTypes()
   const { data: summary } = useExpenseTypeSummary({ start_date, end_date })
+  const { data: turnoverSummary } = useExpenseTypeSummary({ end_date })
 
   const unmatched = summary?.unmatched_count ?? 0
   const conflicts = report?.summary.collisions_count ?? 0
@@ -60,7 +61,7 @@ export default function Dashboard() {
 
   const monthlyExpenses = expenseTypeRows.reduce((sum, row) => sum + row.total, 0)
 
-  const turnoverRows = (summary?.turnover ?? [])
+  const turnoverRows = (turnoverSummary?.turnover ?? [])
     .map((item) => ({ id: item.expense_type_id, name: expenseTypeMap.get(item.expense_type_id) ?? item.expense_type_id, count: item.count, total: Number(item.total) }))
     .sort((a, b) => b.total - a.total)
 
@@ -185,7 +186,7 @@ export default function Dashboard() {
       </section>
 
       <section>
-        <h2 className="text-base font-medium text-gray-700 mb-3">Остатки по типам расходов</h2>
+        <h2 className="text-base font-medium text-gray-700 mb-3">Обороты по типам расходов</h2>
         <DataTable
           columns={[
             { label: 'Вид расхода' },
