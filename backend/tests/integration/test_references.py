@@ -227,6 +227,73 @@ async def test_update_expense_type_with_legacy_unscoped_id(
     assert del_resp.status_code == 204
 
 
+# ── exclude_from_expenses field ───────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_exclude_from_expenses_defaults_to_false(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """Field must be False when not provided on creation."""
+    resp = await client.post(
+        "/api/v1/expense-types",
+        json={"id": "transfer", "name": "Перевод", "receipt_required": False},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["exclude_from_expenses"] is False
+
+
+@pytest.mark.asyncio
+async def test_exclude_from_expenses_can_be_set_on_create(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """Field must be persisted when explicitly set to True on creation."""
+    resp = await client.post(
+        "/api/v1/expense-types",
+        json={"id": "internal", "name": "Внутренний", "receipt_required": False, "exclude_from_expenses": True},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["exclude_from_expenses"] is True
+
+    list_resp = await client.get("/api/v1/expense-types", headers=auth_headers)
+    matching = next((e for e in list_resp.json() if e["id"] == "internal"), None)
+    assert matching is not None
+    assert matching["exclude_from_expenses"] is True
+
+
+@pytest.mark.asyncio
+async def test_exclude_from_expenses_can_be_updated(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """Field must be toggleable via PUT."""
+    await client.post(
+        "/api/v1/expense-types",
+        json={"id": "savings", "name": "Сбережения", "receipt_required": False},
+        headers=auth_headers,
+    )
+
+    update_resp = await client.put(
+        "/api/v1/expense-types/savings",
+        json={"exclude_from_expenses": True},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["exclude_from_expenses"] is True
+
+    toggle_back = await client.put(
+        "/api/v1/expense-types/savings",
+        json={"exclude_from_expenses": False},
+        headers=auth_headers,
+    )
+    assert toggle_back.status_code == 200
+    assert toggle_back.json()["exclude_from_expenses"] is False
+
+
 # ── Counterparties ────────────────────────────────────────────────────────────
 
 

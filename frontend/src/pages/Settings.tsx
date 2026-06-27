@@ -484,14 +484,14 @@ function ExpenseTypesTab() {
   const updateType = useUpdateExpenseType()
   const updateTypeInline = useUpdateExpenseType()
   const deleteType = useDeleteExpenseType()
-  const [form, setForm] = useState({ id: '', name: '', description: '', receipt_required: true })
+  const [form, setForm] = useState({ id: '', name: '', description: '', receipt_required: true, exclude_from_expenses: false })
   const [editType, setEditType] = useState<ExpenseType | null>(null)
-  const [editTypeForm, setEditTypeForm] = useState({ name: '', description: '', receipt_required: true })
+  const [editTypeForm, setEditTypeForm] = useState({ name: '', description: '', receipt_required: true, exclude_from_expenses: false })
   const [editTypeError, setEditTypeError] = useState<string | null>(null)
 
   const openEditType = (t: ExpenseType) => {
     setEditType(t)
-    setEditTypeForm({ name: t.name, description: t.description ?? '', receipt_required: t.receipt_required })
+    setEditTypeForm({ name: t.name, description: t.description ?? '', receipt_required: t.receipt_required, exclude_from_expenses: t.exclude_from_expenses })
     setEditTypeError(null)
   }
 
@@ -501,7 +501,7 @@ function ExpenseTypesTab() {
     try {
       await updateType.mutateAsync({
         id: editType.id,
-        data: { name: editTypeForm.name, description: editTypeForm.description.trim() || null, receipt_required: editTypeForm.receipt_required },
+        data: { name: editTypeForm.name, description: editTypeForm.description.trim() || null, receipt_required: editTypeForm.receipt_required, exclude_from_expenses: editTypeForm.exclude_from_expenses },
       })
       setEditType(null)
     } catch (e: unknown) {
@@ -517,7 +517,7 @@ function ExpenseTypesTab() {
       ...form,
       description: form.description.trim() || null,
     })
-    setForm({ id: '', name: '', description: '', receipt_required: true })
+    setForm({ id: '', name: '', description: '', receipt_required: true, exclude_from_expenses: false })
   }
 
   return (
@@ -551,6 +551,14 @@ function ExpenseTypesTab() {
           />
           Требуется чек
         </label>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={form.exclude_from_expenses}
+            onChange={(e) => setForm((f) => ({ ...f, exclude_from_expenses: e.target.checked }))}
+          />
+          Не учитывать в расходах
+        </label>
         <button
           onClick={handleCreate}
           disabled={createType.isPending}
@@ -578,6 +586,14 @@ function ExpenseTypesTab() {
                   onChange={(e) => updateTypeInline.mutate({ id: t.id, data: { receipt_required: e.target.checked } })}
                 />
                 Чек
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={t.exclude_from_expenses}
+                  onChange={(e) => updateTypeInline.mutate({ id: t.id, data: { exclude_from_expenses: e.target.checked } })}
+                />
+                Не в расходах
               </label>
               <button
                 onClick={() => openEditType(t)}
@@ -627,6 +643,14 @@ function ExpenseTypesTab() {
                 onChange={(e) => setEditTypeForm((f) => ({ ...f, receipt_required: e.target.checked }))}
               />
               Требуется чек
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={editTypeForm.exclude_from_expenses}
+                onChange={(e) => setEditTypeForm((f) => ({ ...f, exclude_from_expenses: e.target.checked }))}
+              />
+              Не учитывать в расходах
             </label>
             {editTypeError && <p className="text-sm text-red-500">{editTypeError}</p>}
             <div className="flex gap-2">

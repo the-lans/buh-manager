@@ -13,3 +13,4 @@ class ExpenseType(SQLModel, table=True):
     name: str
     description: str | None = Field(default=None)
     receipt_required: bool = Field(default=True)
+    exclude_from_expenses: bool = Field(default=False)
