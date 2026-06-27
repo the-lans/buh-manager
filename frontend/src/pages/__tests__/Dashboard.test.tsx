@@ -63,9 +63,9 @@ describe('Dashboard page', () => {
     await waitFor(() => expect(screen.getByText('Типы расходов')).toBeInTheDocument())
   })
 
-  it('shows "Обороты по типам расходов" section', async () => {
+  it('shows "Остатки по типам расходов" section', async () => {
     renderWithProviders(<Dashboard />)
-    await waitFor(() => expect(screen.getByText('Обороты по типам расходов')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Остатки по типам расходов')).toBeInTheDocument())
   })
 })
 
@@ -74,7 +74,7 @@ describe('Dashboard — "Типы расходов" (EXPENSE only)', () => {
     // Default handler returns expenses: [{expense_type_id: 'food'}]; 'food' → 'Питание'
     renderWithProviders(<Dashboard />)
     await waitFor(() => {
-      // May appear in both "Типы расходов" and "Обороты" tables, so use getAllByText
+      // May appear in both "Типы расходов" and "Остатки" tables, so use getAllByText
       expect(screen.getAllByText('Питание').length).toBeGreaterThanOrEqual(1)
     })
   })
@@ -144,7 +144,7 @@ describe('Dashboard — "Типы расходов" (EXPENSE only)', () => {
   })
 })
 
-describe('Dashboard — "Обороты по типам расходов"', () => {
+describe('Dashboard — "Остатки по типам расходов"', () => {
   it('shows turnover rows from summary endpoint', async () => {
     // Default handler returns turnover with 'food' → 'Питание'
     renderWithProviders(<Dashboard />)
