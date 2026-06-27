@@ -35,8 +35,6 @@ export default function Dashboard() {
   const unmatched = summary?.unmatched_count ?? 0
   const conflicts = report?.summary.collisions_count ?? 0
 
-  const monthlyExpenses = (summary?.expenses ?? []).reduce((sum, item) => sum + Number(item.total), 0)
-
   // Latest balance per account as of end of selected month.
   // Use numeric Date comparison to avoid lexicographic issues with UTC suffix ("Z").
   const endMs = new Date(end_date).getTime()
@@ -51,10 +49,16 @@ export default function Dashboard() {
   const accountMap = new Map(accounts.map((a) => [a.id, a]))
 
   const expenseTypeMap = new Map(expenseTypes.map((et) => [et.id, et.name]))
+  const excludedExpenseTypeIds = new Set(
+    expenseTypes.filter((et) => et.exclude_from_expenses).map((et) => et.id),
+  )
 
   const expenseTypeRows = (summary?.expenses ?? [])
+    .filter((item) => !excludedExpenseTypeIds.has(item.expense_type_id))
     .map((item) => ({ id: item.expense_type_id, name: expenseTypeMap.get(item.expense_type_id) ?? item.expense_type_id, count: item.count, total: Number(item.total) }))
     .sort((a, b) => a.total - b.total)
+
+  const monthlyExpenses = expenseTypeRows.reduce((sum, row) => sum + row.total, 0)
 
   const turnoverRows = (summary?.turnover ?? [])
     .map((item) => ({ id: item.expense_type_id, name: expenseTypeMap.get(item.expense_type_id) ?? item.expense_type_id, count: item.count, total: Number(item.total) }))

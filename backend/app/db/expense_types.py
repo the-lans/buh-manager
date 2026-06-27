@@ -38,6 +38,7 @@ def create_expense_type(*, session: Session, user_id: UUID, data: ExpenseTypeCre
         name=data.name,
         description=data.description,
         receipt_required=data.receipt_required,
+        exclude_from_expenses=data.exclude_from_expenses,
     )
     session.add(expense_type)
     session.flush()

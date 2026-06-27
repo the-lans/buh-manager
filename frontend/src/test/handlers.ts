@@ -111,12 +111,12 @@ export const handlers = [
   http.delete('/api/v1/transactions/:id', () => new HttpResponse(null, { status: 204 })),
 
   http.get('/api/v1/expense-types', () =>
-    HttpResponse.json<ExpenseType[]>([{ id: 'food', name: 'Питание', description: null, receipt_required: true }]),
+    HttpResponse.json<ExpenseType[]>([{ id: 'food', name: 'Питание', description: null, receipt_required: true, exclude_from_expenses: false }]),
   ),
 
   http.put('/api/v1/expense-types/:id', async ({ request, params }) => {
     const body = (await request.json()) as Record<string, unknown>
-    return HttpResponse.json<ExpenseType>({ id: params.id as string, name: 'Питание', description: null, receipt_required: true, ...body })
+    return HttpResponse.json<ExpenseType>({ id: params.id as string, name: 'Питание', description: null, receipt_required: true, exclude_from_expenses: false, ...body })
   }),
 
   http.post('/api/v1/balances/calculate', () =>
