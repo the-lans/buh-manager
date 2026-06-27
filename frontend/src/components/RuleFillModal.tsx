@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { useApplyClassifierRules } from '../hooks/useClassifierRules'
+import { localDayBoundaryToUtcIso } from '../utils/date'
 
 interface Props {
   onClose: () => void
@@ -19,8 +20,8 @@ export default function RuleFillModal({ onClose }: Props) {
     if (startDate > endDate) { setError('Дата начала должна быть раньше даты конца'); return }
     try {
       const res = await apply.mutateAsync({
-        start_date: `${startDate}T00:00:00`,
-        end_date: `${endDate}T23:59:59`,
+        start_date: localDayBoundaryToUtcIso(startDate, 'start'),
+        end_date: localDayBoundaryToUtcIso(endDate, 'end'),
       })
       setResult(res.updated_count)
     } catch (e: unknown) {

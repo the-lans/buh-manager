@@ -9,6 +9,23 @@ from app.utils.dt import normalize_to_utc
 from app.utils.ids import unscope_user_id
 
 
+class ExpenseTypeSummaryItem(BaseModel):
+    expense_type_id: str
+    count: int
+    total: Decimal
+
+    @field_serializer("expense_type_id")
+    def serialize_id(self, value: str) -> str:
+        return unscope_user_id(value) or value
+
+
+class ExpenseTypeSummaryResponse(BaseModel):
+    unmatched_count: int
+    expenses: list[ExpenseTypeSummaryItem]
+    income: list[ExpenseTypeSummaryItem]
+    turnover: list[ExpenseTypeSummaryItem]
+
+
 class TransactionCreate(BaseModel):
     account_id: UUID
     occurred_at: datetime
@@ -124,6 +141,7 @@ class TransactionFilters:
         type: str | None = Query(default=None),
         reconciled_status: str | None = Query(default=None),
         import_status: str | None = Query(default=None),
+        expense_type_id: str | None = Query(default=None),
     ) -> None:
         self.account_id = account_id
         self.start_date = start_date
@@ -131,3 +149,4 @@ class TransactionFilters:
         self.type = type
         self.reconciled_status = reconciled_status
         self.import_status = import_status
+        self.expense_type_id = expense_type_id

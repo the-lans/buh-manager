@@ -1,16 +1,18 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import exists, update
 from sqlalchemy.engine import CursorResult
-from sqlmodel import Session, col, select
+from sqlmodel import Session, col, func, select
 
-from app.constants import TX_DEDUP_WINDOW_SECONDS, ImportStatus, ReconciledStatus
+from app.constants import TX_DEDUP_WINDOW_SECONDS, ImportStatus, ReconciledStatus, TransactionType
 from app.models.account import Account
 from app.models.expense_type import ExpenseType
 from app.models.transaction import Transaction
 from app.schemas.transaction import TransactionFilters, TransactionUpdate
+from app.utils.ids import scope_user_id
 
 
 def find_transaction_by_dedup_key(
@@ -122,6 +124,11 @@ def get_transactions_for_user(
         query = query.where(Transaction.reconciled_status == filters.reconciled_status)
     if filters.import_status is not None:
         query = query.where(Transaction.import_status == filters.import_status)
+    if filters.expense_type_id is not None:
+        scoped = scope_user_id(user_id=user_id, public_id=filters.expense_type_id)
+        query = query.where(
+            col(Transaction.expense_type_id).in_([scoped, filters.expense_type_id])
+        )
     query = (
         query.order_by(col(Transaction.occurred_at).desc(), col(Transaction.id).desc())
         .offset(skip)
@@ -142,6 +149,50 @@ def update_transaction(
     session.flush()
     session.refresh(transaction)
     return transaction
+
+
+def get_expense_type_summary(
+    *,
+    session: Session,
+    user_id: UUID,
+    start_date: datetime | None,
+    end_date: datetime | None,
+) -> tuple[int, list[Any], list[Any], list[Any]]:
+    def _agg(type_filter: str | None):
+        q = (
+            select(
+                Transaction.expense_type_id,
+                func.count(Transaction.id).label("count"),
+                func.sum(Transaction.amount).label("total"),
+            )
+            .join(Account)
+            .where(Account.user_id == user_id)
+            .where(col(Transaction.expense_type_id).is_not(None))
+        )
+        if start_date is not None:
+            q = q.where(Transaction.occurred_at >= start_date)
+        if end_date is not None:
+            q = q.where(Transaction.occurred_at <= end_date)
+        if type_filter is not None:
+            q = q.where(Transaction.type == type_filter)
+        return q.group_by(Transaction.expense_type_id)
+
+    unmatched_q = (
+        select(func.count(Transaction.id))
+        .join(Account)
+        .where(Account.user_id == user_id)
+        .where(Transaction.reconciled_status == ReconciledStatus.UNMATCHED)
+    )
+    if start_date is not None:
+        unmatched_q = unmatched_q.where(Transaction.occurred_at >= start_date)
+    if end_date is not None:
+        unmatched_q = unmatched_q.where(Transaction.occurred_at <= end_date)
+
+    unmatched_count: int = session.exec(unmatched_q).one() or 0
+    expense_rows = session.execute(_agg(TransactionType.EXPENSE)).all()
+    income_rows = session.execute(_agg(TransactionType.INCOME)).all()
+    turnover_rows = session.execute(_agg(None)).all()
+    return unmatched_count, expense_rows, income_rows, turnover_rows
 
 
 def delete_transaction(*, session: Session, transaction: Transaction) -> None:

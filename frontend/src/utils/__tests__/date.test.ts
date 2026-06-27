@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { prevMonth, nextMonth, formatMonthYear, monthDateRange } from '../date'
+import { prevMonth, nextMonth, formatMonthYear, monthDateRange, localDayBoundaryToUtcIso } from '../date'
 
 describe('prevMonth', () => {
   it('returns previous month for mid-year', () => {
@@ -46,29 +46,49 @@ describe('formatMonthYear', () => {
   })
 })
 
-describe('monthDateRange', () => {
-  it('returns start_date as first day of month', () => {
-    const { start_date } = monthDateRange('2026-06')
-    expect(start_date).toBe('2026-06-01T00:00:00')
+describe('localDayBoundaryToUtcIso', () => {
+  // APP_TIMEZONE = Europe/Moscow = UTC+3
+  it('start boundary converts local midnight to UTC', () => {
+    // 2026-06-01 00:00:00 Moscow = 2026-05-31 21:00:00 UTC
+    expect(localDayBoundaryToUtcIso('2026-06-01', 'start')).toBe('2026-05-31T21:00:00.000Z')
   })
 
-  it('returns end_date as last day of June', () => {
+  it('end boundary converts local 23:59:59 to UTC', () => {
+    // 2026-06-30 23:59:59 Moscow = 2026-06-30 20:59:59 UTC
+    expect(localDayBoundaryToUtcIso('2026-06-30', 'end')).toBe('2026-06-30T20:59:59.000Z')
+  })
+})
+
+describe('monthDateRange', () => {
+  // APP_TIMEZONE = Europe/Moscow = UTC+3; all assertions use UTC ISO strings
+
+  it('returns start_date as UTC ISO for first moment of month in app timezone', () => {
+    // June 1 00:00:00 Moscow = May 31 21:00:00 UTC
+    const { start_date } = monthDateRange('2026-06')
+    expect(start_date).toBe('2026-05-31T21:00:00.000Z')
+  })
+
+  it('returns end_date as UTC ISO for last moment of June in app timezone', () => {
+    // June 30 23:59:59 Moscow = June 30 20:59:59 UTC
     const { end_date } = monthDateRange('2026-06')
-    expect(end_date).toBe('2026-06-30T23:59:59')
+    expect(end_date).toBe('2026-06-30T20:59:59.000Z')
   })
 
   it('returns correct last day for February in non-leap year', () => {
+    // Feb 28 23:59:59 Moscow = Feb 28 20:59:59 UTC
     const { end_date } = monthDateRange('2025-02')
-    expect(end_date).toBe('2025-02-28T23:59:59')
+    expect(end_date).toBe('2025-02-28T20:59:59.000Z')
   })
 
   it('returns correct last day for February in leap year', () => {
+    // Feb 29 23:59:59 Moscow = Feb 29 20:59:59 UTC
     const { end_date } = monthDateRange('2024-02')
-    expect(end_date).toBe('2024-02-29T23:59:59')
+    expect(end_date).toBe('2024-02-29T20:59:59.000Z')
   })
 
   it('returns correct last day for January (31 days)', () => {
+    // Jan 31 23:59:59 Moscow = Jan 31 20:59:59 UTC
     const { end_date } = monthDateRange('2026-01')
-    expect(end_date).toBe('2026-01-31T23:59:59')
+    expect(end_date).toBe('2026-01-31T20:59:59.000Z')
   })
 })

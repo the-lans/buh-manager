@@ -6,6 +6,7 @@ export interface TransactionFilters {
   type?: string
   reconciled_status?: string
   import_status?: string
+  expense_type_id?: string
   start_date?: string
   end_date?: string
   skip?: number
@@ -37,9 +38,26 @@ export interface TransactionUpdatePayload {
   receipt_id?: string | null
 }
 
+export interface ExpenseTypeSummaryItem {
+  expense_type_id: string
+  count: number
+  total: string
+}
+
+export interface ExpenseTypeSummaryResponse {
+  unmatched_count: number
+  expenses: ExpenseTypeSummaryItem[]
+  income: ExpenseTypeSummaryItem[]
+  turnover: ExpenseTypeSummaryItem[]
+}
+
 export const transactionsApi = {
   list: (filters?: TransactionFilters) =>
     apiClient.get<Transaction[]>('/transactions', { params: filters }).then((r) => r.data),
+  expenseTypeSummary: (params: { start_date?: string; end_date?: string }) =>
+    apiClient
+      .get<ExpenseTypeSummaryResponse>('/transactions/expense-type-summary', { params })
+      .then((r) => r.data),
   create: (data: TransactionCreatePayload) =>
     apiClient.post<Transaction>('/transactions', data).then((r) => r.data),
   update: (id: string, data: TransactionUpdatePayload) =>

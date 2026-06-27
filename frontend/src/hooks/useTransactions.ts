@@ -8,11 +8,23 @@ export function useTransactions(filters?: TransactionFilters) {
   })
 }
 
+export function useExpenseTypeSummary(params: { start_date?: string; end_date?: string }) {
+  return useQuery({
+    queryKey: ['expense-type-summary', params],
+    queryFn: () => transactionsApi.expenseTypeSummary(params),
+  })
+}
+
+function invalidateTransactionQueries(qc: ReturnType<typeof useQueryClient>): void {
+  qc.invalidateQueries({ queryKey: ['transactions'] })
+  qc.invalidateQueries({ queryKey: ['expense-type-summary'] })
+}
+
 export function useCreateTransaction() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: TransactionCreatePayload) => transactionsApi.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => invalidateTransactionQueries(qc),
   })
 }
 
@@ -21,7 +33,7 @@ export function useUpdateTransaction() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: TransactionUpdatePayload }) =>
       transactionsApi.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => invalidateTransactionQueries(qc),
   })
 }
 
@@ -29,6 +41,6 @@ export function useDeleteTransaction() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => transactionsApi.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => invalidateTransactionQueries(qc),
   })
 }
