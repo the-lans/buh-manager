@@ -372,9 +372,10 @@ sudo systemctl stop buh-manager
 
 | Метод | Путь | Описание |
 |-------|------|----------|
-| `GET` | `/transactions` | Список транзакций; фильтры по счёту, дате, типу, статусу сверки (`reconciled_status`), статусу импорта (`import_status`); ответ включает `receipt_id`, `document_id`, `expense_type_id` |
-| `POST` | `/transactions` | Создать транзакцию вручную |
-| `PUT` | `/transactions/{id}` | Обновить транзакцию; поддерживает поле `receipt_id` для ручной привязки/отвязки чека (изменяет `reconciled_status` соответственно); изменение фиксируется в audit_log; конкурентная повторная привязка возвращает 409 |
+| `GET` | `/transactions` | Список транзакций; фильтры по счёту, дате, типу, `expense_type_id`, статусу сверки (`reconciled_status`), статусу импорта (`import_status`); ответ включает `receipt_id`, `document_id`, `expense_type_id` |
+| `POST` | `/transactions` | Создать транзакцию вручную; флаг `apply_rules=true` автоматически проставляет `expense_type_id` по активным правилам классификатора |
+| `GET` | `/transactions/expense-type-summary` | Сводка за период: расходы (`expenses`), доходы (`income`) и обороты (`turnover`) по типам расходов + `unmatched_count`; фильтры `?start_date=`, `?end_date=` |
+| `PUT` | `/transactions/{id}` | Обновить транзакцию; поддерживает поле `receipt_id` для ручной привязки/отвязки чека (изменяет `reconciled_status` соответственно); флаг `apply_rules=true` перезаписывает `expense_type_id` по активным правилам; изменение фиксируется в audit_log; конкурентная повторная привязка возвращает 409 |
 | `DELETE` | `/transactions/{id}` | Удалить транзакцию |
 
 ### 🔄 Сверка
@@ -386,6 +387,16 @@ sudo systemctl stop buh-manager
 | `POST` | `/reconciliation/match` | Вручную связать транзакцию с чеком |
 | `POST` | `/reconciliation/ignore` | Пометить транзакцию как `IGNORED_BY_USER` (чек не нужен) |
 | `POST` | `/reconciliation/resolve-conflict` | Разрешить незакрытый конфликт импорта: `KEEP_OLD` или `UPDATE_FROM_NEW` |
+
+### 🤖 Правила классификации
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/classifier-rules` | Список правил классификации текущего пользователя |
+| `POST` | `/classifier-rules` | Создать правило: условия (счёт, день месяца, день недели, сумма, тип транзакции, категория банка, описание) + приоритет и целевой тип расхода |
+| `PUT` | `/classifier-rules/{rule_id}` | Обновить правило; при частичном обновлении условия, не переданные в запросе, сохраняются |
+| `DELETE` | `/classifier-rules/{rule_id}` | Удалить правило |
+| `POST` | `/classifier-rules/apply` | Применить все активные правила ко всем транзакциям (с фильтром по `start_date`/`end_date`); возвращает `updated_count` |
 
 ### 📋 Журнал аудита
 
@@ -417,6 +428,7 @@ sudo systemctl stop buh-manager
 | `PUT/DELETE` | `/accounts/{id}` | Обновить / удалить счёт, включая `zero_balance` |
 | `POST` | `/accounts/{id}/initialize-balance` | Установить начальный баланс вручную (для банков без остатков в выписке) |
 | `GET` | `/balances` | История подтверждённых остатков по счетам; фильтр по `?account_id=`; новые сверху |
+| `POST` | `/balances/calculate` | Пересчитать остатки по всем счетам текущего пользователя на основе транзакций, используя `zero_balance` как стартовую точку |
 | `GET/POST` | `/expense-types` | Список / создать тип расходов; поддерживает необязательное поле `description` |
 | `PUT/DELETE` | `/expense-types/{id}` | Обновить (в т.ч. `description`) / удалить тип расходов |
 | `GET/POST` | `/counterparties` | Список / создать контрагента; поддерживает произвольное поле `payload` (JSON) |
