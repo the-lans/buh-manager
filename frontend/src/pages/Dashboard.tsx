@@ -90,7 +90,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard label="Расходы за месяц" value={`${monthlyExpenses.toLocaleString('ru')} ₽`} />
+        <KpiCard label="Расходы за месяц" value={`${(-monthlyExpenses).toLocaleString('ru')} ₽`} />
         <KpiCard label="Счета" value={`${accounts.filter((a) => a.is_active).length} активных`} />
         <KpiCard label="Несверено" value={String(unmatched)} warning={unmatched > 0} />
         <KpiCard label="Конфликты" value={String(conflicts)} warning={conflicts > 0} />
@@ -116,7 +116,7 @@ export default function Dashboard() {
               <tr key={b.id}>
                 <td className="px-4 py-2 text-gray-800">{accLabel}</td>
                 <td className="px-4 py-2 text-gray-600">{formatDate(b.recorded_at)}</td>
-                <td className={`px-4 py-2 text-right tabular-nums font-medium ${adjusted < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                <td className={`px-4 py-2 text-right tabular-nums font-medium ${adjusted < 0 ? 'text-red-600' : 'text-green-700'}`}>
                   {adjusted.toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
                 </td>
                 <td className="px-4 py-2 text-gray-600 text-sm">
@@ -134,7 +134,7 @@ export default function Dashboard() {
               <tr className="bg-gray-50 border-t-2 border-gray-200">
                 <td className="px-4 py-2 font-semibold text-gray-900">Итого</td>
                 <td className="px-4 py-2" />
-                <td className={`px-4 py-2 text-right tabular-nums font-semibold ${total < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                <td className={`px-4 py-2 text-right tabular-nums font-semibold ${total < 0 ? 'text-red-600' : 'text-green-700'}`}>
                   {total.toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
                 </td>
                 <td className="px-4 py-2" />
@@ -159,8 +159,8 @@ export default function Dashboard() {
             <tr key={row.id}>
               <td className="px-4 py-2 text-gray-800">{row.name}</td>
               <td className="px-4 py-2 text-right tabular-nums text-gray-600">{row.count}</td>
-              <td className={`px-4 py-2 text-right tabular-nums font-medium ${row.total < 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                {row.total.toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+              <td className={`px-4 py-2 text-right tabular-nums font-medium ${row.total > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                {(-row.total).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
               </td>
             </tr>
           ))}
@@ -171,8 +171,8 @@ export default function Dashboard() {
               <tr className="bg-gray-50 border-t-2 border-gray-200">
                 <td className="px-4 py-2 font-semibold text-gray-900">Итого</td>
                 <td className="px-4 py-2 text-right tabular-nums font-semibold text-gray-900">{totalCount}</td>
-                <td className={`px-4 py-2 text-right tabular-nums font-semibold ${totalSum < 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                  {totalSum.toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
+                <td className={`px-4 py-2 text-right tabular-nums font-semibold ${totalSum > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                  {(-totalSum).toLocaleString('ru', { minimumFractionDigits: 2 })} ₽
                 </td>
               </tr>
             )
