@@ -71,6 +71,15 @@ export const handlers = [
 
   http.delete('/api/v1/accounts/:id', () => new HttpResponse(null, { status: 204 })),
 
+  http.get('/api/v1/transactions/expense-type-summary', () =>
+    HttpResponse.json({
+      unmatched_count: 2,
+      expenses: [{ expense_type_id: 'food', count: 2, total: '-1500.00' }],
+      income: [{ expense_type_id: 'food', count: 1, total: '500.00' }],
+      turnover: [{ expense_type_id: 'food', count: 3, total: '-1000.00' }],
+    }),
+  ),
+
   http.get('/api/v1/transactions', () =>
     HttpResponse.json<Transaction[]>([
       {

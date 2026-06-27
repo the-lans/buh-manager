@@ -140,7 +140,80 @@ describe('Transactions page', () => {
   it('shows filter dropdowns', () => {
     renderWithProviders(<Transactions />)
     const selects = screen.getAllByRole('combobox')
-    expect(selects.length).toBeGreaterThanOrEqual(3) // type, status, account
+    expect(selects.length).toBeGreaterThanOrEqual(4) // type, status, account, expense_type
+  })
+
+  it('shows "Все виды расхода" option in expense type filter', () => {
+    renderWithProviders(<Transactions />)
+    expect(screen.getByRole('option', { name: 'Все виды расхода' })).toBeInTheDocument()
+  })
+
+  it('lists expense types in the expense type filter', async () => {
+    renderWithProviders(<Transactions />)
+    await waitFor(() => {
+      // 'Питание' comes from the mock expense-types handler (id: 'food')
+      const options = screen.getAllByRole('option', { name: 'Питание' })
+      expect(options.length).toBeGreaterThan(0)
+    })
+  })
+
+  it('sends expense_type_id param when expense type filter changes', async () => {
+    let capturedUrl: string | undefined
+    server.use(
+      http.get('/api/v1/transactions', ({ request }) => {
+        capturedUrl = request.url
+        return HttpResponse.json([])
+      }),
+    )
+    renderWithProviders(<Transactions />)
+    const user = userEvent.setup()
+
+    // Find the expense-type select by its unique "Все виды расхода" option,
+    // and wait until the 'food' option from expense-types API has loaded.
+    const expenseTypeSelect = await waitFor(() => {
+      const found = screen.getAllByRole('combobox').find((s) =>
+        Array.from(s.querySelectorAll('option')).some((o) => o.textContent === 'Все виды расхода'),
+      ) as HTMLSelectElement | undefined
+      if (!found) throw new Error('expense type select not found')
+      const hasFood = Array.from(found.querySelectorAll('option')).some(
+        (o) => (o as HTMLOptionElement).value === 'food',
+      )
+      if (!hasFood) throw new Error('food option not yet loaded')
+      return found
+    })
+
+    await user.selectOptions(expenseTypeSelect, 'food')
+
+    await waitFor(() => expect(capturedUrl).toContain('expense_type_id=food'))
+  })
+
+  it('clears expense_type_id param when "Все виды расхода" is selected', async () => {
+    let capturedUrl: string | undefined
+    server.use(
+      http.get('/api/v1/transactions', ({ request }) => {
+        capturedUrl = request.url
+        return HttpResponse.json([])
+      }),
+    )
+    renderWithProviders(<Transactions />)
+    const user = userEvent.setup()
+
+    const expenseTypeSelect = await waitFor(() => {
+      const found = screen.getAllByRole('combobox').find((s) =>
+        Array.from(s.querySelectorAll('option')).some((o) => o.textContent === 'Все виды расхода'),
+      ) as HTMLSelectElement | undefined
+      if (!found) throw new Error('expense type select not found')
+      const hasFood = Array.from(found.querySelectorAll('option')).some(
+        (o) => (o as HTMLOptionElement).value === 'food',
+      )
+      if (!hasFood) throw new Error('food option not yet loaded')
+      return found
+    })
+
+    await user.selectOptions(expenseTypeSelect, 'food')
+    await user.selectOptions(expenseTypeSelect, '')
+
+    await waitFor(() => expect(capturedUrl).not.toContain('expense_type_id'))
   })
 
   it('shows expense type select in new transaction form', async () => {
@@ -163,7 +236,7 @@ describe('Transactions page', () => {
     })
   })
 
-  it('shows "—" in expense type column when expense_type_id is null', async () => {
+  it('does not show expense type name in table row when expense_type_id is null', async () => {
     server.use(
       http.get('/api/v1/transactions', () =>
         HttpResponse.json<Transaction[]>([
@@ -190,8 +263,9 @@ describe('Transactions page', () => {
     )
     renderWithProviders(<Transactions />)
     await waitFor(() => expect(screen.getByText(/500,00\s*₽/)).toBeInTheDocument())
-    // no expense type name resolved — 'Питание' must not be visible
-    expect(screen.queryByText('Питание')).not.toBeInTheDocument()
+    // 'Питание' may appear in the filter dropdown options but NOT in transaction table rows
+    const dataRows = screen.getAllByRole('row').filter((r) => r.querySelectorAll('td').length > 0)
+    expect(dataRows.every((r) => !r.textContent?.includes('Питание'))).toBe(true)
   })
 
   it('opens edit modal with pre-filled amount when Изменить is clicked', async () => {
@@ -211,8 +285,8 @@ describe('Transactions page', () => {
     renderWithProviders(<Transactions />)
     await waitFor(() => expect(screen.getByText('Покупка продуктов')).toBeInTheDocument())
     expect(screen.getByText('Супермаркеты')).toBeInTheDocument()
-    // expense_type_id 'et-1' maps to 'Питание' from mock handlers
-    await waitFor(() => expect(screen.getByText('Питание')).toBeInTheDocument())
+    // 'Питание' appears in both the table row and the expense-type filter dropdown
+    await waitFor(() => expect(screen.getAllByText('Питание').length).toBeGreaterThanOrEqual(1))
     expect(screen.getByText(/2\s*750,00\s*₽/)).toBeInTheDocument()
     expect(screen.getByText('EXPENSE')).toBeInTheDocument()
   })
