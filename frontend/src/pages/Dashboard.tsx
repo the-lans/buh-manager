@@ -181,7 +181,7 @@ export default function Dashboard() {
       </section>
 
       <section>
-        <h2 className="text-base font-medium text-gray-700 mb-3">Обороты по типам расходов</h2>
+        <h2 className="text-base font-medium text-gray-700 mb-3">Остатки по типам расходов</h2>
         <DataTable
           columns={[
             { label: 'Вид расхода' },

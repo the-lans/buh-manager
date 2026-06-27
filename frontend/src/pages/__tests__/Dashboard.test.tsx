@@ -5,7 +5,15 @@ import { http, HttpResponse } from 'msw'
 import Dashboard from '../Dashboard'
 import { renderWithProviders } from '../../test/utils'
 import { server } from '../../test/server'
-import type { Transaction } from '../../types'
+
+type SummaryResponse = {
+  unmatched_count: number
+  expenses: { expense_type_id: string; count: number; total: string }[]
+  income: { expense_type_id: string; count: number; total: string }[]
+  turnover: { expense_type_id: string; count: number; total: string }[]
+}
+
+const EMPTY_SUMMARY: SummaryResponse = { unmatched_count: 0, expenses: [], income: [], turnover: [] }
 
 describe('Dashboard page', () => {
   it('renders month navigation buttons', () => {
@@ -14,41 +22,23 @@ describe('Dashboard page', () => {
     expect(screen.getByRole('button', { name: 'Следующий месяц' })).toBeInTheDocument()
   })
 
-  it('displays current month and year in the header', () => {
+  it('displays current year in the header', () => {
     renderWithProviders(<Dashboard />)
-    const now = new Date()
-    const year = now.getFullYear()
-    expect(screen.getByText(new RegExp(String(year)))).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(String(new Date().getFullYear())))).toBeInTheDocument()
   })
 
   it('disables next-month button when on current month', () => {
     renderWithProviders(<Dashboard />)
-    const nextBtn = screen.getByRole('button', { name: 'Следующий месяц' })
-    expect(nextBtn).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Следующий месяц' })).toBeDisabled()
   })
 
   it('enables next-month button after navigating to a past month', async () => {
     renderWithProviders(<Dashboard />)
-    const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Предыдущий месяц' }))
-    const nextBtn = screen.getByRole('button', { name: 'Следующий месяц' })
-    expect(nextBtn).not.toBeDisabled()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Предыдущий месяц' }))
+    expect(screen.getByRole('button', { name: 'Следующий месяц' })).not.toBeDisabled()
   })
 
-  it('changes displayed month when prev button is clicked', async () => {
-    renderWithProviders(<Dashboard />)
-    const user = userEvent.setup()
-    const now = new Date()
-    const year = now.getFullYear()
-    // Month/year is shown in a <span> next to nav buttons
-    expect(screen.getByText(new RegExp(String(year)))).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Предыдущий месяц' }))
-    // After navigation the text changes — the year may stay the same but month text changes
-    // Just verify the component re-renders without error and nav buttons still exist
-    expect(screen.getByRole('button', { name: 'Предыдущий месяц' })).toBeInTheDocument()
-  })
-
-  it('shows KPI cards: Расходы за месяц, Счета, Несверено, Конфликты', async () => {
+  it('shows all four KPI cards', async () => {
     renderWithProviders(<Dashboard />)
     await waitFor(() => {
       expect(screen.getByText('Расходы за месяц')).toBeInTheDocument()
@@ -56,6 +46,11 @@ describe('Dashboard page', () => {
       expect(screen.getByText('Несверено')).toBeInTheDocument()
       expect(screen.getByText('Конфликты')).toBeInTheDocument()
     })
+  })
+
+  it('shows active accounts count', async () => {
+    renderWithProviders(<Dashboard />)
+    await waitFor(() => expect(screen.getByText('1 активных')).toBeInTheDocument())
   })
 
   it('shows "Остатки на счетах" section', async () => {
@@ -68,124 +63,163 @@ describe('Dashboard page', () => {
     await waitFor(() => expect(screen.getByText('Типы расходов')).toBeInTheDocument())
   })
 
-  it('shows expense type row in "Типы расходов" table', async () => {
+  it('shows "Обороты по типам расходов" section', async () => {
+    renderWithProviders(<Dashboard />)
+    await waitFor(() => expect(screen.getByText('Обороты по типам расходов')).toBeInTheDocument())
+  })
+})
+
+describe('Dashboard — "Типы расходов" (EXPENSE only)', () => {
+  it('shows expense type rows from summary endpoint', async () => {
+    // Default handler returns expenses: [{expense_type_id: 'food'}]; 'food' → 'Питание'
+    renderWithProviders(<Dashboard />)
+    await waitFor(() => {
+      // May appear in both "Типы расходов" and "Обороты" tables, so use getAllByText
+      expect(screen.getAllByText('Питание').length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  it('shows expense totals with signed amounts (no Math.abs)', async () => {
     server.use(
-      http.get('/api/v1/transactions', () =>
-        HttpResponse.json<Transaction[]>([
-          {
-            id: 'tx-food',
-            account_id: 'acc-1',
-            occurred_at: new Date().toISOString(),
-            processed_at: null,
-            amount: '-500.00',
-            type: 'EXPENSE',
-            bank_category: null,
-            expense_type_id: 'food',
-            description: null,
-            balance_after: null,
-            calculated_balance_after: null,
-            balance_mismatch: false,
-            receipt_id: null,
-            reconciled_status: 'UNMATCHED',
-            import_status: 'IMPORTED',
-            document_id: null,
-          },
-        ]),
+      http.get('/api/v1/transactions/expense-type-summary', () =>
+        HttpResponse.json<SummaryResponse>({
+          unmatched_count: 0,
+          expenses: [{ expense_type_id: 'food', count: 1, total: '-300.00' }],
+          income: [],
+          turnover: [],
+        }),
       ),
     )
     renderWithProviders(<Dashboard />)
-    await waitFor(() => expect(screen.getByText('Питание')).toBeInTheDocument())
+    await waitFor(() => {
+      // KPI "Расходы за месяц" value is the sibling of the label div
+      const kpiValueEl = screen.getByText('Расходы за месяц').nextElementSibling
+      expect(kpiValueEl?.textContent).toMatch(/-300/)
+    })
   })
 
-  it('renders expense types section', async () => {
-    renderWithProviders(<Dashboard />)
-    await waitFor(() => expect(screen.getByText('Типы расходов')).toBeInTheDocument())
-    expect(screen.getByText('Типы расходов')).toBeInTheDocument()
-  })
-
-  it('shows active accounts count', async () => {
-    renderWithProviders(<Dashboard />)
-    await waitFor(() => expect(screen.getByText('1 активных')).toBeInTheDocument())
-  })
-
-  it('excludes transactions with null expense_type_id from expense breakdown', async () => {
+  it('shows correct total in "Расходы за месяц" KPI', async () => {
     server.use(
-      http.get('/api/v1/transactions', () =>
-        HttpResponse.json<Transaction[]>([
-          {
-            id: 'tx-no-type',
-            account_id: 'acc-1',
-            occurred_at: new Date().toISOString(),
-            processed_at: null,
-            amount: '-300.00',
-            type: 'EXPENSE',
-            bank_category: null,
-            expense_type_id: null,
-            description: null,
-            balance_after: null,
-            calculated_balance_after: null,
-            balance_mismatch: false,
-            receipt_id: null,
-            reconciled_status: 'UNMATCHED',
-            import_status: 'IMPORTED',
-            document_id: null,
-          },
-        ]),
+      http.get('/api/v1/transactions/expense-type-summary', () =>
+        HttpResponse.json<SummaryResponse>({
+          unmatched_count: 0,
+          expenses: [{ expense_type_id: 'food', count: 2, total: '-500.00' }],
+          income: [],
+          turnover: [{ expense_type_id: 'food', count: 2, total: '-500.00' }],
+        }),
       ),
     )
     renderWithProviders(<Dashboard />)
-    await waitFor(() =>
-      expect(screen.getByText('Нет расходов за период')).toBeInTheDocument(),
-    )
-    expect(screen.queryByText('Питание')).not.toBeInTheDocument()
+    await waitFor(() => {
+      const kpiValueEl = screen.getByText('Расходы за месяц').nextElementSibling
+      expect(kpiValueEl?.textContent).toMatch(/500/)
+    })
   })
 
-  it('aggregates expense amounts by type', async () => {
+  it('shows "Нет расходов за период" when expenses list is empty', async () => {
     server.use(
-      http.get('/api/v1/transactions', () =>
-        HttpResponse.json<Transaction[]>([
-          {
-            id: 'tx-1',
-            account_id: 'acc-1',
-            occurred_at: new Date().toISOString(),
-            processed_at: null,
-            amount: '-300.00',
-            type: 'EXPENSE',
-            bank_category: null,
-            expense_type_id: 'food',
-            description: null,
-            balance_after: null,
-            calculated_balance_after: null,
-            balance_mismatch: false,
-            receipt_id: null,
-            reconciled_status: 'UNMATCHED',
-            import_status: 'IMPORTED',
-            document_id: null,
-          },
-          {
-            id: 'tx-2',
-            account_id: 'acc-1',
-            occurred_at: new Date().toISOString(),
-            processed_at: null,
-            amount: '-200.00',
-            type: 'EXPENSE',
-            bank_category: null,
-            expense_type_id: 'food',
-            description: null,
-            balance_after: null,
-            calculated_balance_after: null,
-            balance_mismatch: false,
-            receipt_id: null,
-            reconciled_status: 'UNMATCHED',
-            import_status: 'IMPORTED',
-            document_id: null,
-          },
-        ]),
+      http.get('/api/v1/transactions/expense-type-summary', () =>
+        HttpResponse.json<SummaryResponse>(EMPTY_SUMMARY),
       ),
     )
     renderWithProviders(<Dashboard />)
-    await waitFor(() => expect(screen.getByText('Питание')).toBeInTheDocument())
-    // Total should be 500 ₽ (300 + 200) — appears in both the row and the "Итого" totals row
-    expect(screen.getAllByText(/500,00\s*₽/).length).toBeGreaterThanOrEqual(1)
+    await waitFor(() => expect(screen.getByText('Нет расходов за период')).toBeInTheDocument())
+  })
+
+  it('does not show expense rows when summary returns only income', async () => {
+    server.use(
+      http.get('/api/v1/transactions/expense-type-summary', () =>
+        HttpResponse.json<SummaryResponse>({
+          unmatched_count: 0,
+          expenses: [],
+          income: [{ expense_type_id: 'food', count: 1, total: '1000.00' }],
+          turnover: [{ expense_type_id: 'food', count: 1, total: '1000.00' }],
+        }),
+      ),
+    )
+    renderWithProviders(<Dashboard />)
+    await waitFor(() => expect(screen.getByText('Нет расходов за период')).toBeInTheDocument())
+  })
+})
+
+describe('Dashboard — "Обороты по типам расходов"', () => {
+  it('shows turnover rows from summary endpoint', async () => {
+    // Default handler returns turnover with 'food' → 'Питание'
+    renderWithProviders(<Dashboard />)
+    await waitFor(() => {
+      expect(screen.getAllByText('Питание').length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  it('shows "Нет операций за период" when turnover list is empty', async () => {
+    server.use(
+      http.get('/api/v1/transactions/expense-type-summary', () =>
+        HttpResponse.json<SummaryResponse>(EMPTY_SUMMARY),
+      ),
+    )
+    renderWithProviders(<Dashboard />)
+    await waitFor(() => expect(screen.getByText('Нет операций за период')).toBeInTheDocument())
+  })
+
+  it('shows turnover total aggregating all transaction types', async () => {
+    server.use(
+      http.get('/api/v1/transactions/expense-type-summary', () =>
+        HttpResponse.json<SummaryResponse>({
+          unmatched_count: 0,
+          expenses: [],
+          income: [],
+          turnover: [{ expense_type_id: 'food', count: 3, total: '700.00' }],
+        }),
+      ),
+    )
+    renderWithProviders(<Dashboard />)
+    await waitFor(() => {
+      expect(screen.getAllByText(/700,00\s*₽/).length).toBeGreaterThanOrEqual(1)
+    })
+  })
+})
+
+describe('Dashboard — unmatched count KPI', () => {
+  it('shows unmatched_count from summary in "Несверено" KPI', async () => {
+    server.use(
+      http.get('/api/v1/transactions/expense-type-summary', () =>
+        HttpResponse.json<SummaryResponse>({ ...EMPTY_SUMMARY, unmatched_count: 5 }),
+      ),
+    )
+    renderWithProviders(<Dashboard />)
+    await waitFor(() => {
+      // KpiCard: label text is in a child div; value is in its nextElementSibling
+      const valueEl = screen.getByText('Несверено').nextElementSibling
+      expect(valueEl?.textContent).toBe('5')
+    })
+  })
+
+  it('highlights "Несверено" card when count is nonzero', async () => {
+    server.use(
+      http.get('/api/v1/transactions/expense-type-summary', () =>
+        HttpResponse.json<SummaryResponse>({ ...EMPTY_SUMMARY, unmatched_count: 3 }),
+      ),
+    )
+    renderWithProviders(<Dashboard />)
+    await waitFor(() => {
+      // KpiCard outer div is the parentElement of the label div
+      const card = screen.getByText('Несверено').parentElement
+      expect(card?.className).toMatch(/yellow/)
+    })
+  })
+
+  it('"Несверено" card has no warning class when count is zero', async () => {
+    server.use(
+      http.get('/api/v1/transactions/expense-type-summary', () =>
+        HttpResponse.json<SummaryResponse>({ ...EMPTY_SUMMARY, unmatched_count: 0 }),
+      ),
+    )
+    renderWithProviders(<Dashboard />)
+    await waitFor(() => {
+      const valueEl = screen.getByText('Несверено').nextElementSibling
+      expect(valueEl?.textContent).toBe('0')
+    })
+    const card = screen.getByText('Несверено').parentElement
+    expect(card?.className).not.toMatch(/yellow/)
   })
 })

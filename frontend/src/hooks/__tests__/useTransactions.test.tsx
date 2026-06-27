@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import {
   useTransactions,
+  useExpenseTypeSummary,
   useCreateTransaction,
   useUpdateTransaction,
   useDeleteTransaction,
@@ -70,6 +71,44 @@ describe('useTransactions', () => {
   })
 })
 
+describe('useExpenseTypeSummary', () => {
+  it('fetches data from the expense-type-summary endpoint', async () => {
+    const { result } = renderHook(() => useExpenseTypeSummary({}), { wrapper: makeWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toMatchObject({
+      unmatched_count: 2,
+      expenses: [{ expense_type_id: 'food', count: 2 }],
+      income: expect.any(Array),
+      turnover: expect.any(Array),
+    })
+  })
+
+  it('passes start_date and end_date as query params', async () => {
+    let receivedUrl: string | undefined
+    server.use(
+      http.get('/api/v1/transactions/expense-type-summary', ({ request }) => {
+        receivedUrl = request.url
+        return HttpResponse.json({ unmatched_count: 0, expenses: [], income: [], turnover: [] })
+      }),
+    )
+    const { result } = renderHook(
+      () => useExpenseTypeSummary({ start_date: '2026-05-31T21:00:00.000Z', end_date: '2026-06-30T20:59:59.000Z' }),
+      { wrapper: makeWrapper() },
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(receivedUrl).toContain('start_date=')
+    expect(receivedUrl).toContain('end_date=')
+  })
+
+  it('returns isError on server failure', async () => {
+    server.use(
+      http.get('/api/v1/transactions/expense-type-summary', () => HttpResponse.error()),
+    )
+    const { result } = renderHook(() => useExpenseTypeSummary({}), { wrapper: makeWrapper() })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+  })
+})
+
 describe('useUpdateTransaction', () => {
   beforeEach(() => {
     server.use(
@@ -80,7 +119,7 @@ describe('useUpdateTransaction', () => {
     )
   })
 
-  it('invalidates transactions query after successful update', async () => {
+  it('invalidates both transactions and expense-type-summary queries after successful update', async () => {
     const qc = makeTestQueryClient()
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries')
 
@@ -90,6 +129,7 @@ describe('useUpdateTransaction', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['transactions'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['expense-type-summary'] })
   })
 })
 
@@ -103,7 +143,7 @@ describe('useCreateTransaction', () => {
     )
   })
 
-  it('invalidates transactions query after successful creation', async () => {
+  it('invalidates both transactions and expense-type-summary queries after successful creation', async () => {
     const qc = makeTestQueryClient()
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries')
 
@@ -118,6 +158,7 @@ describe('useCreateTransaction', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['transactions'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['expense-type-summary'] })
   })
 })
 
@@ -128,7 +169,7 @@ describe('useDeleteTransaction', () => {
     )
   })
 
-  it('invalidates transactions query after deletion', async () => {
+  it('invalidates both transactions and expense-type-summary queries after deletion', async () => {
     const qc = makeTestQueryClient()
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries')
 
@@ -138,5 +179,6 @@ describe('useDeleteTransaction', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['transactions'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['expense-type-summary'] })
   })
 })
