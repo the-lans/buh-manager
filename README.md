@@ -235,10 +235,32 @@ cp backend/.env.example backend/.env
 
 Заполните переменные согласно [разделу Конфигурация](#конфигурация) и чеклисту ниже.
 
+> ⚠️ Бэкенд работает внутри Docker-контейнера, поэтому `localhost` в `DATABASE_URL` не достигнет PostgreSQL на хосте. Используйте `host.docker.internal` — именно для этого в `docker-compose.yml` прописан `extra_hosts`:
+> ```
+> DATABASE_URL=postgresql://user:pass@host.docker.internal:5432/buhmanager
+> ```
+
 **3. Соберите образы и запустите:**
 
 ```bash
 docker compose up -d --build
+```
+
+При первом запуске бэкенд автоматически применит миграции БД (`alembic upgrade head`) перед стартом сервера.
+
+Фронтенд после сборки слушает на `127.0.0.1:8080`. Чтобы открыть приложение извне (порт 80/443 + HTTPS), настройте на хосте обратный прокси — например Nginx или Caddy:
+
+```nginx
+# /etc/nginx/sites-available/buh-manager
+server {
+    listen 80;
+    server_name your-domain.com;
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
 ```
 
 **4. Настройте автозапуск при старте сервера:**
@@ -271,7 +293,7 @@ sudo systemctl stop buh-manager
 
 ### Чеклист перед деплоем в prod
 
-- [ ] `ENVIRONMENT=production` в `.env`
+- [ ] `ENVIRONMENT=production` — уже задан в `docker-compose.yml`; в `.env` не обязателен
 - [ ] `DATABASE_URL` указывает на внешний PostgreSQL
 - [ ] `SECRET_KEY` и `JWT_SECRET_KEY` — случайные строки ≥ 32 символа
 - [ ] `FRONTEND_URL` — реальный домен фронтенда (для CORS)
