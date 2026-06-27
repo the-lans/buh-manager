@@ -5,7 +5,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
-from app.constants import RECEIPT_MAX_AGE_DAYS, ApiKeyScope, AuditEntityType, ChangedBy, DocumentStatus, DocumentType
+from app.constants import (
+    RECEIPT_MAX_AGE_DAYS,
+    ApiKeyScope,
+    AuditEntityType,
+    ChangedBy,
+    DocumentStatus,
+    DocumentType,
+)
 from app.database import get_session
 from app.db.counterparties import get_counterparty_by_id, get_or_create_counterparty
 from app.db.documents import claim_document_for_processing, get_document_by_id

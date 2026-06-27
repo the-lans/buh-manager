@@ -77,6 +77,30 @@ describe('TransactionEditModal', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled())
   })
 
+  it('preserves original seconds when saving a transaction', async () => {
+    const tx: Transaction = {
+      ...BASE_TX,
+      occurred_at: '2026-04-01T10:00:37.250Z',
+    }
+    const updateSpy = vi.fn((info) =>
+      info.request.json().then((body: Record<string, unknown>) => {
+        expect(body.occurred_at).toBe('2026-04-01T10:00:37.250Z')
+        return HttpResponse.json({ ...tx })
+      }),
+    )
+    server.use(http.put('/api/v1/transactions/:id', updateSpy))
+
+    renderWithProviders(<TransactionEditModal transaction={tx} onClose={() => {}} />)
+    const user = userEvent.setup()
+
+    const amountInput = screen.getByDisplayValue('-1500.00')
+    await user.clear(amountInput)
+    await user.type(amountInput, '-2000')
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled())
+  })
+
   it('shows error message when save fails', async () => {
     server.use(
       http.put('/api/v1/transactions/:id', () =>

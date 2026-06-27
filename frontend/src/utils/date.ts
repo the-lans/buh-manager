@@ -101,3 +101,13 @@ export function localInputToUtcIso(localStr: string): string {
   // Subtract the offset to get the UTC equivalent of the user's wall-clock input
   return new Date(asUtcMs - tzOffsetMs).toISOString()
 }
+
+export function localInputToUtcIsoPreservingSeconds(
+  localStr: string,
+  originalIso: string,
+): string {
+  const original = new Date(originalIso)
+  const updated = new Date(localInputToUtcIso(localStr))
+  updated.setUTCSeconds(original.getUTCSeconds(), original.getUTCMilliseconds())
+  return updated.toISOString()
+}

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { prevMonth, nextMonth, formatMonthYear, monthDateRange, localDayBoundaryToUtcIso } from '../date'
+import {
+  prevMonth,
+  nextMonth,
+  formatMonthYear,
+  monthDateRange,
+  localDayBoundaryToUtcIso,
+  localInputToUtcIsoPreservingSeconds,
+} from '../date'
 
 describe('prevMonth', () => {
   it('returns previous month for mid-year', () => {
@@ -56,6 +63,17 @@ describe('localDayBoundaryToUtcIso', () => {
   it('end boundary converts local 23:59:59 to UTC', () => {
     // 2026-06-30 23:59:59 Moscow = 2026-06-30 20:59:59 UTC
     expect(localDayBoundaryToUtcIso('2026-06-30', 'end')).toBe('2026-06-30T20:59:59.000Z')
+  })
+})
+
+describe('localInputToUtcIsoPreservingSeconds', () => {
+  it('keeps seconds and milliseconds from the original ISO value', () => {
+    expect(
+      localInputToUtcIsoPreservingSeconds(
+        '2026-04-02T14:05',
+        '2026-04-01T10:00:37.250Z',
+      ),
+    ).toBe('2026-04-02T11:05:37.250Z')
   })
 })
 

@@ -4,7 +4,7 @@ import { useAccounts } from '../hooks/useAccounts'
 import { useExpenseTypes } from '../hooks/useExpenseTypes'
 import { useReceipts } from '../hooks/useReceipts'
 import { useUpdateTransaction } from '../hooks/useTransactions'
-import { formatDate, localInputToUtcIso, utcIsoToLocalInput } from '../utils/date'
+import { formatDate, localInputToUtcIsoPreservingSeconds, utcIsoToLocalInput } from '../utils/date'
 import type { Transaction } from '../types'
 
 const ID_PREVIEW_LEN = 8
@@ -83,7 +83,10 @@ export default function TransactionEditModal({ transaction, onClose }: Props) {
       await update.mutateAsync({
         id: transaction.id,
         data: {
-          occurred_at: localInputToUtcIso(form.occurred_at) as unknown as string,
+          occurred_at: localInputToUtcIsoPreservingSeconds(
+            form.occurred_at,
+            transaction.occurred_at,
+          ) as unknown as string,
           amount: form.amount as unknown as string,
           type: form.type as Transaction['type'],
           bank_category: form.bank_category || null,
