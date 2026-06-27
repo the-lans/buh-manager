@@ -1,5 +1,10 @@
 import { APP_TIMEZONE } from '../config'
 
+/** Append Z to a naive UTC datetime string from the backend so JS parses it as UTC, not local time. */
+function asUtc(iso: string): string {
+  return iso.endsWith('Z') ? iso : iso + 'Z'
+}
+
 export function prevMonth(ym: string): string {
   const [y, m] = ym.split('-').map(Number)
   if (m === 1) return `${y - 1}-12`
@@ -42,7 +47,7 @@ export function monthDateRange(ym: string): { start_date: string; end_date: stri
 /** Format a UTC ISO string for display in the app timezone. Returns "—" for null/undefined. */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('ru-RU', {
+  return new Date(asUtc(iso)).toLocaleDateString('ru-RU', {
     timeZone: APP_TIMEZONE,
     day: '2-digit',
     month: '2-digit',
@@ -53,7 +58,7 @@ export function formatDate(iso: string | null | undefined): string {
 /** Format a UTC ISO string with time for display in the app timezone. */
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleString('ru-RU', {
+  return new Date(asUtc(iso)).toLocaleString('ru-RU', {
     timeZone: APP_TIMEZONE,
     day: '2-digit',
     month: '2-digit',
@@ -77,7 +82,7 @@ export function currentYearMonth(): string {
  */
 export function utcIsoToLocalInput(iso: string | null | undefined): string {
   if (!iso) return ''
-  return new Date(iso)
+  return new Date(asUtc(iso))
     .toLocaleString('sv-SE', { timeZone: APP_TIMEZONE })
     .slice(0, 16)
     .replace(' ', 'T')
