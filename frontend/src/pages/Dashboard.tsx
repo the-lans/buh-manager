@@ -42,7 +42,7 @@ export default function Dashboard() {
   const endMs = new Date(end_date).getTime()
   const latestByAccount = new Map<string, Balance>()
   for (const b of balances) {
-    if (new Date(b.recorded_at).getTime() <= endMs && !latestByAccount.has(b.account_id)) {
+    if (new Date(b.recorded_at.endsWith('Z') ? b.recorded_at : b.recorded_at + 'Z').getTime() <= endMs && !latestByAccount.has(b.account_id)) {
       latestByAccount.set(b.account_id, b)
     }
   }
