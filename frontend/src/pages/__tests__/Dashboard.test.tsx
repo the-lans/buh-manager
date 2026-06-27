@@ -79,7 +79,7 @@ describe('Dashboard — "Типы расходов" (EXPENSE only)', () => {
     })
   })
 
-  it('shows expense totals with signed amounts (no Math.abs)', async () => {
+  it('shows expense total with negated sign in KPI (expenses are negative in DB, displayed as positive)', async () => {
     server.use(
       http.get('/api/v1/transactions/expense-type-summary', () =>
         HttpResponse.json<SummaryResponse>({
@@ -94,7 +94,9 @@ describe('Dashboard — "Типы расходов" (EXPENSE only)', () => {
     await waitFor(() => {
       // KPI "Расходы за месяц" value is the sibling of the label div
       const kpiValueEl = screen.getByText('Расходы за месяц').nextElementSibling
-      expect(kpiValueEl?.textContent).toMatch(/-300/)
+      // Backend stores expenses as negative; dashboard negates for display → 300, not -300
+      expect(kpiValueEl?.textContent).toMatch(/300/)
+      expect(kpiValueEl?.textContent).not.toMatch(/-300/)
     })
   })
 
