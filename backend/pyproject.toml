@@ -29,6 +29,10 @@ dev = [
     "coverage[toml]>=7.5.0",
     "anyio[trio]>=4.4.0",
 ]
+prod = [
+    "gunicorn>=22.0",
+    "psycopg2-binary>=2.9",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

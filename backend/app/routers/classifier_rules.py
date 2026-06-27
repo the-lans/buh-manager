@@ -261,6 +261,7 @@ def apply_classifier_rules(
         type=None,
         reconciled_status=None,
         import_status=None,
+        expense_type_id=None,
     )
     updated_count = 0
     offset = 0

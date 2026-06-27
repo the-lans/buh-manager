@@ -248,20 +248,7 @@ docker compose up -d --build
 
 При первом запуске бэкенд автоматически применит миграции БД (`alembic upgrade head`) перед стартом сервера.
 
-Фронтенд после сборки слушает на `127.0.0.1:8080`. Чтобы открыть приложение извне (порт 80/443 + HTTPS), настройте на хосте обратный прокси — например Nginx или Caddy:
-
-```nginx
-# /etc/nginx/sites-available/buh-manager
-server {
-    listen 80;
-    server_name your-domain.com;
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
+Фронтенд после сборки слушает на `127.0.0.1:8080`. Чтобы открыть приложение извне (порт 80/443 + HTTPS), настройте на хосте обратный прокси. Готовый пример конфига Nginx с SSL — [`deploy/nginx-host.conf`](deploy/nginx-host.conf).
 
 **4. Настройте автозапуск при старте сервера:**
 
@@ -353,6 +340,17 @@ sudo systemctl stop buh-manager
 
 Интерактивная документация: **`/docs`** (Swagger UI) · **`/redoc`** (ReDoc)
 
+README сверена со Swagger UI (`https://buh.botelo.ru/docs`) и текущими роутерами PR. Ручка `GET /transactions/expense-type-summary` добавлена в PR и описана по коду текущей ветки.
+
+### Общие правила API
+
+- **Авторизация:** пользовательские запросы используют JWT `Authorization: Bearer <token>`. API-ключи передаются тем же Bearer-заголовком, ограничиваются scopes и не подходят для управления самими API-ключами.
+- **Базовый префикс:** в таблицах ниже пути указаны без `/api/v1`.
+- **Пагинация:** списковые ручки с пагинацией принимают `skip >= 0` и `limit` от `1` до `1000`, если не указано иначе.
+- **Дата и время:** входные `datetime` нормализуются в UTC. Naive datetime трактуется как время приложения (`Europe/Moscow`).
+- **Деньги:** суммы сериализуются строками `Decimal`, чтобы не терять точность.
+- **Ошибки:** `422` — ошибка валидации, `404` — объект не найден или недоступен текущему пользователю, `409` — конфликт состояния или ограничений целостности.
+
 ### 🔐 Auth
 
 | Метод | Путь | Описание |
@@ -366,7 +364,7 @@ sudo systemctl stop buh-manager
 | Метод | Путь | Описание |
 |-------|------|----------|
 | `POST` | `/documents` | Загрузить документ (PDF/изображение); дедупликация по SHA-256; `?doc_type=RECEIPT\|BANK_STATEMENT` |
-| `GET` | `/documents` | Список документов; фильтры по типу/статусу, пагинация; новые сверху |
+| `GET` | `/documents` | Список документов; фильтры `?type=`, `?status=`, пагинация; сортировка: `uploaded_at DESC` |
 | `GET` | `/documents/{id}` | Получить документ по ID |
 | `PUT` | `/documents/{id}` | Обновить поля документа (например, `payload`) |
 | `GET` | `/documents/{id}/download` | Скачать / открыть документ (`?inline=true` для просмотра в браузере, возвращает presigned URL или локальный файл) |
@@ -379,7 +377,7 @@ sudo systemctl stop buh-manager
 | Метод | Путь | Описание |
 |-------|------|----------|
 | `POST` | `/receipts` | Создать чек с позициями; дедупликация по фискальным данным ФН+ФД+ФПД |
-| `GET` | `/receipts` | Список чеков текущего пользователя; сортировка по дате (новые сверху); пагинация; фильтры: `?document_id=`, `?unmatched=true` (только не привязанные к транзакции), `?max_age_days=N` (`0..3650`, не старше N дней); ответ включает поле `transaction_id` |
+| `GET` | `/receipts` | Список чеков текущего пользователя; фильтры `?document_id=`, `?unmatched=true`, `?max_age_days=N` (`0..3650`), пагинация; сортировка: `paid_at DESC`; ответ включает `transaction_id` |
 | `GET` | `/receipts/{id}` | Получить чек по ID |
 | `PUT` | `/receipts/{id}` | Обновить чек и его позиции |
 | `DELETE` | `/receipts/{id}` | Удалить чек (нельзя удалить, если привязан к транзакции) |
@@ -394,10 +392,10 @@ sudo systemctl stop buh-manager
 
 | Метод | Путь | Описание |
 |-------|------|----------|
-| `GET` | `/transactions` | Список транзакций; фильтры по счёту, дате, типу, `expense_type_id`, статусу сверки (`reconciled_status`), статусу импорта (`import_status`); ответ включает `receipt_id`, `document_id`, `expense_type_id` |
+| `GET` | `/transactions` | Список транзакций; фильтры `?account_id=`, `?start_date=`, `?end_date=`, `?type=`, `?expense_type_id=`, `?reconciled_status=`, `?import_status=`, пагинация; сортировка: `occurred_at DESC`, `processed_at DESC`, `id DESC`; ответ включает `receipt_id`, `document_id`, `expense_type_id` |
 | `POST` | `/transactions` | Создать транзакцию вручную; флаг `apply_rules=true` автоматически проставляет `expense_type_id` по активным правилам классификатора |
-| `GET` | `/transactions/expense-type-summary` | Сводка за период: расходы (`expenses`), доходы (`income`) и обороты (`turnover`) по типам расходов + `unmatched_count`; фильтры `?start_date=`, `?end_date=` |
-| `PUT` | `/transactions/{id}` | Обновить транзакцию; поддерживает поле `receipt_id` для ручной привязки/отвязки чека (изменяет `reconciled_status` соответственно); флаг `apply_rules=true` перезаписывает `expense_type_id` по активным правилам; изменение фиксируется в audit_log; конкурентная повторная привязка возвращает 409 |
+| `GET` | `/transactions/expense-type-summary` | Сводка за период: расходы (`expenses`), доходы (`income`) и общий оборот (`turnover`) по типам расходов + `unmatched_count`; фильтры `?start_date=`, `?end_date=`; ручка добавлена в PR |
+| `PUT` | `/transactions/{id}` | Обновить транзакцию; поддерживает `receipt_id` для ручной привязки/отвязки чека; `apply_rules=true` перезаписывает `expense_type_id` по активным правилам; изменение фиксируется в audit log; конкурентная повторная привязка возвращает `409` |
 | `DELETE` | `/transactions/{id}` | Удалить транзакцию |
 
 ### 🔄 Сверка
@@ -406,9 +404,9 @@ sudo systemctl stop buh-manager
 |-------|------|----------|
 | `POST` | `/reconciliation/run` | Запустить автоматическую сверку транзакций с чеками |
 | `GET` | `/reconciliation/report` | Последний сохранённый отчёт о сверке |
-| `POST` | `/reconciliation/match` | Вручную связать транзакцию с чеком |
-| `POST` | `/reconciliation/ignore` | Пометить транзакцию как `IGNORED_BY_USER` (чек не нужен) |
-| `POST` | `/reconciliation/resolve-conflict` | Разрешить незакрытый конфликт импорта: `KEEP_OLD` или `UPDATE_FROM_NEW` |
+| `POST` | `/reconciliation/match` | Вручную связать транзакцию с чеком; тело `{"transaction_id": "...", "receipt_id": "..."}` |
+| `POST` | `/reconciliation/ignore` | Пометить транзакцию как `IGNORED_BY_USER` (чек не нужен); тело `{"transaction_id": "..."}` |
+| `POST` | `/reconciliation/resolve-conflict` | Разрешить незакрытый конфликт импорта: `KEEP_OLD` или `UPDATE_FROM_NEW`; для `UPDATE_FROM_NEW` нужен `incoming_amount` |
 
 ### 🤖 Правила классификации
 
@@ -418,22 +416,22 @@ sudo systemctl stop buh-manager
 | `POST` | `/classifier-rules` | Создать правило: условия (счёт, день месяца, день недели, сумма, тип транзакции, категория банка, описание) + приоритет и целевой тип расхода |
 | `PUT` | `/classifier-rules/{rule_id}` | Обновить правило; при частичном обновлении условия, не переданные в запросе, сохраняются |
 | `DELETE` | `/classifier-rules/{rule_id}` | Удалить правило |
-| `POST` | `/classifier-rules/apply` | Применить все активные правила ко всем транзакциям (с фильтром по `start_date`/`end_date`); возвращает `updated_count` |
+| `POST` | `/classifier-rules/apply` | Применить все активные правила к транзакциям; фильтры `start_date`/`end_date` в теле запроса; возвращает `updated_count` |
 
 ### 📋 Журнал аудита
 
 | Метод | Путь | Описание |
 |-------|------|----------|
-| `GET` | `/audit-log` | Список записей аудита (создание/обновление/удаление сущностей); фильтр по `?entity_type=` |
+| `GET` | `/audit-log` | Список записей аудита; фильтр `?entity_type=`, пагинация; лимит по умолчанию `50` |
 
 ### 🔑 API-ключи
 
 | Метод | Путь | Описание |
 |-------|------|----------|
-| `GET` | `/api-keys` | Список API-ключей текущего пользователя |
-| `POST` | `/api-keys` | Создать новый API-ключ с набором разрешений (`scopes`) |
-| `PATCH` | `/api-keys/{id}` | Обновить API-ключ (имя, scopes, активность) |
-| `DELETE` | `/api-keys/{id}` | Отозвать API-ключ |
+| `GET` | `/api-keys` | Список API-ключей текущего пользователя; только JWT, API-ключом вызвать нельзя |
+| `POST` | `/api-keys` | Создать новый API-ключ с набором разрешений (`scopes`); полный ключ возвращается только один раз |
+| `PATCH` | `/api-keys/{id}` | Обновить API-ключ (имя, scopes, активность); только JWT |
+| `DELETE` | `/api-keys/{id}` | Отозвать API-ключ; только JWT |
 
 ### ⚙️ Пользовательские настройки
 
@@ -449,7 +447,7 @@ sudo systemctl stop buh-manager
 | `GET/POST` | `/accounts` | Список / создать банковский счёт; поддерживает `zero_balance` — базовый остаток до первой записи в `balances` |
 | `PUT/DELETE` | `/accounts/{id}` | Обновить / удалить счёт, включая `zero_balance` |
 | `POST` | `/accounts/{id}/initialize-balance` | Установить начальный баланс вручную (для банков без остатков в выписке) |
-| `GET` | `/balances` | История подтверждённых остатков по счетам; фильтр по `?account_id=`; новые сверху |
+| `GET` | `/balances` | История подтверждённых остатков по счетам; фильтр `?account_id=`, пагинация; сортировка: `recorded_at DESC` |
 | `POST` | `/balances/calculate` | Пересчитать остатки по всем счетам текущего пользователя на основе транзакций, используя `zero_balance` как стартовую точку |
 | `GET/POST` | `/expense-types` | Список / создать тип расходов; поддерживает необязательное поле `description` |
 | `PUT/DELETE` | `/expense-types/{id}` | Обновить (в т.ч. `description`) / удалить тип расходов |

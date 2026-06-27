@@ -1,6 +1,7 @@
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import exists, update
@@ -13,6 +14,13 @@ from app.models.expense_type import ExpenseType
 from app.models.transaction import Transaction
 from app.schemas.transaction import TransactionFilters, TransactionUpdate
 from app.utils.ids import scope_user_id
+
+
+@dataclass(frozen=True)
+class ExpenseTypeAggRow:
+    expense_type_id: str
+    count: int
+    total: Decimal | None
 
 
 def find_transaction_by_dedup_key(
@@ -130,7 +138,11 @@ def get_transactions_for_user(
             col(Transaction.expense_type_id).in_([scoped, filters.expense_type_id])
         )
     query = (
-        query.order_by(col(Transaction.occurred_at).desc(), col(Transaction.id).desc())
+        query.order_by(
+            col(Transaction.occurred_at).desc(),
+            col(Transaction.processed_at).desc(),
+            col(Transaction.id).desc(),
+        )
         .offset(skip)
         .limit(limit)
     )
@@ -157,12 +169,12 @@ def get_expense_type_summary(
     user_id: UUID,
     start_date: datetime | None,
     end_date: datetime | None,
-) -> tuple[int, list[Any], list[Any], list[Any]]:
-    def _agg(type_filter: str | None):
+) -> tuple[int, list[ExpenseTypeAggRow], list[ExpenseTypeAggRow], list[ExpenseTypeAggRow]]:
+    def _fetch(type_filter: str | None) -> list[ExpenseTypeAggRow]:
         q = (
             select(
                 Transaction.expense_type_id,
-                func.count(Transaction.id).label("count"),
+                func.count(col(Transaction.id)).label("tx_count"),
                 func.sum(Transaction.amount).label("total"),
             )
             .join(Account)
@@ -175,10 +187,18 @@ def get_expense_type_summary(
             q = q.where(Transaction.occurred_at <= end_date)
         if type_filter is not None:
             q = q.where(Transaction.type == type_filter)
-        return q.group_by(Transaction.expense_type_id)
+        q = q.group_by(Transaction.expense_type_id)
+        return [
+            ExpenseTypeAggRow(
+                expense_type_id=cast("str", row["expense_type_id"]),
+                count=cast("int", row["tx_count"]),
+                total=cast("Decimal | None", row["total"]),
+            )
+            for row in session.execute(q).mappings().all()
+        ]
 
     unmatched_q = (
-        select(func.count(Transaction.id))
+        select(func.count(col(Transaction.id)))
         .join(Account)
         .where(Account.user_id == user_id)
         .where(Transaction.reconciled_status == ReconciledStatus.UNMATCHED)
@@ -189,10 +209,12 @@ def get_expense_type_summary(
         unmatched_q = unmatched_q.where(Transaction.occurred_at <= end_date)
 
     unmatched_count: int = session.exec(unmatched_q).one() or 0
-    expense_rows = session.execute(_agg(TransactionType.EXPENSE)).all()
-    income_rows = session.execute(_agg(TransactionType.INCOME)).all()
-    turnover_rows = session.execute(_agg(None)).all()
-    return unmatched_count, expense_rows, income_rows, turnover_rows
+    return (
+        unmatched_count,
+        _fetch(TransactionType.EXPENSE),
+        _fetch(TransactionType.INCOME),
+        _fetch(None),
+    )
 
 
 def delete_transaction(*, session: Session, transaction: Transaction) -> None:

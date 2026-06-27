@@ -144,8 +144,8 @@ class TransactionFilters:
         expense_type_id: str | None = Query(default=None),
     ) -> None:
         self.account_id = account_id
-        self.start_date = start_date
-        self.end_date = end_date
+        self.start_date = normalize_to_utc(start_date) if start_date is not None else None
+        self.end_date = normalize_to_utc(end_date) if end_date is not None else None
         self.type = type
         self.reconciled_status = reconciled_status
         self.import_status = import_status

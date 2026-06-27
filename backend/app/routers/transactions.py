@@ -1,6 +1,5 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -14,6 +13,7 @@ from app.db.classifier_rules import list_rules_for_user
 from app.db.expense_types import get_expense_type_by_id
 from app.db.receipts import get_receipt_by_id, get_receipt_linked_transaction
 from app.db.transactions import (
+    ExpenseTypeAggRow,
     create_transaction,
     delete_transaction,
     get_expense_type_summary,
@@ -36,17 +36,18 @@ from app.schemas.transaction import (
 )
 from app.services.audit import audit_create, audit_delete, audit_match, audit_update
 from app.services.classifier import apply_rules
+from app.utils.dt import normalize_to_utc
 from app.utils.http import get_or_404
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
-def _rows_to_summary_items(rows: list[Any]) -> list[ExpenseTypeSummaryItem]:
+def _rows_to_summary_items(rows: list[ExpenseTypeAggRow]) -> list[ExpenseTypeSummaryItem]:
     return [
         ExpenseTypeSummaryItem(
-            expense_type_id=row[0],
-            count=row[1],
-            total=row[2] if row[2] is not None else Decimal(0),
+            expense_type_id=row.expense_type_id,
+            count=row.count,
+            total=row.total if row.total is not None else Decimal(0),
         )
         for row in rows
     ]
@@ -147,8 +148,8 @@ def expense_type_summary_endpoint(
     unmatched_count, expense_rows, income_rows, turnover_rows = get_expense_type_summary(
         session=session,
         user_id=current_user.id,
-        start_date=start_date,
-        end_date=end_date,
+        start_date=normalize_to_utc(start_date) if start_date is not None else None,
+        end_date=normalize_to_utc(end_date) if end_date is not None else None,
     )
     return ExpenseTypeSummaryResponse(
         unmatched_count=unmatched_count,
